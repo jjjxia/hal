@@ -1,0 +1,1 @@
+{"xilinx": {"tm_biquad": {"path": "/home/jiahao/hal/algorithm_recovery/e1/dana/v1_extra_consumers/net.v", "max_control_signals": 4, "expected_sizes": [32, 16], "multi_bit_gate_modules": {}}}}
