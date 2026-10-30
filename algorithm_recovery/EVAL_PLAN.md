@@ -62,5 +62,13 @@ engineering in 2020) with the advisor / institution before any analysis. Keep re
 repositories.
 
 ## Status
-Part 1 done (pending: Trace2Model numbers). Part 2: benchmark list fixed above, nothing run. Part 3: candidates
-listed, no firmware downloaded, awaiting the user's choice of device.
+Part 1 done (pending: Trace2Model numbers). Part 2: benchmark list fixed above, nothing run.
+Part 3 update (2026-10-30, user selected Vision Pro; acquisition by Codex): first-generation M2 Vision Pro
+(`RealityDevice14,1`, `N301AP`), visionOS 27.2 build 24N120, downloaded directly from Apple's public CDN.
+The complete 13,021,367,807-byte IPSW matches the pinned index SHA256/SHA1 and its embedded BuildManifest identity.
+Input, source/verification records and resumable fetch script:
+[/home/jiahao/HardwareRE/dynamicRE/harder_netlists/visionpro/README.md](/home/jiahao/HardwareRE/dynamicRE/harder_netlists/visionpro/README.md).
+The vendor IPSW is local under that directory's ignored `raw/` folder. This is an acquired firmware input,
+not yet a runnable HAL benchmark: the outer ZIP has 101 entries but no explicitly named FPGA/iCE40 bitstream;
+the three `.bin` entries map to AVISP1, AudioAP1 and Timer/RTKitOS components, and the OS images use `.dmg.aea`.
+FPGA payload extraction, netlist conversion and algorithm suitability remain unestablished. No recovery result claimed.
