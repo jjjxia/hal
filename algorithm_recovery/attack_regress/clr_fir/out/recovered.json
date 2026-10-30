@@ -1,0 +1,115 @@
+{
+ "period": 4,
+ "origin": 0,
+ "errors": [],
+ "input_phases": {
+  "x": [
+   0
+  ]
+ },
+ "copies": {},
+ "nodes": {
+  "('sig', 'w5', 0)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {}
+  },
+  "('sig', 'w5', 1)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('in', 'x', 0, 0)": "3",
+    "('sig', 'w5', 0, 0)": "1"
+   }
+  },
+  "('sig', 'w5', 2)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('in', 'x', 0, 1)": "5",
+    "('sig', 'w5', 1, 0)": "1"
+   }
+  },
+  "('sig', 'w5', 3)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('in', 'x', 0, 2)": "7",
+    "('sig', 'w5', 2, 0)": "1"
+   }
+  },
+  "('out', 'y', 0)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w5', 3, 2)": "1"
+   }
+  },
+  "('out', 'y', 1)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w5', 3, 1)": "1"
+   }
+  },
+  "('out', 'y', 2)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w5', 3, 1)": "1"
+   }
+  },
+  "('out', 'y', 3)": {
+   "width": 16,
+   "mode": "exact",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w5', 3, 1)": "1"
+   }
+  }
+ },
+ "zero_delay_acyclic": true,
+ "sections": [
+  {
+   "nodes": [
+    "('sig', 'w5', 0)",
+    "('sig', 'w5', 1)",
+    "('sig', 'w5', 2)",
+    "('sig', 'w5', 3)"
+   ],
+   "recursive": false,
+   "inputs": [
+    "('in', 'x', 0)"
+   ],
+   "outputs": [
+    "('sig', 'w5', 3)"
+   ],
+   "transfer": [
+    {
+     "from": "('in', 'x', 0)",
+     "to": "('sig', 'w5', 3)",
+     "delay": 0,
+     "num": [
+      "3",
+      "5",
+      "7"
+     ],
+     "den": [
+      "1"
+     ],
+     "poles": [],
+     "class": "FIR(order 2)"
+    }
+   ],
+   "rounding_sites": [],
+   "rounding_signature": []
+  }
+ ]
+}

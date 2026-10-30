@@ -1,0 +1,34 @@
+{
+ "(8, 64)": {
+  "rows DOR/DOI": [
+   56,
+   56
+  ],
+  "paired": 56,
+  "note": "not N outputs"
+ },
+ "(9, 64)": {
+  "rows DOR/DOI": [
+   8,
+   8
+  ],
+  "paired": 8,
+  "note": "not N outputs"
+ },
+ "(72, 64)": {
+  "rows DOR/DOI": [
+   56,
+   56
+  ],
+  "paired": 56,
+  "note": "not N outputs"
+ },
+ "(73, 64)": {
+  "rows DOR/DOI": [
+   8,
+   8
+  ],
+  "paired": 8,
+  "note": "not N outputs"
+ }
+}

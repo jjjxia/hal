@@ -1,0 +1,47 @@
+{
+ "-184": {
+  "outputs": 35,
+  "match": false,
+  "scale": null,
+  "max_error": null,
+  "time_order": null,
+  "t_head": null,
+  "bins_head": null
+ },
+ "-183": {
+  "outputs": 8,
+  "match": false,
+  "scale": null,
+  "max_error": null,
+  "time_order": null,
+  "t_head": null,
+  "bins_head": null
+ },
+ "-120": {
+  "outputs": 56,
+  "match": false,
+  "scale": null,
+  "max_error": null,
+  "time_order": null,
+  "t_head": null,
+  "bins_head": null
+ },
+ "-119": {
+  "outputs": 8,
+  "match": false,
+  "scale": null,
+  "max_error": null,
+  "time_order": null,
+  "t_head": null,
+  "bins_head": null
+ },
+ "-56": {
+  "outputs": 21,
+  "match": false,
+  "scale": null,
+  "max_error": null,
+  "time_order": null,
+  "t_head": null,
+  "bins_head": null
+ }
+}

@@ -1,0 +1,274 @@
+{
+ "period": 10,
+ "origin": 0,
+ "errors": [],
+ "input_phases": {
+  "x": [
+   4
+  ]
+ },
+ "copies": {},
+ "nodes": {
+  "('sig', 'w0', 0)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 0, 2)": "-1/4",
+    "('sig', 'w0', 9, 1)": "1"
+   }
+  },
+  "('sig', 'w0', 1)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 0, 0)": "7/8"
+   }
+  },
+  "('sig', 'w0', 2)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 0, 1)": "3/16",
+    "('sig', 'w0', 1, 0)": "1"
+   }
+  },
+  "('sig', 'w0', 3)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 0, 2)": "-1/2",
+    "('sig', 'w0', 2, 0)": "1"
+   }
+  },
+  "('sig', 'w0', 4)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('in', 'x', 4, 0)": "1",
+    "('sig', 'w0', 5, 1)": "5/4"
+   }
+  },
+  "('sig', 'w0', 5)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 4, 0)": "1",
+    "('sig', 'w0', 5, 2)": "-9/16"
+   }
+  },
+  "('sig', 'w0', 6)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 5, 0)": "5/16"
+   }
+  },
+  "('sig', 'w0', 7)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 5, 1)": "-11/16",
+    "('sig', 'w0', 6, 0)": "1"
+   }
+  },
+  "('sig', 'w0', 8)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 5, 2)": "7/16",
+    "('sig', 'w0', 7, 0)": "1"
+   }
+  },
+  "('sig', 'w0', 9)": {
+   "width": 24,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 0, 0)": "-3/8",
+    "('sig', 'w0', 8, 0)": "1"
+   }
+  },
+  "('out', 'y', 0)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 1)": "1/16"
+   }
+  },
+  "('out', 'y', 1)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 1)": "1/16"
+   }
+  },
+  "('out', 'y', 2)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 1)": "1/16"
+   }
+  },
+  "('out', 'y', 3)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 1)": "1/16"
+   }
+  },
+  "('out', 'y', 4)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 1)": "1/16"
+   }
+  },
+  "('out', 'y', 5)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 0)": "1/16"
+   }
+  },
+  "('out', 'y', 6)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 0)": "1/16"
+   }
+  },
+  "('out', 'y', 7)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 0)": "1/16"
+   }
+  },
+  "('out', 'y', 8)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 0)": "1/16"
+   }
+  },
+  "('out', 'y', 9)": {
+   "width": 16,
+   "mode": "floor",
+   "const": "0",
+   "coeffs": {
+    "('sig', 'w0', 3, 0)": "1/16"
+   }
+  }
+ },
+ "zero_delay_acyclic": true,
+ "sections": [
+  {
+   "nodes": [
+    "('sig', 'w0', 4)",
+    "('sig', 'w0', 5)",
+    "('sig', 'w0', 6)",
+    "('sig', 'w0', 7)",
+    "('sig', 'w0', 8)"
+   ],
+   "recursive": true,
+   "inputs": [
+    "('in', 'x', 4)"
+   ],
+   "outputs": [
+    "('sig', 'w0', 8)"
+   ],
+   "transfer": [
+    {
+     "from": "('in', 'x', 4)",
+     "to": "('sig', 'w0', 8)",
+     "delay": 0,
+     "num": [
+      "5/16",
+      "-11/16",
+      "7/16"
+     ],
+     "den": [
+      "1",
+      "-5/4",
+      "9/16"
+     ],
+     "poles": [
+      "0.625000-0.414578j",
+      "0.625000+0.414578j"
+     ],
+     "class": "biquad"
+    }
+   ],
+   "rounding_sites": [
+    "('sig', 'w0', 4)",
+    "('sig', 'w0', 5)",
+    "('sig', 'w0', 6)",
+    "('sig', 'w0', 7)",
+    "('sig', 'w0', 8)"
+   ]
+  },
+  {
+   "nodes": [
+    "('sig', 'w0', 0)",
+    "('sig', 'w0', 1)",
+    "('sig', 'w0', 2)",
+    "('sig', 'w0', 3)",
+    "('sig', 'w0', 9)"
+   ],
+   "recursive": true,
+   "inputs": [
+    "('sig', 'w0', 8)"
+   ],
+   "outputs": [
+    "('sig', 'w0', 3)"
+   ],
+   "transfer": [
+    {
+     "from": "('sig', 'w0', 8)",
+     "to": "('sig', 'w0', 3)",
+     "delay": 1,
+     "num": [
+      "7/8",
+      "3/16",
+      "-1/2"
+     ],
+     "den": [
+      "1",
+      "3/8",
+      "1/4"
+     ],
+     "poles": [
+      "-0.187500-0.463512j",
+      "-0.187500+0.463512j"
+     ],
+     "class": "biquad"
+    }
+   ],
+   "rounding_sites": [
+    "('sig', 'w0', 0)",
+    "('sig', 'w0', 1)",
+    "('sig', 'w0', 2)",
+    "('sig', 'w0', 3)",
+    "('sig', 'w0', 9)"
+   ]
+  }
+ ]
+}

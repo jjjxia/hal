@@ -136,6 +136,44 @@ namespace hal
                   return;
               });
 
+        m.def(
+            "get_pg_word_values_at_z3_smt2",
+            [](const std::vector<std::pair<Module*, PinGroup<ModulePin>*>>& words,
+               const std::vector<u32>& time_indices,
+               const std::vector<bool>& subgraph_gates_byte_map,
+               const std::vector<std::map<u32, bool>>& known_inputs,
+               const std::map<PinGroup<ModulePin>*, BooleanFunction>& word_level_calculations,
+               const bool substitute_endpoints) -> std::optional<std::vector<std::string>> {
+                z3::context ctx;
+
+                const auto word_values_res = sse::get_word_values_at_z3(words, time_indices, subgraph_gates_byte_map, known_inputs, word_level_calculations, substitute_endpoints, ctx);
+                if (word_values_res.is_error())
+                {
+                    log_error("sequential_symbolic_execution", "{}", word_values_res.get_error().get());
+                    return std::nullopt;
+                }
+
+                // SMT-LIB2 text of each word; z3 prints shared subterms once (let bindings), unlike the tree printing above
+                std::vector<std::string> out;
+                for (const auto& w : word_values_res.get())
+                {
+                    out.push_back(w.simplify().to_string());
+                }
+                return out;
+            },
+            py::arg("words"),
+            py::arg("time_indices"),
+            py::arg("subgraph_gates_byte_map"),
+            py::arg("known_inputs"),
+            py::arg("word_level_calculations"),
+            py::arg("substitute_endpoints"),
+            R"(
+            Same as get_pg_word_values_at_z3, but returns the word values as SMT-LIB2 strings (shared subterms printed once) instead of printing them.
+
+            :returns: One SMT-LIB2 expression string per requested word and time index, or None on error.
+            :rtype: list[str] or None
+        )");
+
 #ifndef PYBIND11_MODULE
         return m.ptr();
 #endif    // PYBIND11_MODULE

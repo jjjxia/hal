@@ -1,0 +1,20 @@
+{
+ "sim1": {
+  "data_mismatch": 0,
+  "data_total": 1312,
+  "fsm_mismatch": 632,
+  "fsm_total": 640
+ },
+ "sim2": {
+  "data_mismatch": 0,
+  "data_total": 1312,
+  "fsm_mismatch": 632,
+  "fsm_total": 640
+ },
+ "sim3": {
+  "data_mismatch": 0,
+  "data_total": 1312,
+  "fsm_mismatch": 632,
+  "fsm_total": 640
+ }
+}

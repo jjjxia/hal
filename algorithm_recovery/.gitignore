@@ -1,0 +1,3 @@
+# generated netlists, simulations and equations (reproduce with the commands in E1/RESULT.md)
+E1/build/
+__pycache__/

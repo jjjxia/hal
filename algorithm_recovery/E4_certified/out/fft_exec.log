@@ -1,0 +1,18 @@
+enable offset 9999 violations 6912
+DSPs 8 untraced A/B bits 0
+errors []
+sim1 input shift -1 output shift -1 {'mismatch': 606} [('DOI', 388, 520979, 14036), ('DOI', 389, 508359, 515215)]
+sim1 input shift -1 output shift 0 {'mismatch': 604} [('DOI', 388, 520979, 515215), ('DOI', 389, 508359, 497909)]
+sim1 input shift -1 output shift 1 {'mismatch': 602} [('DOI', 388, 520979, 497909), ('DOI', 389, 508359, 1424)]
+sim1 input shift 0 output shift -1 {'mismatch': 606} [('DOI', 388, 5330, 14036), ('DOI', 389, 5016, 515215)]
+sim1 input shift 0 output shift 0 {'mismatch': 604} [('DOI', 388, 5330, 515215), ('DOI', 389, 5016, 497909)]
+sim1 input shift 0 output shift 1 {'mismatch': 602} [('DOI', 388, 5330, 497909), ('DOI', 389, 5016, 1424)]
+sim1 input shift 1 output shift -1 {'mismatch': 606} [('DOI', 388, 515215, 14036), ('DOI', 389, 497909, 515215)]
+sim1 input shift 1 output shift 0 {'match': 604} []
+sim1 input shift 1 output shift 1 {'mismatch': 602} [('DOI', 388, 515215, 497909), ('DOI', 389, 497909, 1424)]
+sim1 input shift 2 output shift -1 {'mismatch': 606} [('DOI', 388, 2102, 14036), ('DOI', 389, 3056, 515215)]
+sim1 input shift 2 output shift 0 {'mismatch': 604} [('DOI', 388, 2102, 515215), ('DOI', 389, 3056, 497909)]
+sim1 input shift 2 output shift 1 {'mismatch': 602} [('DOI', 388, 2102, 497909), ('DOI', 389, 3056, 1424)]
+sim2 input shift 1 output shift 0 {'match': 604} []
+sim3 input shift 1 output shift 0 {'match': 604} []
+exit 0

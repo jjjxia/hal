@@ -1,0 +1,8 @@
+{'word': 'DANA_module_0', 'slots': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 'rounds': 15, 'template_chars': 266111, 'placeholders': 3413, 'fixed': 0, 'parameter_classes': 48}
+{'word': 'DANA_module_0', 'slots': [0], 'rounds': 1, 'template_chars': 257798, 'placeholders': 6894, 'fixed': 6894, 'parameter_classes': 0}
+{'word': 'DANA_module_1', 'slots': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 'rounds': 15, 'template_chars': 1222, 'placeholders': 0, 'fixed': 0, 'parameter_classes': 0}
+{'word': 'DANA_module_1', 'slots': [0], 'rounds': 1, 'template_chars': 1146, 'placeholders': 32, 'fixed': 32, 'parameter_classes': 0}
+feistel: Counter({"{'feistel': True, 'trials': 64, 'tested': 'random inputs (not a proof)'}": 15, "{'feistel': False, 'reason': 'word read 0 times'}": 1})
+word-1 node sources: Counter({'["(\'sig\', \'DANA_module_0\')"]': 15, '["(\'in\', \'desIn_ordered\')"]': 1})
+key schedule: 0 / 48 parameter classes follow the DES rotation schedule within one 28-bit half
+timeout 1800 python3 des_reroll.py  3.98s user 0.93s system 102% cpu 4.797 total

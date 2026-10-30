@@ -1,0 +1,14 @@
+{
+ "8": {
+  "rows": 64,
+  "rows_reading_next_block_sample": 8,
+  "match": false,
+  "reason": "no bijective time/frequency assignment"
+ },
+ "72": {
+  "rows": 64,
+  "rows_reading_next_block_sample": 8,
+  "match": false,
+  "reason": "no bijective time/frequency assignment"
+ }
+}

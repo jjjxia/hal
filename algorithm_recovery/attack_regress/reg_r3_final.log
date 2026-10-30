@@ -1,0 +1,106 @@
+== c10_wide_class_misses 
+ 10-bit x, y = (x*23170) >> 16: floor c=11585/32768
+  9-bit x, y = (x*1625) >> 15: floor c=813/16384
+ 11-bit x, y = (x*30274) >> 17: floor c=15137/65536
+ 12-bit x, y = (x*12540) >> 18: floor c=3135/65536
+== c1_dsp_config 
+    RSTCTRL        <const0>                                 4
+    RSTD           <const0>                                 4
+    RSTINMODE      <const0>                                 4
+    RSTM           <const0>                                 4
+    RSTP           <const0>                                 4
+ A(25..29) connected to the same net as A(24): {(True, True, True, True, True): 4}
+== c2_tracebit_translate 
+ functions: 17 compiled: 17 syntax errors: 0 wrong truth tables: 0
+ operators present: ['!', '&', '^', '|']
+== c3_fit_scan 
+    C = 23170 fitted 11585/16384 + 0: wrong on 0 of 4096 values []
+    C = 30274 fitted 15137/16384 + 0: wrong on 0 of 4096 values []
+    C = 12540 fitted 3135/8192 + 0: wrong on 0 of 4096 values []
+    C = 32735 fitted 32735/32768 + 0: wrong on 0 of 4096 values []
+    C = 16387 fitted 2049/4096 + 0: wrong on 0 of 4096 values []
+    C =     1 fitted 1/2048 + 0: wrong on 0 of 4096 values []
+== c4_fit_edges 
+ (i)  y = sat8(a + b>>>6) + e: None
+ (ii) y = (x + b1 + b2 + b3 + b4) >> 1: ('floor', None, {"('in', 'b0', 0, 0)": '1/2', "('in', 'b1', 0, 0)": '1/2', "('in', 'b2', 0, 0)": '1/2', "('in', 'b3', 0, 0)": '1/2', "('in', 'x', 0, 0)": '1/2'}, None)
+      identify.execute vs hardware: 0/36 mismatches
+ (iii) fit of c: {"('in', 'x', 0, 0)": '1', "('sig', 'b', 1, 1)": '256'} unsigned ["('sig', 'a', 0, 0)"]
+      identify.execute vs hardware after warm-up (T >= 12): 0 mismatches, e.g. []; all with x(T-1) < 0 (low lane read as signed): True
+== c5_unknown 
+ (i) UNKNOWN iff x == 3 -> fit None | incomplete: ["('sig', 'w', 0)"]
+ (ii) UNKNOWN iff x == 0 -> fit None | incomplete: ["('sig', 'w', 0)"]
+ (iii) x == 3 raises Unknown when evaluated (good); x == 4 -> 5
+     w & (UNKNOWN & 0) raises Unknown (conservative: the value is 0)
+== c6_periodic_extension 
+ (a) one-period window, extension=False         errors ['write pattern of y at cycle 16 (before the window) differs from the periodic schedule'] | fits {"('sig', 'y', 0)": {"('in', 'x', 0, 0)": '1', "('sig', 'y', 0, 2)": '1'}}
+ (a) four-period window, no extension           errors ["('out', 'yo', 0) resolves differently in different periods", "('out', 'yo', 1) resolves differently in different periods"] | fits {"('sig', 'y', 0)": {"('in', 'x', 0, 0)": '1', "('sig', 'y', 0, 2)": '1'}}
+ (b) one-period window, extension=True          errors ["control not periodic with the certified period after the window: ['ram']"] | fits {"('out', 'y', 0)": {"('in', 'x', 1, 2)": '1'}, "('out', 'y', 1)": {"('in', 'x', 1, 2)": '1'}, "res('D', 1)": ["('in', 'x', 1, 1)"]}
+ (b) one-period window, extension=False         errors [] | fits {"('out', 'y', 0)": {"('in', 'x', 1, 5)": '1'}, "('out', 'y', 1)": {"('in', 'x', 1, 5)": '1'}, "res('D', 1)": ["('in', 'x', 1, 4)"]}
+ (b) four-period window, no extension           errors [] | fits {"('out', 'y', 0)": {"('in', 'x', 1, 5)": '1'}, "('out', 'y', 1)": {"('in', 'x', 1, 5)": '1'}, "res('D', 1)": ["('in', 'x', 1, 4)"]}
+ (c) read output used in a cycle without a read errors ['memory ram read at 40 (address None) resolves to no write', 'memory ram read at 42 (address None) resolves to no write'] | fits {"('out', 'y', 0)": {"('in', 'x', 1, 5)": '1'}, "('out', 'y', 1)": {"('in', 'x', 1, 5)": '1'}, "res('D', 1)": ["('in', 'x', 1, 4)"]}
+== c7_ram_config 
+ SRL16E U_FFT2/d3r_reg[7]_srl3 {}
+     control pins: {'A0': '<const0>', 'A1': '<const1>', 'A2': '<const0>', 'A3': '<const0>', 'CE': 'ED_IBUF'}
+ SRL16E U_FFT2/d3r_reg[8]_srl3 {}
+     control pins: {'A0': '<const0>', 'A1': '<const1>', 'A2': '<const0>', 'A3': '<const0>', 'CE': 'ED_IBUF'}
+ SRL16E U_FFT2/d3r_reg[9]_srl3 {}
+     control pins: {'A0': '<const0>', 'A1': '<const1>', 'A2': '<const0>', 'A3': '<const0>', 'CE': 'ED_IBUF'}
+== c8_mimo_complex 
+ class: MIMO LTI at frame rate | complex_filter: None
+== c9_srl 
+ periodic_extension=False: resolution {"('Y', 0)": "{'srl_q_40': ('in', 'x', 1, 3)}", "('Y', 1)": "{'srl_q_41': ('in', 'x', 1, 3)}"}, mismatches vs simulated SRL output 0
+ periodic_extension=True: resolution {"('Y', 0)": "{'srl_q_40': ('in', 'x', 1, 3)}", "('Y', 1)": "{'srl_q_41': ('in', 'x', 1, 3)}"}, mismatches vs simulated SRL output 0
+== r_a9_random_diff 
+ TIMEOUT (600 s)
+== r_b10_multiport_lti 
+ (i)  P=1 sections: [(["('in', 'a', 0)", "('in', 'b', 0)"], [(['1'], ['1', '-1/2']), (['1'], ['1', '-1/2'])])] 
+      frame class: MIMO LTI at frame rate
+ (ii) P=1 frame class: MIMO LTI at frame rate | sections: [(["('sig', 'yi', 0)", "('sig', 'yr', 0)"], True)]
+== r_b11_dft_origin 
+ N=8 origin 2: class block transform match True output natural input natural rotated by 2 scale 1+0j
+ N=8 origin 3: class block transform match True output natural input natural rotated by 3 scale 1+0j
+ N=8 origin 4: class block transform match True output natural input natural rotated by 4 scale 1+0j
+ N=8 origin 5: class block transform match True output natural input natural rotated by 5 scale 1+0j
+ N=8 origin 6: class block transform match True output natural input natural rotated by 6 scale 1+0j
+ N=8 origin 7: class block transform match True output natural input natural rotated by 7 scale 1+0j
+== r_b1_fit_quant 
+ (c) (x + b)>>1, b 1-bit            mode=floor bound=None coeffs={"('in', 'b', 0, 0)": '1/2', "('in', 'x', 0, 0)": '1/2'} want b=1/2 | execute mismatches 0/36
+ (d1) (x + 1)>>2                    mode=floor bound=None coeffs={"('in', 'x', 0, 0)": '1/4'} want x=1/4 + const 1/4 | execute mismatches 0/36
+ (d2) (x + 3)>>2                    mode=floor bound=None coeffs={"('in', 'x', 0, 0)": '1/4'} want x=1/4 + const 3/4 | execute mismatches 0/36
+ (e) sat8(a + (b>>>6))              mode=None bound=None coeffs=None want -=nonlinear (saturates) | execute mismatches 1/0
+ (e') sat8(a + (b>>>6)), 8-bit y       None
+      saturation events per 3000 uniform samples ~ 14.6
+== r_b2_fft16 
+ origin 0 input width 12 errors [] nonlinear 0 modes ['exact', 'floor']
+ class: block transform | match: True | max_error 2.05e-05 bound 0.000244 | output order bit-reversed | input order natural rotated by 8 | scale 1+0j
+ lemma bound with q = 2^-15: 0.000122 ; error is within it: True
+ reported output_perm [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15] input_perm [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7]
+ input_perm is multiplication by 9 mod 16; output_perm / bitrev = [0, 8, 4, 12, 2, 10, 6, 14, 9, 1, 13, 5, 11, 3, 15, 7] (the DFT is invariant under f -> u f, t -> u^-1 t for every unit u, so the matcher can return any of the 8 equivalent labelings)
+== r_b3_dft_bound 
+ (i)  mostly-zero matrix: match False max_error 0.0625 bound 0.0039 |s| 0.0625
+ (ii) 60-degree rotated entries: match False max_error 0.0602 bound 0.0002
+ (iii) entries 29% too large, q = 2^-15, |s| = 0.00041: match False max_error 0.000118 bound 4.97e-08
+== r_b4_rowcol 
+ row_col_delays -> True [0, 1, 2] [0, 2] ; decomposition a=(0,1,2), b=(0,2) valid: True
+== r_b5_frame_dead 
+ (i) dead linear idle write acc <- acc + 7x | dead: [('sig', 'acc', 1)] | input phases {'x': [2]} | sections [(["('sig', 'acc', 0)", "('sig', 'acc', 2)"], [(['8'], ['1'])])]
+    classify_frame -> {'inputs_per_frame': {'x': 1}, 'outputs_per_frame': {'yo': 1}, 'row_delays': [0], 'col_delays': [1], 'class': 'LTI at frame rate', 'block': 1, 'output_alignment': 0, 'note': 'G is determined up to a pure delay (observation latency is a boundary delay, G_obs (i))', 'G_delay': 1, 'G_num': ['8'], 'G_den': ['1']}
+ (ii) dead nonlinear idle write acc <- acc * x | dead: [('sig', 'acc', 1)] | input phases {'x': [2]} | sections [(["('sig', 'acc', 0)", "('sig', 'acc', 2)"], [(['8'], ['1'])])]
+    classify_frame -> {'inputs_per_frame': {'x': 1}, 'outputs_per_frame': {'yo': 1}, 'row_delays': [0], 'col_delays': [1], 'class': 'LTI at frame rate', 'block': 1, 'output_alignment': 0, 'note': 'G is determined up to a pure delay (observation latency is a boundary delay, G_obs (i))', 'G_delay': 1, 'G_num': ['8'], 'G_den': ['1']}
+== r_b6_observe_cat 
+ errors [] | dead [] | input phases {'x': [0]}
+ fit of c: {'width': 16, 'mode': 'exact', 'const': '3', 'coeffs': {"('in', 'x', 0, 0)": '1', "('sig', 'b', 1, 1)": '256'}}
+ period 2, origin 0, errors 0
+ input phases {'x': [0]}, zero-delay acyclic True
+ section 0: feed-forward, 2 nodes, in ["('in', 'x', 0)"], out ["('sig', 'c', 1)"], 0 rounding sites
+    ('in', 'x', 0) -> ('sig', 'c', 1): z^-0 (1, 256)/(1)  [FIR(order 1)] poles []
+== r_b7_reroll 
+ (i) period 5 input phases {'k': [0, 1, 2, 3]}
+     group s slots [1, 2, 3] placeholders 1 parameter classes 1 table [[('inphase', 'k', 1, 0)], [('inphase', 'k', 2, 0)], [('inphase', 'k', 3, 0)]]
+     group s slots [0] placeholders 1 parameter classes 0 table [[]]
+ (ii) R <- ((L^(L>>1))&0x55) ^ F(R,K), L <- R | feistel_test(.., other_word=L): {"('L', 0)": False, "('R', 0)": False} | round bijective: False (4096 images)
+ (iii) L <- L^R, R <- L ^ F(R,K) | feistel_test(.., other_word=L): {"('L', 0)": True, "('R', 0)": True} | round bijective: False (32768 images)
+== r_b8_three_mult 
+ Q = 128
+ 4-multiplier DFT8 : ('block transform', True, 0.005417454499622271, 0.0234375)
+ 3-multiplier DFT8 : ('block transform', True, 0.003831463374208518, 0.0234375)

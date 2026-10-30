@@ -1,0 +1,32 @@
+{
+ "Ubuf3/URAM/ram_reg": {
+  "stats": {
+   "match": 500
+  },
+  "doreg": 0,
+  "data_bits": 38,
+  "we_values": {
+   "255": 700
+  }
+ },
+ "U_BUF1/URAM/ram_reg": {
+  "stats": {
+   "match": 500
+  },
+  "doreg": 1,
+  "data_bits": 32,
+  "we_values": {
+   "15": 700
+  }
+ },
+ "U_BUF2/URAM/ram_reg": {
+  "stats": {
+   "match": 500
+  },
+  "doreg": 1,
+  "data_bits": 36,
+  "we_values": {
+   "15": 700
+  }
+ }
+}

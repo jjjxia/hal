@@ -1,0 +1,792 @@
+{
+    "tm_biquad": {
+        "xilinx": {
+            "GENERAL": {
+                "duration": "3.9 min"
+            },
+            "MODULE_IDENTIFICATION_I": {
+                "vanilla": {
+                    "CARRY_CHAIN": 2,
+                    "timings": [
+                        {
+                            "TOTAL": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 96,
+                                            "DURATION": 90439
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 67
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 96,
+                                            "DURATION": 90506
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 302
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 192,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 288,
+                                            "Duration": 302
+                                        }
+                                    }
+                                }
+                            },
+                            "_1626_ - 271819696": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 74
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 10
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 84
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 48,
+                                            "Duration": 302
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 144,
+                                            "Duration": 302
+                                        }
+                                    }
+                                }
+                            },
+                            "_1785_ - 271821136": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 90365
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 57
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 90422
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 48,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 144,
+                                            "Duration": 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                "gate_resynth": {
+                    "CARRY_CHAIN": 2,
+                    "timings": [
+                        {
+                            "TOTAL": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 96,
+                                            "DURATION": 18455
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 17
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 1
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 96,
+                                            "DURATION": 18473
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 182
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 192,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 288,
+                                            "Duration": 182
+                                        }
+                                    }
+                                }
+                            },
+                            "_1626_ - 271314352": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 495
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 9
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 1
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 505
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 48,
+                                            "Duration": 182
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 144,
+                                            "Duration": 182
+                                        }
+                                    }
+                                }
+                            },
+                            "_1785_ - 271462080": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 17960
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 8
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 17968
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 48,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 144,
+                                            "Duration": 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                "subgraph_resynth": {
+                    "CARRY_CHAIN": 2,
+                    "timings": [
+                        {
+                            "TOTAL": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 96,
+                                            "DURATION": 27372
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 17
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 1
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 96,
+                                            "DURATION": 27390
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 71
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 192,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 288,
+                                            "Duration": 71
+                                        }
+                                    }
+                                }
+                            },
+                            "_1626_ - 330829744": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 320
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 9
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 1
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 330
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 48,
+                                            "Duration": 71
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 144,
+                                            "Duration": 71
+                                        }
+                                    }
+                                }
+                            },
+                            "_1785_ - 296399984": {
+                                "PRE_PROCESSING": {
+                                    "ABSOLUTE": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "ADDER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 27052
+                                        }
+                                    },
+                                    "CONSTANT_MULTIPLICATION": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 8
+                                        }
+                                    },
+                                    "COUNTER": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "LESS_EQUAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 48,
+                                            "DURATION": 27060
+                                        }
+                                    },
+                                    "VALUE_CHECK": {
+                                        "CANDIDATE_CREATION": {
+                                            "AMOUNT": 0,
+                                            "DURATION": 0
+                                        }
+                                    }
+                                },
+                                "SMT_CHECK": {
+                                    "ADD": {
+                                        "Probe": {
+                                            "#Failed": 48,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "SUB": {
+                                        "Probe": {
+                                            "#Failed": 96,
+                                            "Duration": 0
+                                        }
+                                    },
+                                    "TOTAL": {
+                                        "Probe": {
+                                            "#Failed": 144,
+                                            "Duration": 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            "MODULE_IDENTIFICATION_II": {
+                "vanilla": {},
+                "gate_resynth": {},
+                "subgraph_resynth": {
+                    "CARRY_CHAIN": 2
+                },
+                "final": {
+                    "NONE_CARRY_CHAIN": 2
+                },
+                "final_alt": {
+                    "CARRY_CHAIN": 2
+                },
+                "absolute_combinational": 2891,
+                "absolute_classified": 14,
+                "absolute_classified_with_mux": 307,
+                "relative_classified": "0.0048",
+                "relative_classified_with_mux": "0.11"
+            },
+            "DATAFLOW": {
+                "New": {
+                    "nmi": 0.7222157512759774,
+                    "purity": 0.6756756756756757,
+                    "register_sizes": {
+                        "1": 1,
+                        "3": 1,
+                        "16": 7,
+                        "32": 1
+                    }
+                },
+                "Original": {
+                    "nmi": 0.7427418453525153,
+                    "purity": 0.6756756756756757,
+                    "register_sizes": {
+                        "4": 1,
+                        "16": 5,
+                        "32": 2
+                    }
+                }
+            },
+            "MULTIPLEXER": {
+                "New": {
+                    "multiplexer_sizes": {
+                        "1": 109,
+                        "2": 38,
+                        "4": 8,
+                        "15": 4,
+                        "16": 1
+                    }
+                }
+            },
+            "PREPROCESSING_I": {
+                "reconstruction_count": 148,
+                "total_ff_count": 148,
+                "total_lut_count": 793,
+                "total_gate_count": 1265,
+                "relative_reconstruction": "1.00",
+                "created_multi_bit_modules": 0,
+                "reconstructed_top_module_pin_groups": 5,
+                "iteration_0": {
+                    "removed_unconnceted_gates": 0,
+                    "removed_unconnceted_nets": 0,
+                    "propagated_constants": 8,
+                    "simplified_lut_inits": 6,
+                    "removed_lut_end_points": 0,
+                    "removed_buffers": 89,
+                    "removed_redundant_gates": 59,
+                    "removed_redundant_loops": 0,
+                    "clean_up_loop": 0
+                }
+            },
+            "PREPROCESSING_II": {},
+            "RESYNTHESIS_I": {
+                "initial_missing_sources": 0,
+                "initial_missing_destinations": 43,
+                "initial_multi_driven_nets": 0,
+                "gate_resynthesis_count": 728,
+                "after_first-clean_up_loop": 0,
+                "after_first-missing_sources": 0,
+                "after_first-missing_destinations": 43,
+                "after_first-multi_driven_nets": 0,
+                "subgraph_resynthesis_count": 4269,
+                "after_second-clean_up_loop": 3833,
+                "after_second-missing_sources": 0,
+                "after_second-missing_destinations": 43,
+                "after_second-multi_driven_nets": 0
+            },
+            "RESYNTHESIS_II": {
+                "initial_missing_sources": 0,
+                "initial_missing_destinations": 43,
+                "initial_multi_driven_nets": 0,
+                "gate_resynthesis_count": 728,
+                "after_first-clean_up_loop": 0,
+                "after_first-missing_sources": 0,
+                "after_first-missing_destinations": 43,
+                "after_first-multi_driven_nets": 0,
+                "subgraph_resynthesis_count": 4269,
+                "after_second-clean_up_loop": 3833,
+                "after_second-missing_sources": 0,
+                "after_second-missing_destinations": 43,
+                "after_second-multi_driven_nets": 0
+            },
+            "BITORDER_PROPAGATION": {
+                "New": {
+                    "initial_known_pingroups": 5,
+                    "initial_unknown_pingroups": 10,
+                    "final_known_pingroups": 13,
+                    "relative_known_initial": "0.33",
+                    "relative_unknown": "0.8",
+                    "relative_total": "0.87",
+                    "correct_register_pingroups": 1.0
+                }
+            }
+        }
+    }
+}

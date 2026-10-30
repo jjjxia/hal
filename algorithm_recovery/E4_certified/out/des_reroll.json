@@ -1,0 +1,204 @@
+{
+ "groups": [
+  {
+   "word": "DANA_module_0",
+   "slots": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "rounds": 15,
+   "template_chars": 266111,
+   "placeholders": 10239,
+   "fixed": 0,
+   "parameter_classes": 49
+  },
+  {
+   "word": "DANA_module_0",
+   "slots": [
+    0
+   ],
+   "rounds": 1,
+   "template_chars": 257798,
+   "placeholders": 20682,
+   "fixed": 20682,
+   "parameter_classes": 0
+  },
+  {
+   "word": "DANA_module_1",
+   "slots": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "rounds": 15,
+   "template_chars": 1222,
+   "placeholders": 0,
+   "fixed": 0,
+   "parameter_classes": 0
+  },
+  {
+   "word": "DANA_module_1",
+   "slots": [
+    0
+   ],
+   "rounds": 1,
+   "template_chars": 1146,
+   "placeholders": 96,
+   "fixed": 96,
+   "parameter_classes": 0
+  }
+ ],
+ "feistel": {
+  "0": {
+   "feistel": false,
+   "reason": "word read 0 times"
+  },
+  "1": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "2": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "3": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "4": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "5": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "6": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "7": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "8": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "9": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "10": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "11": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "12": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "13": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "14": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  },
+  "15": {
+   "feistel": true,
+   "trials": 64,
+   "tested": "random inputs (not a proof)"
+  }
+ },
+ "feistel_round_with_partner": {
+  "1": true,
+  "2": true,
+  "3": true,
+  "4": true,
+  "5": true,
+  "6": true,
+  "7": true,
+  "8": true,
+  "9": true,
+  "10": true,
+  "11": true,
+  "12": true,
+  "13": true,
+  "14": true,
+  "15": true
+ },
+ "key_schedule": {
+  "parameter_classes": 49,
+  "classes_following_DES_rotations": 0,
+  "rounds_in_group": [
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16
+  ]
+ },
+ "key_schedule_coordinate_free": {
+  "shift1_transitions": 2,
+  "shift2_transitions": 12,
+  "shift1_consistent": true,
+  "shift2_consistent": false,
+  "shift2_equals_sigma_squared_where_defined": false,
+  "shift2_pairs_checked": 0,
+  "shift2_pairs": 0
+ }
+}

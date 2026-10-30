@@ -1,0 +1,59 @@
+== b0_random_diff 
+ {'ok': 208}
+== b10_multiport_lti 
+ (i)  P=1 sections: [(["('in', 'a', 0)", "('in', 'b', 0)"], [(['1'], ['1', '-1/2']), (['1'], ['1', '-1/2'])])] 
+      frame class: MIMO LTI at frame rate
+ (ii) P=1 frame class: MIMO LTI at frame rate | sections: [(["('sig', 'yi', 0)", "('sig', 'yr', 0)"], True)]
+== b11_dft_origin 
+ TIMEOUT (600 s)
+== b12_two_roundings_clean 
+ fit: None
+== b1_fit_quant 
+ (c) (x + b)>>1, b 1-bit            mode=floor bound=None coeffs={"('in', 'b', 0, 0)": '1/2', "('in', 'x', 0, 0)": '1/2'} want b=1/2 | execute mismatches 0/36
+ (d1) (x + 1)>>2                    mode=floor bound=None coeffs={"('in', 'x', 0, 0)": '1/4'} want x=1/4 + const 1/4 | execute mismatches 0/36
+ (d2) (x + 3)>>2                    mode=floor bound=None coeffs={"('in', 'x', 0, 0)": '1/4'} want x=1/4 + const 3/4 | execute mismatches 0/36
+ (e) sat8(a + (b>>>6))              mode=None bound=None coeffs=None want -=nonlinear (saturates) | execute mismatches 1/0
+ (e') sat8(a + (b>>>6)), 8-bit y       None
+      saturation events per 3000 uniform samples ~ 14.6
+== b1_uniqueness 
+ (a)                  c in (6170/17451, 10831/30634) (width 1.87e-09); simplest dyadic 23171/65536; fitted 5793/16384 inside: False
+ (b) s alone          c in (1/3, 1/2) (width 0.167); simplest dyadic 3/8; fitted 1/2 inside: False
+ (c) b alone, x even  c in (0, 1] (width 1); simplest dyadic 1; fitted 1 inside: True
+ (c) joint: coefficients c_b in {1/4, 1/2, 3/4, 1} that reproduce the node exactly: [Fraction(1, 4), Fraction(1, 2)] (fitted 1)
+== b2_fft16 
+ origin 0 input width 12 errors [] nonlinear 0 modes ['exact', 'floor']
+ class: block transform | match: True | max_error 2.05e-05 bound 0.000244 | output order bit-reversed | input order natural rotated by 8 | scale 1+0j
+ lemma bound with q = 2^-15: 0.000122 ; error is within it: True
+ reported output_perm [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15] input_perm [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7]
+ input_perm is multiplication by 9 mod 16; output_perm / bitrev = [0, 8, 4, 12, 2, 10, 6, 14, 9, 1, 13, 5, 11, 3, 15, 7] (the DFT is invariant under f -> u f, t -> u^-1 t for every unit u, so the matcher can return any of the 8 equivalent labelings)
+== b3_dft_bound 
+ (i)  mostly-zero matrix: match False max_error 0.0625 bound 0.0039 |s| 0.0625
+ (ii) 60-degree rotated entries: match False max_error 0.0602 bound 0.0002
+ (iii) entries 29% too large, q = 2^-15, |s| = 0.00041: match False max_error 0.000118 bound 4.97e-08
+== b4_rowcol 
+ row_col_delays -> True [0, 1, 2] [0, 2] ; decomposition a=(0,1,2), b=(0,2) valid: True
+== b5_frame_dead 
+ (i) dead linear idle write acc <- acc + 7x | dead: [('sig', 'acc', 1)] | input phases {'x': [2]} | sections [(["('sig', 'acc', 0)", "('sig', 'acc', 2)"], [(['8'], ['1'])])]
+    classify_frame -> {'inputs_per_frame': {'x': 1}, 'outputs_per_frame': {'yo': 1}, 'row_delays': [0], 'col_delays': [1], 'class': 'LTI at frame rate', 'block': 1, 'output_alignment': 0, 'note': 'G is determined up to a pure delay (observation latency is a boundary delay, G_obs (i))', 'G_delay': 1, 'G_num': ['8'], 'G_den': ['1']}
+ (ii) dead nonlinear idle write acc <- acc * x | dead: [('sig', 'acc', 1)] | input phases {'x': [2]} | sections [(["('sig', 'acc', 0)", "('sig', 'acc', 2)"], [(['8'], ['1'])])]
+    classify_frame -> {'inputs_per_frame': {'x': 1}, 'outputs_per_frame': {'yo': 1}, 'row_delays': [0], 'col_delays': [1], 'class': 'LTI at frame rate', 'block': 1, 'output_alignment': 0, 'note': 'G is determined up to a pure delay (observation latency is a boundary delay, G_obs (i))', 'G_delay': 1, 'G_num': ['8'], 'G_den': ['1']}
+== b6_observe_cat 
+ errors [] | dead [] | input phases {'x': [0]}
+ fit of c: {'width': 16, 'mode': 'exact', 'const': '3', 'coeffs': {"('in', 'x', 0, 0)": '1', "('sig', 'b', 1, 1)": '256'}}
+ period 2, origin 0, errors 0
+ input phases {'x': [0]}, zero-delay acyclic True
+ section 0: feed-forward, 2 nodes, in ["('in', 'x', 0)"], out ["('sig', 'c', 1)"], 0 rounding sites
+    ('in', 'x', 0) -> ('sig', 'c', 1): z^-0 (1, 256)/(1)  [FIR(order 1)] poles []
+== b7_reroll 
+ (i) period 5 input phases {'k': [0, 1, 2, 3]}
+     group s slots [1, 2, 3] placeholders 1 parameter classes 1 table [[('inphase', 'k', 1, 0)], [('inphase', 'k', 2, 0)], [('inphase', 'k', 3, 0)]]
+     group s slots [0] placeholders 1 parameter classes 0 table [[]]
+ (ii) R <- ((L^(L>>1))&0x55) ^ F(R,K), L <- R | feistel_test(.., other_word=L): {"('L', 0)": False, "('R', 0)": False} | round bijective: False (4096 images)
+ (iii) L <- L^R, R <- L ^ F(R,K) | feistel_test(.., other_word=L): {"('L', 0)": True, "('R', 0)": True} | round bijective: False (32768 images)
+== b8_three_mult 
+ Q = 128
+ 4-multiplier DFT8 : ('block transform', True, 0.005417454499622271, 0.0234375)
+ 3-multiplier DFT8 : ('block transform', True, 0.003831463374208518, 0.0234375)
+== b9_schedule_prop 
+ points where sigma2 and sigma1 o sigma1 are both defined: [] -> hypothesis holds vacuously
+ permutations pi of abcde extending sigma1 with pi^2 extending sigma2: 0
