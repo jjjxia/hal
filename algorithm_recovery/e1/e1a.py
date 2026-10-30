@@ -95,10 +95,13 @@ print('# per-slot writes:', {s: sorted(e) for s, e in EQ.items()})
 writes = collections.defaultdict(list)   # reg -> sorted slots
 for s in range(P):
     for r in EQ[s]: writes[r].append(s)
-def last_write(r, s):   # (slot', k) of the last write of r strictly before cycle P*n + s
-    before = [x for x in writes[r] if x < s]
-    if before: return max(before), 0
-    return max(writes[r]), 1
+import os
+ORIGIN = int(os.environ.get('ORIGIN', '0'))   # Lemma 2 check: which hardware slot starts a sample
+def rel(s): return (s - ORIGIN) % P
+def last_write(r, s):   # (slot', k) of the last write of r strictly before cycle P*n + s (slots relative to ORIGIN)
+    before = [x for x in writes[r] if rel(x) < rel(s)]
+    if before: return max(before, key=rel), 0
+    return max(writes[r], key=rel), 1
 def reads(e):   # register / input symbols in an expression
     out = set(); st = [e]; seen = set()
     while st:
@@ -130,7 +133,7 @@ print('# Lemma 1 check: negative delays:', neg)
 # ---------------- Theorem 1 check: simulate the recovered graph ----------------
 sim = [l.split()[1:] for l in open('sim.txt') if l.startswith('S ')]
 xs = [int(a[0]) for a in sim]
-order = sorted(graph, key=lambda x: x[1])   # within a sample, slots in increasing order (zero-delay edges go forward)
+order = sorted(graph, key=lambda x: rel(x[1]))   # within a sample, slots in increasing order (zero-delay edges go forward)
 hist = collections.defaultdict(dict)   # node -> {n: value}
 def val(ref, n):
     node, k = ref
@@ -161,15 +164,17 @@ for node, d in graph.items():
         if src[1] != 'input': consumers[src].append((node, k))
 outregs = {names[b][0] for p, v in M['ports'].items() if v['direction'] == 'output' for b in v['bits'] if b in names}
 # inline a node with a single zero-delay consumer, unless its register drives a module output (observable)
-inline = {n for n in graph if len(consumers[n]) == 1 and consumers[n][0][1] == 0 and n[0] not in outregs}
+# (also across delayed edges: the inlined expression's references are shifted by the edge delay)
+inline = {n for n in graph if len(consumers[n]) == 1 and n[0] not in outregs}
 keep = [n for n in graph if n not in inline]
-def composed(node):   # z3 expression of node over (kept node, delay) symbols and inputs
+def composed(node, shift=0):   # z3 expression over (kept node, delay) symbols and delayed inputs, delays + shift
     e = nodes[node]; sub = []
     for sym, (src, k) in graph[node].items():
         w = W[sym[2:]] if sym.startswith('q_') else X[sym[3:]].size()
-        if src[1] == 'input': sub.append((z3.BitVec(sym, w), z3.BitVec('x', w)))
-        elif src in inline and k == 0: sub.append((z3.BitVec(sym, w), ext_to(composed(src), w)))
-        else: sub.append((z3.BitVec(sym, w), z3.BitVec('%s@%d^%d' % (src[0], src[1], k), w)))
+        d = k + shift
+        if src[1] == 'input': sub.append((z3.BitVec(sym, w), z3.BitVec('x' if d == 0 else 'x^%d' % d, w)))
+        elif src in inline: sub.append((z3.BitVec(sym, w), ext_to(composed(src, d), w)))
+        else: sub.append((z3.BitVec(sym, w), z3.BitVec('%s@%d^%d' % (src[0], src[1], d), w)))
     return z3.simplify(z3.substitute(e, *sub))
 def ext_to(e, w): return e if e.size() == w else (z3.Extract(w - 1, 0, e) if e.size() > w else z3.SignExt(w - e.size(), e))
 rng = random.Random(1)
@@ -203,7 +208,8 @@ for n in keep:
         print('# section %s: recurrence, poles %s (|p| = %s)' % (me, np.round(poles, 4), np.round(abs(poles), 4)))
         outs = [m for m in keep if m != n and all(k.split('^')[0] == me for k in fits[m])]
         for o in outs:
-            num = [float(fits[o].get('%s^%d' % (me, d), 0)) for d in range(0, 3)]
-            z = np.roots(num)
+            ds = sorted(int(k.split('^')[1]) for k in fits[o])
+            num = [fits[o].get('%s^%d' % (me, d), Fr(0)) for d in range(ds[0], ds[-1] + 1)]   # pure delay z^-ds[0] stripped
+            z = np.roots([float(v) for v in num])
             kind = 'low-pass (zeros at z=-1)' if np.allclose(z, -1, atol=1e-6) else 'high-pass (zeros at z=+1)' if np.allclose(z, 1, atol=1e-6) else 'zeros %s' % np.round(z, 4)
-            print('    output stage %s: numerator %s -> biquad, %s' % ('%s@%d' % o, [str(fits[o].get('%s^%d' % (me, d), 0)) for d in range(3)], kind))
+            print('    output stage %s: z^-%d * (%s) -> biquad, %s' % ('%s@%d' % o, ds[0], ', '.join(map(str, num)), kind))
