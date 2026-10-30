@@ -68,7 +68,14 @@ Part 3 update (2026-10-30, user selected Vision Pro; acquisition by Codex): firs
 The complete 13,021,367,807-byte IPSW matches the pinned index SHA256/SHA1 and its embedded BuildManifest identity.
 Input, source/verification records and resumable fetch script:
 [/home/jiahao/HardwareRE/dynamicRE/harder_netlists/visionpro/README.md](/home/jiahao/HardwareRE/dynamicRE/harder_netlists/visionpro/README.md).
-The vendor IPSW is local under that directory's ignored `raw/` folder. This is an acquired firmware input,
-not yet a runnable HAL benchmark: the outer ZIP has 101 entries but no explicitly named FPGA/iCE40 bitstream;
-the three `.bin` entries map to AVISP1, AudioAP1 and Timer/RTKitOS components, and the OS images use `.dmg.aea`.
-FPGA payload extraction, netlist conversion and algorithm suitability remain unestablished. No recovery result claimed.
+The vendor IPSW is local under that directory's ignored `raw/` folder. Subsequent user-requested netlist extraction
+reached `BITSTREAM_NOT_LOCATED`: both AEA system images were decoded, the system and restore filesystems extracted,
+and the kernel, 26 IM4P payloads, FTAB containers and embedded LZFSE streams inspected. All 303,944 regular file
+paths in the main filesystem inventory were present with matching sizes. The main content scan covered 304,082
+files, including plist data; auxiliary system/restore scans covered another 6,083 files. All 11 sync-header
+candidates failed IceStorm `iceunpack` parsing (invalid commands/parameters or CRC). No FPGA netlist was produced.
+Maggie §3.1 uses a plaintext firmware bitstream plus a custom IceStorm-based converter; that converter was not
+published and its reported 36 manual net repairs cannot be assumed available here. Full extraction evidence,
+tool revisions and limits are in the linked README, with payloads and logs kept in ignored `extracted/`.
+This remains a firmware candidate, not a runnable HAL benchmark. The search does not prove absence under every
+possible inner encoding, and the device's configuration storage source is not established. No recovery result claimed.
