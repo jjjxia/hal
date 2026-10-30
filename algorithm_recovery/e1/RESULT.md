@@ -27,3 +27,17 @@ Two implementation fixes this check forced (both are the OPEN points of THEORY.m
   references) makes it origin-independent here;
 - canonical form: output-stage numerators must be read over all delays with the leading pure delay stripped (the
   first version read delays 0-2 only and misreported z^-1(1/8,1/4,1/8) as a zero at -2).
+
+## E1b, step 1 (HAL word recovery) — finding: DANA mis-groups the time-multiplexed design
+Flow: yosys 0.33 synth_xilinx -flatten -nodsp (148 FDRE, 325 LUT6, 17 CARRY4; hal/tm_biquad_xilinx.v), the same
+module-identification driver as the cert_bench designs (hal/benchmarks.py, HAL_BUILD_DIR=../build; 134 s, 0.6 GB).
+White-box mapping of DANA words to RTL registers through the FDRE Q nets (hal/words.py, ff_q.json, dana_raw.txt):
+acc -> one 32-bit word; st0 -> one 16-bit word; w and st2 -> 15 of 16 bits in one word each; st1 and st3 are cut
+by BIT POSITION ACROSS registers: 15 words of 3 flip-flops {st1[i], st3[i], one other flip-flop}. Cause: st1 and st3
+are pure copies whose bits enter the shared operand multiplexer at the same positions, and DANA groups by
+structural similarity at that multiplexer. Consequence: guided SE over these words would produce bit-sliced
+equations mixing two filters' state, before inverse folding even starts.
+Proposed fix (to test): time-aware word recovery — group flip-flops by their write schedule (the slots in which
+their enable is 1, concretized like control) and by copy relations (st1[i] <- st0[i] aligns st1 with st0's word),
+then inverse folding operates on these words. This makes word recovery a consumer of the schedule, the same
+information inverse folding uses.
