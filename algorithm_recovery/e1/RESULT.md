@@ -41,3 +41,19 @@ Proposed fix (to test): time-aware word recovery — group flip-flops by their w
 their enable is 1, concretized like control) and by copy relations (st1[i] <- st0[i] aligns st1 with st0's word),
 then inverse folding operates on these words. This makes word recovery a consumer of the schedule, the same
 information inverse folding uses.
+
+## E1b, step 2 — time-aware word recovery and period discovery on the gate netlist (hal/e1b.py)
+No names used by the method; white-box scoring through FDRE Q nets and the output buffers they drive.
+- Control by the differential criterion (two gate-level simulations with different random data): 7 flip-flops
+  (the 4 slot-counter bits + 3 acc bits that are always 0 because all coefficients are multiples of 8);
+  period discovered from the control trace: P = 16 (no use of the slot counter's meaning).
+- Per phase (control concretized, rst 0, data symbolic, z3): write phases for all 141 data flip-flops.
+- Words: partition refinement (write phases with non-constant next value; per phase, the classes read, ignoring
+  the flip-flop's own class), then a carry-chain merge (flip-flops fed directly by the O outputs of one CARRY4
+  chain are bits of one adder result). Result: 8 of 8 RTL registers recovered exactly as one word each (acc 29
+  data bits, st0..st3, w, y1, y2), where DANA recovered 2 (acc, st0) and cut st1/st3 across registers.
+Development history (honest): plain refinement split acc into 6 pieces (carry chain: bit i reads bits < i; low bits
+constant in some phases); ignoring own-class reads and constant phases was not enough because refinement only
+splits; the carry-chain merge fixed it. The rules were developed on this design: held-out designs needed.
+Next: bit order inside words (carry-chain order for adder words; copy relations propagate it, e.g. st1[i] <- st0[i]),
+word-level equations by evaluation-based fitting, then inverse folding on the gate-level result.
