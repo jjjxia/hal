@@ -79,3 +79,10 @@ published and its reported 36 manual net repairs cannot be assumed available her
 tool revisions and limits are in the linked README, with payloads and logs kept in ignored `extracted/`.
 This remains a firmware candidate, not a runnable HAL benchmark. The search does not prove absence under every
 possible inner encoding, and the device's configuration storage source is not established. No recovery result claimed.
+Vision Pro closed (2026-10-30, Claude review): `EXCLUDED_FROM_FIRMWARE_BENCHMARK`. The FPGA is the IPD motor
+controller `xmot` on the Bora AOP bus `spi2-ipd`, next to the TMC stepper driver. The host firmware only reads a fault
+GPIO and registers and power-cycles the FPGA through `xmot-power-cutoff-gpio`; no CRESET/CDONE/configuration code
+appears in any decoded firmware, and no bitstream-like region is in the AOP image. Inferred (unproven): the part boots
+from NVCM or a board SPI flash, so condition (b) fails. Local IPSW and extraction (70 GB) were deleted at the user's
+request; offsets and hashes are in the linked README. The search for replacement devices whose bitstream ships in
+public firmware is recorded in /home/jiahao/HardwareRE/dynamicRE/harder_netlists/SOURCES.md.
