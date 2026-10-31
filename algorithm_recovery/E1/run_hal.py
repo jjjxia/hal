@@ -207,6 +207,26 @@ def main(netlist, stim, out, variant):
             e, r = e.pop(), r.pop(); pe.append(int(e or r)); pr.append(r)
         ce[w], srst[w] = pe, pr
     print('CUT', cut, 'DATA', sorted(data_words)); json.dump({'anon': anon}, open(os.path.join(out, 'private_names.json'), 'w'))
+    if os.environ.get('CERT_EXPORT'):
+        # Evidence, not a certificate: the independent original-netlist checker
+        # validates the inventory, pin values, initialization and all equations.
+        snapshot = {
+            'frame': 'values[c] is before active edge c; D[c] writes Q[c+1]',
+            'word_prior': 'RTL-derived FF grouping and ascending Q-bit order',
+            'words': {w: {'gates': [g.name for g in d['gates']],
+                          'data': w in data_words,
+                          'values': [sum(vals[c][g.get_fan_out_net('Q').id] << k
+                                         for k, g in enumerate(d['gates'])) for c in range(ncyc)]}
+                      for w, d in words.items()},
+            'pins': {w: [{p: vals[c][d['gates'][0].get_fan_in_net(p).id]
+                          for p in ('CE', 'R')} for c in range(ncyc)]
+                     for w, d in words.items()},
+            'effective_write': ce,
+            'reset': srst,
+            'known_nets': known,
+            'cutpoints': cut,
+        }
+        json.dump(snapshot, open(os.path.join(out, 'certificate_snapshot.json'), 'w'))
     if os.environ.get('NOSSE'): return
     # ---- guided symbolic execution ----
     top = nl.get_top_module()
