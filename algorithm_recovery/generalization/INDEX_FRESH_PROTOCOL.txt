@@ -1,0 +1,32 @@
+Frozen-program Index controller continuous replay, 2026-11-01
+
+Input: existing build/guarded_state_v1/controller/state_machine and unchanged
+Index controller2.26 recovered.json/recovered.v plus Yosys ice40 cells_sim.v.
+Freeze every program file hash and source/simulator/CLI identity BEFORE creating
+the new external-pad stimulus. No import, regrouping, extraction, fitting or code
+generation is part of this test. replay-state compiles the same frozen bytes.
+
+One8192-event sequence, seed0xC220261101, all80 external physical pads explicitly
+enumerated. Clock pads3/2 and active-low reset47 are existing physical bindings.
+Initial32events and events5120..5151 assert reset while clocks continue. Other
+pads use deterministic independent binary changes. Eight1024event blocks vary
+clock rates, pause each clock separately, introduce phase offsets, and finish
+with fast data changes. The full sequence is fixed before original-gate replay.
+No feedback from original/reference internal state enters stimulus or execution.
+
+Environment: native trace changes data first, observes pre-clock, then changes
+clocks and observes post-clock. Inout external drive is automatically released
+while the device drives. This binary interface cannot test arbitrary Z/contention;
+this is a physical pad test, not a demonstrated valid board/application protocol.
+Primitive initialization is unchanged: RAM uses its actual INIT; the existing
+runtime supplies explicit zero completions for unknown FF/read-latch state.
+Compare all known FF, RAM-read, output data/enable/drive and resolved-pad values
+from event0, plus every known final RAM bit. Count unknown observations separately.
+No traces are injected as internal state. Whole-device equivalence is not proved.
+
+Run trace then replay-state serially, one thread environment, overall180min and
+16GiB per-process address space ceiling. Preserve the first failure; a repaired
+runtime would need a separate output directory and loses frozen-program status.
+Record whether the frozen emitted files stayed byte-identical, all CLI exit
+statuses, counts and exact logs. No changes to training windows: the new trace
+has its own fresh window; native replay records no matching training identity.
