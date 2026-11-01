@@ -34,6 +34,13 @@ add_executable(check-recovery-folding folding.cpp)
 target_link_libraries(check-recovery-folding PRIVATE algorithm_recovery)
 add_test(NAME algorithm-recovery-folding COMMAND check-recovery-folding)
 
+add_executable(check-recovery-arithmetic arithmetic.cpp)
+target_link_libraries(check-recovery-arithmetic PRIVATE algorithm_recovery)
+add_test(NAME algorithm-recovery-arithmetic COMMAND check-recovery-arithmetic)
+add_executable(check-recovery-arithmetic-fixture arithmetic_fixture.cpp)
+target_link_libraries(check-recovery-arithmetic-fixture PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
+target_include_directories(check-recovery-arithmetic-fixture PRIVATE ${RECOVERY_SODIUM_INCLUDE})
+
 add_executable(check-recovery-frontend-fixture frontend_fixture.cpp)
 target_link_libraries(check-recovery-frontend-fixture PRIVATE algorithm_recovery)
 add_executable(check-recovery-frontend frontend.cpp)

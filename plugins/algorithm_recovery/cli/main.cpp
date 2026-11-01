@@ -3,6 +3,7 @@
 #include "algorithm_recovery/grouping.h"
 #include "algorithm_recovery/observations.h"
 #include "algorithm_recovery/guided.h"
+#include "algorithm_recovery/lifting.h"
 #include "hal_core/netlist/netlist.h"
 #include "hal_core/netlist/persistent/netlist_serializer.h"
 #include "hal_core/plugin_system/plugin_manager.h"
@@ -50,6 +51,7 @@ int main(int argc, char** argv)
             auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6]);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
             nlohmann::json profiles = nlohmann::json::object();
+            hal::algorithm_recovery::ArithmeticRecovery arithmetic;
             for (const auto& [name, input] : analyzed.get().windows)
             {
                 auto folded = hal::algorithm_recovery::fold_observed(input, ctx);
@@ -58,6 +60,11 @@ int main(int argc, char** argv)
                 profiles[name] = {{"available", graph.available}, {"period", graph.period}, {"origin", graph.origin},
                     {"nodes", graph.nodes.size()}, {"ram_nodes", graph.ram_nodes.size()}, {"histories", graph.histories.size()}, {"excluded", graph.excluded}};
                 std::cout << "FOLDED " << name << ' ' << profiles[name].dump() << std::endl;
+                auto lifted = hal::algorithm_recovery::lift_arithmetic(graph, arithmetic, std::filesystem::path(argv[6]) / ("lift_" + name));
+                if (lifted.is_error()) throw std::runtime_error(lifted.get_error().get());
+                profiles[name]["arithmetic_counts"] = lifted.get().at("counts");
+                profiles[name]["fit_calls"] = lifted.get().at("fit_calls");
+                std::cout << "LIFTED " << name << ' ' << lifted.get().at("counts").dump() << std::endl;
             }
             std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
             if (!stream) throw std::runtime_error("cannot save fold report");

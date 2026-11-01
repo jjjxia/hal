@@ -3,7 +3,8 @@ Native algorithm recovery (migration in progress)
 
 This plugin is being ported from algorithm_recovery/invfold and the separately
 preserved firmware adapter. Its commands cover import, native grouping/ordering,
-original-gate trace generation, guided SSE, folding and RAM extraction. The C++ API
+original-gate trace generation, guided SSE, folding, checked arithmetic lifting
+and RAM extraction. The C++ API
 also implements coupled frame execution. The full
 netlist-to-algorithm pipeline is not yet migrated. See
 algorithm_recovery/CPP_MIGRATION_STATE.txt.
@@ -18,7 +19,8 @@ Build from the HAL repository root:
   cmake --build build --target hal-recover check-recovery-memory \
     check-recovery-ram-extraction check-recovery-folding \
     check-recovery-folding-fixture check-recovery-frontend \
-    check-recovery-frontend-fixture check-recovery-observations -j 4
+    check-recovery-frontend-fixture check-recovery-observations \
+    check-recovery-arithmetic check-recovery-arithmetic-fixture -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -179,7 +181,8 @@ interpreter. All eight RAM port equations per instance are checked unconditional
 Original-cone unknown constants, unsupported endpoints and feedback fail explicitly.
 The last 512 events of each profile feed the typed C++ folder directly. The
 analysis directory contains proof queries/hashes, sse_report.json and a compact
-fold_report.json. This is not yet a standalone recovered-program export.
+fold_report.json, plus lift_PROFILE/arithmetic.json and arithmetic proof queries.
+This is not yet a standalone recovered-program export.
 
 FF event classification follows the actual primitive: SR/SS are synchronous,
 R/S asynchronous, E has the priority specified by Yosys, and N uses the falling
@@ -209,6 +212,72 @@ Neither production trace/analyze nor the production folder loads those artifacts
 MemoryWindow.model clock IDs remain HAL net IDs; GuidedAnalysis.physical_nets
 maps them to physical trace IDs for a future real-case frame replay adapter.
 
-Arithmetic fitting with universal checks, routing-order inference and standalone
-program export remain required migration steps; the raw executor is not a
-replacement for those capabilities.
+Native arithmetic lifting (arithmetic.h, evaluation.h, lifting.h):
+
+  recover_arithmetic(raw_BV, numeric_order_known, options) -> ArithmeticResult
+  verify_arithmetic(raw_BV, ArithmeticModel, options) -> ArithmeticResult
+  ArithmeticRecovery::recover(...) -> same result, with reusable canonical proofs
+  lift_arithmetic(graph, recovery, empty_directory) -> report and proof files
+
+The native candidate generator ports InvFold's coefficient-class method: small
+linearity screen, exhaustive narrow probes, rational coefficient intervals,
+dyadic selection, bisection for larger exhaustive sets, wrap-aware refinement,
+joint fractional constant constraints, and a joint search for narrow sources.
+Literal bit-vector extracts also propose the exact dyadic projection directly,
+then pass through the same proof gate. This handles a physical bit moving from
+the sign position to an interior position when an unresolved storage list is
+re-enumerated; it neither needs nor infers a numeric bit order.
+Source widths and constants use arbitrary-precision integers/rationals. Default
+limits remain 30 seconds per candidate and 30 seconds per proof; timeout is not
+a counterexample. The deterministic native sampler uses std::mt19937_64; its
+probe stream is not claimed byte-identical to Python's RNG. Candidate labels
+can differ; accepted semantic coverage is checked against the old outputs.
+
+The serialized model is reconstructed before proof. exact/floor/round use an
+adequately wide signed accumulator, explicit signed/unsigned source extension,
+arithmetic right shift (round means floor(x + 1/2)), and final modular truncation.
+Only UNSAT of raw != reconstructed model produces FIT_PROVED. SAT is FIT_REFUTED,
+UNKNOWN is FIT_UNKNOWN, and fitting expiry is RAW_FIT_TIMEOUT. A quant candidate
+is recorded separately as RAW_QUANT_CANDIDATE: its sampled error bound is not
+adopted as an executable equation or a universal guarantee. RAW_UNORDERED remains
+unchanged, and all original folded equations stay available.
+
+ArithmeticRecovery caches by exact expression shape under a bijective variable
+renaming, source/output widths and unsigned interpretations. Each reused proof
+records canonical-name -> actual-source-name bindings; model coefficients are
+renamed consistently. It does not infer a numeric order. The analyze command
+shares this cache across profiles and records every node's result, accepted fit
+or unadopted candidate, raw-expression hash and proof hash/binding.
+
+BitVectorProgram compiles the Z3 expression DAG into native arbitrary-width
+instructions. It supports the Boolean/BV operations used by the old SMT2
+compiler, including signed division/remainder, zero-divisor cases, rotations,
+extension and shifts past the word width. Unsupported sorts/operations and
+ambiguous same-name source sorts fail explicitly. No Python is invoked for
+sampling, fitting, model encoding or proof. The primitive/evaluator CTests check
+12288 assignments against Z3, wide arithmetic, exact/floor/round/unsigned fits,
+coefficient refinement at 9/13/80 bits, cached renaming, multiple rounding,
+rare guarded errors, UNKNOWN and expiry.
+
+Arithmetic migration regression:
+
+  build/bin/hal_plugins/check-recovery-arithmetic-fixture \
+    PREVIOUS_REFERENCE_CASE_DIRECTORY build/case_arithmetic_regression
+
+Check coverage of the actual fresh analyze output by node ID, including query
+identities and absence of adopted unproved models:
+
+  build/bin/hal_plugins/check-recovery-arithmetic-fixture \
+    PREVIOUS_REFERENCE_CASE_DIRECTORY build/case_arithmetic_integration \
+    build/case_analysis
+
+The first form reads the saved graphs as regression input and runs native
+proposals and proofs for every numerically ordered node. The second checks the
+recorded outcomes of the fresh production run (it is not a separate whole-device
+verifier). Both require every formerly proved node to remain proved, check
+unknown-order preservation, and save complete comparison results.
+Production analyze obtains its equations from the new
+native SSE/folder; the reference graphs are never a production dependency.
+
+Routing-order inference, standalone program export and real-case coupled replay
+remain required migration steps; arithmetic annotations do not replace them.

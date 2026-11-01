@@ -191,21 +191,83 @@ event scheduling. Real-device coupled replay is still a separate required step.
 MemoryWindow.model clocks retain HAL IDs; GuidedAnalysis.physical_nets maps them
 to the original physical IDs for the future replay adapter.
 
-Remaining: arithmetic fits and universal checks, routing-order inference,
-standalone native program export, independent real-case coupled replay and
-complete end-to-end checks on both inputs.
+DONE COMPONENT (2026-11-01): native arithmetic candidate generation, arbitrary-
+width BV evaluation, model serialization and universal acceptance gate.
+New APIs: evaluation.h/.cpp, arithmetic.h/.cpp, lifting.h/.cpp. analyze now runs
+arithmetic recovery after each folded profile, sharing a canonical expression
+cache. It saves lift_PROFILE/arithmetic.json and canonical proof-query hashes
+with bijective canonical-to-actual source-name bindings. No Python is invoked.
+
+Candidate generation ports InvFold's linearity screen, rational coefficient
+classes, exhaustive narrow probes, bisection, wrap-aware exhaustive/sampled
+refinement, joint fractional constant, narrow-source joint search and diagnostic
+quantization candidate. ArithmeticModel re-reads its serialized form before the
+proof. Only FIT_PROVED (UNSAT raw != model) is adopted. FIT_REFUTED, FIT_UNKNOWN,
+RAW_FIT_TIMEOUT, RAW_OPAQUE, RAW_QUANT_CANDIDATE and RAW_UNORDERED preserve raw
+equations. The quant bound is sampled evidence, never an executable guarantee.
+Native RNG uses std::mt19937_64, not Python's identical stream; proposal/status
+details can differ. The migration contract checks accepted semantics/coverage.
+
+One generic extension was needed for storage-coordinate invariance: a literal
+BV extract proposes its exact dyadic projection, followed by the same proof.
+Fresh HAL enumeration permuted unresolved groups 95/99 in the controller: two
+physical-bit projections moved from sign positions to interior positions, which
+the old probe heuristic missed. This rule uses AST semantics only, not saved
+reference fits, manual bitorder or protocol information. Unknown orders remain
+unknown. The initial fresh controller run lost 99 previously proved occurrences;
+that result is preserved in build/native_controller_lifted and its log. The
+corrected final run below restores every occurrence and proves additional slices.
+
+Validation on final production sources (all processes exited 0):
+- Five CTests PASS, log build/arithmetic_ctest_verified.log. The arithmetic test
+  checks 12288 assignments for native BV/Boolean evaluation against Z3, wide
+  arithmetic, exact/floor/round/unsigned models, coefficient refinement at
+  9/13/80 bits, model/proof-cache renaming, interior/sign projections, multiple
+  rounding diagnostics, rare guarded errors, UNKNOWN and fitting expiry.
+- Native candidate/proof regression on the old graph fixtures preserved every
+  previously accepted node: controller 3863, HMD 1688. This was followed by the
+  stronger actual CLI run from the new native ordered netlists and observations.
+- Fresh analyze -> SSE + RAM proofs + folding + arithmetic: both cases PASS.
+  The original 5551 proved occurrences are individually checked by node ID,
+  not just totals. Final controller FIT_PROVED: irregular 432, one 900,
+  pattern 2652, zero 836 (4820 total). HMD: irregular 416, one 868, zero 804
+  (2088 total); pattern remains NO_GRAPH. Total newly adopted count 6908.
+  All original unresolved-order outcomes remain unresolved.
+- Native arithmetic call totals: controller 124, HMD 116 (cache shared across
+  profiles). These are not a speed comparison with HAL/Python. Controller still
+  records fitting timeouts (16/32/96/32 occurrences across irregular/one/pattern/
+  zero); they retain raw equations and do not affect formerly proved coverage.
+- Final outputs: build/native_controller_lifted_verified and
+  build/native_hmd_lifted_verified. Logs: build/controller_native_lifted_verified.log,
+  build/hmd_native_lifted_verified.log, build/controller_arithmetic_integration_verified.log,
+  build/hmd_arithmetic_integration_verified.log. Comparison JSONs are in
+  build/{controller,hmd}_arithmetic_integration_verified. Generated artifacts
+  remain ignored under build/. No live processes/handles remain.
+- Reproduction and scope: plugins/algorithm_recovery/README.txt. The integration
+  checker validates coverage, widths, unknown-order retention and saved proof
+  identities; it is not a separate whole-device verifier. Actual native proof
+  obligations are discharged during analyze.
+
+Remaining: routing-order inference, standalone native program export,
+independent real-case coupled replay and complete end-to-end checks on both inputs.
 Do not report full migration/recovery while any of these remain.
 
-Next useful entry: native arithmetic lifting from
-algorithm_recovery/invfold/invfold.py (fit_floor_linear, exact/dyadic/floor/round
-coefficient classes and universal checks), then hal_native_routing.py. Preserve
-observed-control proof conditions and numeric-order provenance. Neither the
-test fixture loader nor the old Python pipeline may become a runtime dependency.
+Next useful entry: hal_native_routing.py plus invfold.py infer_bit_orders.
+Port the existing one-hot inference and establish orders only through already
+ordered, full-width signal sources after proving every write's proposed copy
+permutation. Relative-only candidates must not become numeric-order evidence.
+The real saved controller/HMD profiles had zero accepted routing orders, so
+synthetic positive and adversarial cases are needed as well as real regressions.
+Then implement native standalone program export and original-gate coupled replay,
+including RAM INIT/warmup/read state and independent held-out pad stimuli.
+Preserve observed-control proof conditions and numeric-order provenance. Neither
+the test fixture loader nor the old Python pipeline may become a runtime dependency.
 Preserve the original input
 contract (already recovered primitive JSON/netlist, not a new bitstream decoder).
 
-Goal-turn audit: RAM, folding, frontend/grouping and now trace/guided-SSE phases
-have source changes plus authoritative tests; full C++ migration stays active.
+Goal-turn audit: previous trace/guided-SSE turn was progress (commit 19b8ba00f6b).
+This arithmetic turn also changes authoritative code and passes real integration
+checks; full C++ migration stays active until the remaining stages are verified.
 
 Preserve reference limitations: unresolved word orders, observed-control
 conditioning, iCE40 mode-0/primary-clock restrictions, HMD pattern NO_GRAPH.
