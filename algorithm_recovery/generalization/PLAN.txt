@@ -156,3 +156,25 @@ Interpretation checkpoint
    training-only windows and full-trace replay. Repair that interface without
    expanding extraction into held-out data; retain the failed original receipt.
    Retry FIR after the unused-input fix, reusing its checked benchmark inputs.
+
+Post-run diagnosis: core contract versus implementation completeness
+   InvFold's periodic-equation contract permits data-dependent arithmetic/selects
+   inside an expression; it requires periodic effective writes and expressions,
+   not periodic data values (NetNotary sections/inverse.tex:13-28). The CORDIC
+   exclusion therefore does not establish an inherent inability to represent
+   its branches. Current guided.cpp specializes primitive-control values, then
+   folding.cpp requires repeating specialized expressions. Investigate retaining
+   symbolic data guards with checked equations as a generic frontend correction.
+   Whether this yields a useful complete graph still needs a separate test.
+
+   The native C++ arithmetic model currently fits dyadic affine/floor functions;
+   it is not a general multiplier/variable-shift/conditional-operation recognizer.
+   The old invfold/identify.py contains filter sections/transfer functions and
+   FIR/IIR classification, but the new native analyze CLI does not invoke or
+   implement that section-recognition layer. Porting/integrating it is unfinished
+   generic engineering, and cannot by itself repair missing word order or make
+   CORDIC a linear filter. Do not describe the C++ migration as completion of
+   every high-level capability of the earlier exploratory recognizer.
+   Keep three outcomes separate: anonymous word recovery, exact event graph,
+   readable/identified algorithm. No per-design names, order hints or hand-coded
+   FIR/CORDIC recurrences are authorized as evidence of automatic recovery.
