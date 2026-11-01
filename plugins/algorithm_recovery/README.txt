@@ -3,7 +3,7 @@ Native algorithm recovery (migration in progress)
 
 This plugin is being ported from algorithm_recovery/invfold and the separately
 preserved firmware adapter. Its commands cover import, native grouping/ordering,
-original-gate trace generation, guided SSE, folding, checked arithmetic lifting
+original-gate trace generation, guided SSE, folding, checked routing orders and arithmetic lifting
 and RAM extraction. The C++ API
 also implements coupled frame execution. The full
 netlist-to-algorithm pipeline is not yet migrated. See
@@ -20,7 +20,8 @@ Build from the HAL repository root:
     check-recovery-ram-extraction check-recovery-folding \
     check-recovery-folding-fixture check-recovery-frontend \
     check-recovery-frontend-fixture check-recovery-observations \
-    check-recovery-arithmetic check-recovery-arithmetic-fixture -j 4
+    check-recovery-arithmetic check-recovery-arithmetic-fixture \
+    check-recovery-routing check-recovery-routing-fixture -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -212,12 +213,57 @@ Neither production trace/analyze nor the production folder loads those artifacts
 MemoryWindow.model clock IDs remain HAL net IDs; GuidedAnalysis.physical_nets
 maps them to physical trace IDs for a future real-case frame replay adapter.
 
+Native routing-order recovery (routing.h):
+
+  recover_routing(graph, HAL_window, empty_directory, options) -> RoutingOrders
+
+analyze runs this stage after folding and before arithmetic lifting. It ports
+InvFold's zero/one-hot probes and requires the same proposed permutation across
+all writes of a word. These probes only propose an order. Acceptance requires
+every write to have one full-width signal source with an established numeric
+order, then a universal proof that the permuted result equals that ordered
+source. Only UNSAT is accepted. Accepted orders propagate to dependent words
+until a fixed point; SAT/UNKNOWN retain the unresolved order. The default proof
+timeout is 30 seconds. Relative-only/partial-width proposals remain diagnostic.
+Words absent from the graph explicitly report NO_WRITES_IN_GRAPH; unavailable
+graphs report NO_GRAPH. No user-provided semantic anchors are added.
+
+Each permutation maps raw bit j to canonical bit permutation[j]. Routing and
+arithmetic never mutate the executable graph's physical coordinates. Arithmetic
+first substitutes inverse permutations on affected source operands, then
+permutes the output; both transformations and raw/canonical hashes are recorded.
+This also applies when only a source's order changed and the result's order was
+already known. Routing queries/results/hashes are saved in routing_PROFILE;
+only the accepted permutations enter lift_PROFILE/arithmetic.json.
+
+The routing CTest checks a two-level chain requiring repeated propagation,
+every-write obligations and saved-query replay, actual downstream arithmetic,
+unanchored cycles, differing phase maps, missing/duplicated bits, partial-width
+and non-signal sources, 80-bit proposals, a rare nonlinear one-hot impostor,
+SAT/UNKNOWN, invalid metadata and unchanged raw execution coordinates.
+
+Routing migration regression:
+
+  build/bin/hal_plugins/check-recovery-routing-fixture \
+    PREVIOUS_REFERENCE_CASE_DIRECTORY build/case_routing_regression
+  build/bin/hal_plugins/check-recovery-routing-fixture \
+    PREVIOUS_REFERENCE_CASE_DIRECTORY build/case_routing_integration \
+    build/case_analysis
+
+The first runs native inference on the preserved graph and compares exact
+relative proposals and all active word decisions. The second checks the actual
+fresh analyze output: accepted orders, decisions, proposal inventory and call
+counts. Relative permutation coordinates may differ with unresolved HAL storage
+enumeration, so the second form does not equate those arbitrary permutations.
+The reference controller/HMD graphs accepted zero additional routing orders;
+synthetic positive tests therefore remain necessary for validating this stage.
+
 Native arithmetic lifting (arithmetic.h, evaluation.h, lifting.h):
 
   recover_arithmetic(raw_BV, numeric_order_known, options) -> ArithmeticResult
   verify_arithmetic(raw_BV, ArithmeticModel, options) -> ArithmeticResult
   ArithmeticRecovery::recover(...) -> same result, with reusable canonical proofs
-  lift_arithmetic(graph, recovery, empty_directory) -> report and proof files
+  lift_arithmetic(graph, recovery, empty_directory, routing_orders) -> report and proofs
 
 The native candidate generator ports InvFold's coefficient-class method: small
 linearity screen, exhaustive narrow probes, rational coefficient intervals,
@@ -240,7 +286,7 @@ Only UNSAT of raw != reconstructed model produces FIT_PROVED. SAT is FIT_REFUTED
 UNKNOWN is FIT_UNKNOWN, and fitting expiry is RAW_FIT_TIMEOUT. A quant candidate
 is recorded separately as RAW_QUANT_CANDIDATE: its sampled error bound is not
 adopted as an executable equation or a universal guarantee. RAW_UNORDERED remains
-unchanged, and all original folded equations stay available.
+unless routing has proved its order, and all original folded equations stay available.
 
 ArithmeticRecovery caches by exact expression shape under a bijective variable
 renaming, source/output widths and unsigned interpretations. Each reused proof
@@ -279,5 +325,5 @@ unknown-order preservation, and save complete comparison results.
 Production analyze obtains its equations from the new
 native SSE/folder; the reference graphs are never a production dependency.
 
-Routing-order inference, standalone program export and real-case coupled replay
-remain required migration steps; arithmetic annotations do not replace them.
+Standalone program export and real-case coupled replay remain required migration
+steps; routing and arithmetic annotations do not replace them.

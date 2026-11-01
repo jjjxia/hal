@@ -60,7 +60,11 @@ int main(int argc, char** argv)
                 profiles[name] = {{"available", graph.available}, {"period", graph.period}, {"origin", graph.origin},
                     {"nodes", graph.nodes.size()}, {"ram_nodes", graph.ram_nodes.size()}, {"histories", graph.histories.size()}, {"excluded", graph.excluded}};
                 std::cout << "FOLDED " << name << ' ' << profiles[name].dump() << std::endl;
-                auto lifted = hal::algorithm_recovery::lift_arithmetic(graph, arithmetic, std::filesystem::path(argv[6]) / ("lift_" + name));
+                auto routing = hal::algorithm_recovery::recover_routing(graph, input, std::filesystem::path(argv[6]) / ("routing_" + name));
+                if (routing.is_error()) throw std::runtime_error(routing.get_error().get());
+                profiles[name]["routing_groups"] = routing.get().accepted.size();
+                std::cout << "ROUTING " << name << ' ' << routing.get().accepted.size() << " accepted" << std::endl;
+                auto lifted = hal::algorithm_recovery::lift_arithmetic(graph, arithmetic, std::filesystem::path(argv[6]) / ("lift_" + name), routing.get());
                 if (lifted.is_error()) throw std::runtime_error(lifted.get_error().get());
                 profiles[name]["arithmetic_counts"] = lifted.get().at("counts");
                 profiles[name]["fit_calls"] = lifted.get().at("fit_calls");

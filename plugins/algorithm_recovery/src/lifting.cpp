@@ -4,7 +4,8 @@
 
 namespace hal::algorithm_recovery
 {
-    Result<nlohmann::json> lift_arithmetic(const FoldGraph& graph, ArithmeticRecovery& recovery, const std::filesystem::path& output)
+    Result<nlohmann::json> lift_arithmetic(const FoldGraph& graph, ArithmeticRecovery& recovery, const std::filesystem::path& output,
+                                          const RoutingOrders& orders)
     {
         try
         {
@@ -16,11 +17,18 @@ namespace hal::algorithm_recovery
             Json rows = Json::array(); std::map<std::string, size_t> counts;
             for (const auto& node : graph.nodes)
             {
-                const auto result = recovery.recover(node.equation, node.numeric_order_known);
+                const bool known = node.numeric_order_known || orders.accepted.count(node.name);
+                const auto canonical = orders.accepted.empty() ? node.equation : canonical_equation(node, orders);
+                const auto result = recovery.recover(canonical, known);
                 Json row = {{"id", {node.name, node.phase}}, {"width", node.equation.get_sort().bv_size()}, {"status", result.status},
-                    {"raw_sha256", artifacts::sha256(node.equation.to_string())}, {"numeric_order_known", node.numeric_order_known},
+                    {"raw_sha256", artifacts::sha256(node.equation.to_string())}, {"numeric_order_known", known},
                     {"cache_reused", result.reused}, {"evaluations", result.evaluations}};
                 if (!result.reason.empty()) row["reason"] = result.reason;
+                row["canonical_sha256"] = artifacts::sha256(canonical.to_string());
+                if (orders.accepted.count(node.name)) row["output_permutation"] = orders.accepted.at(node.name);
+                for (const auto& [symbol, source] : node.sources)
+                    if (source.kind == SourceKind::signal && orders.accepted.count(source.name))
+                        row["input_permutations"][symbol] = {{"word", source.name}, {"permutation", orders.accepted.at(source.name)}};
                 if (result.proposal) row[result.adopted() ? "fit" : "unadopted_candidate"] = result.proposal->to_json();
                 if (!result.proof_query.empty())
                 {
@@ -33,7 +41,8 @@ namespace hal::algorithm_recovery
             }
             Json report = {{"status", graph.available ? "ARITHMETIC_CANDIDATES_CHECKED" : "NO_GRAPH"}, {"counts", counts}, {"nodes", rows},
                 {"fit_calls", recovery.calls() - before}, {"cache_hits", recovery.cache_hits() - hits},
-                {"scope", "Per-node universal equivalence within the existing observed-control graph; only FIT_PROVED is adopted. Raw equations retained; no new numeric orders or whole-device claim."}};
+                {"routing_orders", orders.accepted},
+                {"scope", "Per-node universal equivalence within the existing observed-control graph; only FIT_PROVED is adopted. Canonical coordinates use only established HAL orders and proved routing permutations. Raw equations retained; no whole-device claim."}};
             artifacts::write(out / "arithmetic.json", report.dump(2) + '\n'); return OK(std::move(report));
         }
         catch (const std::exception& error) { return ERR(error.what()); }

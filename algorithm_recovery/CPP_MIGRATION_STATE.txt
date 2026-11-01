@@ -280,3 +280,69 @@ objective/session and is not modified. No automatic push.
 User reaffirmed 2026-11-01: selectively add and commit each completed, validated
 development increment. Do not accumulate unrelated uncommitted stages. Keep
 generated netlists/proof queries/logs/builds ignored and never automatically push.
+
+DONE COMPONENT: NATIVE ROUTING (2026-11-01; supersedes the routing TODO above)
+Implementation: routing.h/routing.cpp, integrated in analyze before lifting.
+Actual InvFold zero/one-hot permutation proposals are evaluated in C++, followed
+by universal full-width copy checks at every write. Only established HAL numeric
+orders and previously proved routing orders serve as anchors. Propagation runs
+to a fixed point; partial/relative candidates, SAT and UNKNOWN stay unresolved.
+No old artifact, Python runtime or manual semantic bit list enters production.
+
+Raw bit j maps to canonical permutation[j]. Accepted permutations remain in a
+separate RoutingOrders object: arithmetic substitutes inverse source permutations
+and applies the output permutation, retaining raw executable graph coordinates.
+This is tested for changed inputs to an already ordered output as well as a
+two-level recovered chain. Saved routing queries have SHA256 identities and
+per-write results; arithmetic records raw/canonical hashes and coordinate maps.
+Inactive unknown words now explicitly report NO_WRITES_IN_GRAPH (the old routing
+report listed only active words). No numeric order is inferred for them.
+
+Validation (all processes exited 0):
+- Six CTests PASS (build/routing_ctest.log). New positive/adversarial routing
+  regression covers repeated propagation, all-write obligations and saved-query
+  replay, real arithmetic integration, unanchored cycles, partial/duplicated/
+  missing bits, phase-inconsistent maps, non-signal/multiple sources, 80-bit
+  proposals, a rare nonlinear impostor, UNKNOWN and metadata validation.
+- Native inference on old graph fixtures: all 445 active unknown-order decisions
+  and exact relative proposals match InvFold (controller 245, HMD 200). All seven
+  available graphs retain zero accepted extra orders; HMD pattern stays absent.
+  Logs: build/{controller,hmd}_routing_regression.log. Source/reference input
+  identities are unchanged from the arithmetic stage above.
+- Fresh HMD analyze -> SSE/RAM/folding/routing/arithmetic PASS; all 1688 original
+  proved occurrences preserved, all 2088 previously native-proved occurrences
+  retained individually. Its routing decisions match all 200 old active decisions.
+  Outputs/logs: build/native_hmd_routing, build/hmd_native_routing.log,
+  build/hmd_routing_integration, build/hmd_routing_arithmetic_integration.
+- Fresh controller analyze and routing/arithmetic integration PASS: all 245
+  routing decisions match; all 3863 original and all 4820 previous native-proved
+  occurrences are individually retained. Total preserved native arithmetic
+  coverage across both cases: 6908. Controller counts remain 432/900/2652/836
+  (irregular/one/pattern/zero), with the same explicit raw fitting timeouts.
+  Outputs/logs: build/native_controller_routing, build/controller_native_routing.log,
+  build/controller_routing_integration and build/controller_routing_arithmetic_integration.
+  The fixture checks query hashes and each originally accepted node; a separate
+  jq set difference of FIT_PROVED node IDs against both previous native outputs
+  (build/native_{controller,hmd}_lifted_verified) is empty in every profile.
+- Production routing/lifting has no reference-graph dependency. Generated
+  directories, query files and logs are ignored by existing build/ rules; no
+  ignore change is needed. No validation processes or session handles remain.
+  Reproduction commands are in plugins/algorithm_recovery/README.txt.
+
+Remaining after this stage: standalone native program export, real-case coupled
+original-gate replay and final complete end-to-end checks on both inputs. The goal
+remains active; routing is an engineering migration, not a new research claim.
+Next sources: hal_native_fold.py emitted programs/proofs, hal_native_ram_runtime.py
+run_frame and hal_native_verify.py replay_memories/applicability/withheld checks.
+Preserve INIT warmup, independently held read registers, before/after read checks,
+masked write state, final original-simulator RAM dump, unknown-observation counts,
+hold/reset/control applicability, training vs withheld frames and explicit cuts.
+The generated saved executable itself must be tested; merely reusing a raw graph
+executor does not validate program export. Retain arithmetic and proof coverage.
+GuidedAnalysis already carries physical net correspondence and all FF updates;
+the current GuidedWord does not retain the control-cone list, so preserve actual
+HAL specialization conditions when adding applicability checks for held-out frames.
+
+Goal-turn audit: this turn is progress with a validated native routing component
+and real integration evidence. Complete migration remains active. No research
+loop or shared dynamicRE STATE changes; no automatic push.

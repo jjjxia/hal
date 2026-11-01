@@ -20,6 +20,7 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
         SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp src/frontend.cpp src/grouping.cpp src/observations.cpp src/guided.cpp src/evaluation.cpp src/arithmetic.cpp src/lifting.cpp
         LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json dataflow module_identification bitorder_propagation PRIVATE ${RECOVERY_SODIUM_LIBRARY})
     target_include_directories(algorithm_recovery PRIVATE ${RECOVERY_SODIUM_INCLUDE})
+    target_sources(algorithm_recovery PRIVATE src/routing.cpp include/algorithm_recovery/routing.h)
 
     add_executable(hal-recover cli/main.cpp)
     target_link_libraries(hal-recover PRIVATE algorithm_recovery)
