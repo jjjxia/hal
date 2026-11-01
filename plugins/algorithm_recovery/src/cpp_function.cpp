@@ -156,6 +156,7 @@ namespace hal::algorithm_recovery
 
     z3::expr decode_cpp_function(const std::string& text, const std::vector<z3::expr>& inputs, z3::context& ctx)
     {
+        if (text.find("    Integer sum(") != std::string::npos) return decode_arithmetic_cpp(text, inputs, ctx);
         // Parse the saved source, including its return index. No emitted line is
         // ignored, and the decoder never uses the compiler's private Step data.
         const std::regex header("Integer [A-Za-z_][A-Za-z_0-9]*\\(const std::vector<Integer>& inputs\\)");

@@ -29,7 +29,7 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
     file(READ ${CMAKE_SOURCE_DIR}/deps/nlohmann_json/nlohmann/json.hpp RECOVERY_JSON)
     configure_file(src/program_resources.h.in ${CMAKE_CURRENT_BINARY_DIR}/program_resources.h @ONLY)
     target_include_directories(algorithm_recovery PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-    target_sources(algorithm_recovery PRIVATE src/cpp_function.cpp src/program.cpp include/algorithm_recovery/program.h)
+    target_sources(algorithm_recovery PRIVATE src/cpp_function.cpp src/cpp_arithmetic.cpp src/program.cpp src/resynthesis.cpp include/algorithm_recovery/program.h)
     target_sources(algorithm_recovery PRIVATE src/replay.cpp src/process.cpp src/process.h include/algorithm_recovery/replay.h)
 
     add_executable(hal-recover cli/main.cpp)

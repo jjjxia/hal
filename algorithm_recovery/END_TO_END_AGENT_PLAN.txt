@@ -71,7 +71,9 @@ Resource and execution discipline
   artifacts or change a proof contract merely to obtain a passing result.
 
 Current state
-  Plan created; milestone 1 in progress. Existing seven executable artifacts
-  still use raw bit-operation functions, while arithmetic is only an annotation.
+  Milestone 1 code and regression validation complete; native synthesize command
+  available, and the first real controller one artifact has 956 executable
+  arithmetic occurrences with 217 saved-source proofs. Further firmware compile/
+  replay and delivery remain. Milestone 2 implementation in progress.
   All-type serial retry is independently in its controller stage; its larger
   resource budget alone does not implement these synthesis milestones.

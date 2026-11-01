@@ -18,6 +18,7 @@ namespace hal::algorithm_recovery
             std::vector<unsigned> inputs;
             unsigned output;
             size_t offset = 0;
+            bool arithmetic = false;
         };
         struct Compiled
         {
@@ -30,6 +31,12 @@ namespace hal::algorithm_recovery
     }
 
     Result<nlohmann::json> export_program(const FoldGraph& graph, const std::filesystem::path& output, const ProgramOptions& options)
+    {
+        return export_program(graph, output, options, nullptr);
+    }
+
+    Result<nlohmann::json> export_program(const FoldGraph& graph, const std::filesystem::path& output,
+                                          const ProgramOptions& options, const Json& arithmetic)
     {
         try
         {
@@ -46,13 +53,27 @@ namespace hal::algorithm_recovery
             std::filesystem::create_directories(out / "proofs");
             std::vector<Kernel> kernels;
             std::map<std::string, unsigned> kernel_ids;
-            std::map<unsigned, Compiled> compiled;
+            std::map<std::string, Compiled> compiled;
             std::map<std::string, Obligation> obligations;
+            std::map<std::pair<std::string, unsigned>, const Json*> annotations;
+            std::set<std::pair<std::string, std::string>> checked_fit_proofs;
+            size_t arithmetic_nodes = 0;
+            if (!arithmetic.is_null())
+            {
+                require(arithmetic.at("status") == "ARITHMETIC_CANDIDATES_CHECKED", "unexpected arithmetic stage");
+                for (const auto& row : arithmetic.at("nodes"))
+                    require(annotations.emplace(std::make_pair(row.at("id")[0].get<std::string>(), row.at("id")[1].get<unsigned>()), &row).second,
+                            "duplicate arithmetic annotation");
+                require(annotations.size() == graph.nodes.size(), "arithmetic/graph inventory mismatch");
+            }
             Json model = {{"period", graph.period}, {"origin", graph.origin}, {"nodes", Json::array()}, {"ram_nodes", Json::array()},
                 {"kernels", Json::array()}, {"memories", Json::object()}, {"histories", Json::array()}, {"excluded", graph.excluded},
-                {"coordinates", "raw physical storage; routing/arithmetic are separate proved annotations"}};
-            const auto compile = [&](const z3::expr& equation) -> const Compiled& {
-                auto found = compiled.find(equation.id()); if (found != compiled.end()) return found->second;
+                {"coordinates", "raw physical storage; adopted arithmetic executes with explicit signedness and proved coordinate conversions"}};
+            const auto compile = [&](const z3::expr& equation, const Json* lifted) -> const Compiled& {
+                const std::string cache_key = std::to_string(equation.id()) + (lifted ?
+                    Json{{"fit", lifted->at("fit")}, {"input_permutations", lifted->value("input_permutations", Json())},
+                         {"output_permutation", lifted->value("output_permutation", Json())}}.dump() : "raw");
+                auto found = compiled.find(cache_key); if (found != compiled.end()) return found->second;
                 BitVectorProgram program(equation); std::vector<unsigned> widths;
                 z3::expr_vector from(equation.ctx()), to(equation.ctx());
                 for (const auto& [symbol, bits] : program.inputs())
@@ -63,20 +84,21 @@ namespace hal::algorithm_recovery
                     widths.push_back(bits);
                 }
                 auto canonical = equation; canonical = canonical.substitute(from, to);
-                const auto canonical_body = program.cpp_function("kernel");
+                const auto canonical_body = lifted ? arithmetic_cpp_function("kernel", *lifted, program.inputs()) : program.cpp_function("kernel");
                 const auto kernel_key = artifacts::sha256(canonical_body + Json(widths).dump());
                 unsigned id;
                 if (kernel_ids.count(kernel_key)) id = kernel_ids.at(kernel_key);
                 else
                 {
                     id = kernels.size(); kernel_ids.emplace(kernel_key, id);
-                    kernels.push_back({program.cpp_function("kernel_" + std::to_string(id)), widths, width(equation)});
+                    const auto name = "kernel_" + std::to_string(id);
+                    kernels.push_back({lifted ? arithmetic_cpp_function(name, *lifted, program.inputs()) : program.cpp_function(name), widths, width(equation), 0, bool(lifted)});
                 }
                 // A broken emitter must not share a proof merely because two
                 // different original expressions produced the same C++ body.
                 const auto proof = artifacts::sha256(kernel_key + canonical.to_string());
                 obligations.emplace(proof, Obligation{id, canonical});
-                return compiled.emplace(equation.id(), Compiled{id, program.inputs(), canonical, proof}).first->second;
+                return compiled.emplace(cache_key, Compiled{id, program.inputs(), canonical, proof}).first->second;
             };
             std::map<std::pair<std::string, unsigned>, std::pair<unsigned, size_t>> writes;
             for (size_t i = 0; i < graph.nodes.size(); ++i)
@@ -86,8 +108,8 @@ namespace hal::algorithm_recovery
                 require(writes.emplace(std::make_pair(node.name, node.phase), std::make_pair(width(node.equation), i)).second, "duplicate exported write");
             }
             std::map<std::pair<std::string, unsigned>, unsigned> boundary_widths;
-            const auto row = [&](const auto& node, size_t position, bool ram) {
-                const auto& function = compile(node.equation); Json sources = Json::array();
+            const auto row = [&](const auto& node, size_t position, bool ram, const Json* lifted) {
+                const auto& function = compile(node.equation, lifted); Json sources = Json::array();
                 require(node.sources.size() == function.inputs.size(), "export source inventory mismatch");
                 for (const auto& [symbol, bits] : function.inputs)
                 {
@@ -114,11 +136,28 @@ namespace hal::algorithm_recovery
                     sources.push_back({{"symbol", symbol}, {"kind", kind}, {"name", source.name}, {"phase", source.phase}, {"delay", source.delay}, {"width", bits}});
                 }
                 return Json{{"phase", node.phase}, {"kernel", function.kernel}, {"width", width(node.equation)}, {"sources", sources},
+                    {"implementation", lifted ? "PROVED_WORD_ARITHMETIC" : "EXACT_BITVECTOR_FALLBACK"},
                     {"raw_sha256", artifacts::sha256(node.equation.to_string())}, {"proof", function.proof}};
             };
             for (size_t i = 0; i < graph.nodes.size(); ++i)
             {
-                const auto& node = graph.nodes[i]; auto entry = row(node, i, false);
+                const auto& node = graph.nodes[i]; const Json* lifted = nullptr;
+                if (!arithmetic.is_null())
+                {
+                    const auto& candidate = *annotations.at({node.name, node.phase});
+                    require(candidate.at("raw_sha256") == artifacts::sha256(node.equation.to_string()) && candidate.at("width") == width(node.equation),
+                            "arithmetic annotation does not bind this graph node");
+                    if (candidate.at("status") == "FIT_PROVED")
+                    {
+                        require(candidate.at("numeric_order_known") == true, "unordered arithmetic annotation");
+                        const auto& proof = candidate.at("proof");
+                        const std::pair<std::string, std::string> identity{proof.at("file"), proof.at("sha256")};
+                        if (checked_fit_proofs.insert(identity).second)
+                            require(artifacts::file_hash(identity.first) == identity.second, "arithmetic proof identity changed");
+                        lifted = &candidate; ++arithmetic_nodes;
+                    }
+                }
+                auto entry = row(node, i, false, lifted);
                 entry["name"] = node.name; entry["numeric_order_known"] = node.numeric_order_known; model["nodes"].push_back(std::move(entry));
             }
             const std::map<std::string, unsigned> ports{{"RADDR", 11}, {"WADDR", 11}, {"WDATA", 16}, {"MASK", 16}, {"RE", 1}, {"RCLKE", 1}, {"WE", 1}, {"WCLKE", 1}};
@@ -127,7 +166,7 @@ namespace hal::algorithm_recovery
             {
                 require(node.phase < graph.period && node.equation.is_bv() && width(node.equation) == ports.at(node.port), "invalid exported RAM port/phase");
                 require(graph.memories.count(node.memory) && ram_entries.emplace(node.memory, node.port, node.phase).second, "unknown/duplicate RAM binding");
-                auto entry = row(node, 0, true); entry["name"] = node.memory; entry["port"] = node.port; model["ram_nodes"].push_back(std::move(entry));
+                auto entry = row(node, 0, true, nullptr); entry["name"] = node.memory; entry["port"] = node.port; model["ram_nodes"].push_back(std::move(entry));
             }
             for (const auto& [name, memory] : graph.memories)
             {
@@ -151,11 +190,12 @@ namespace hal::algorithm_recovery
             }
             model["inputs"] = Json::array();
             for (const auto& [key, bits] : boundary_widths) model["inputs"].push_back({key.first, key.second, bits});
-            std::string cpp = "// Generated raw-coordinate graph. See program.json for proof scope.\n#include \"recovery_runtime.h\"\nusing namespace hal_recovered;\n\n";
+            std::string cpp = "// Synthesized executable word arithmetic with exact bitvector fallbacks.\n// State uses physical coordinates; see program.json for proof scope.\n#include \"recovery_runtime.h\"\nusing namespace hal_recovered;\n\n";
             for (unsigned i = 0; i < kernels.size(); ++i)
             {
                 auto& kernel = kernels[i]; kernel.offset = cpp.size(); cpp += kernel.body;
-                model["kernels"].push_back({{"function", "kernel_" + std::to_string(i)}, {"inputs", kernel.inputs}, {"width", kernel.output}});
+                model["kernels"].push_back({{"function", "kernel_" + std::to_string(i)}, {"inputs", kernel.inputs}, {"width", kernel.output},
+                    {"implementation", kernel.arithmetic ? "PROVED_WORD_ARITHMETIC" : "EXACT_BITVECTOR_FALLBACK"}});
             }
             const auto model_text = model.dump(); const auto delimiter = "REC" + artifacts::sha256(model_text).substr(0, 12);
             require(model_text.find(")" + delimiter + '"') == std::string::npos, "raw-string delimiter collision");
@@ -198,6 +238,7 @@ namespace hal::algorithm_recovery
             Json files = Json::object();
             for (const auto* name : {"recovered.cpp", "recovery_bits.h", "recovery_runtime.h", "json.hpp"}) files[name] = artifacts::file_hash(out / name);
             Json report = {{"status", "SAVED_CPP_EXPRESSIONS_PROVED"}, {"period", graph.period}, {"origin", graph.origin}, {"nodes", graph.nodes.size()},
+                {"arithmetic_nodes", arithmetic_nodes},
                 {"ram_nodes", graph.ram_nodes.size()}, {"kernels", kernel_rows}, {"proofs", proofs}, {"files", files},
                 {"model_offset", model_offset}, {"model_length", model_text.size()}, {"model_sha256", artifacts::sha256(model_text)},
                 {"scope", "Universal equality of every saved C++ expression under the fixed runtime operation semantics, with exact source bindings. Runtime helpers, graph execution, C++ compiler and Boost remain trusted/tested code; no whole-device or unconditional schedule proof."}};

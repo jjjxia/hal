@@ -33,6 +33,35 @@ namespace hal_recovered
         return q;
     }
 
+    // permutation[raw_bit] = canonical_bit. Both helpers retain raw storage at
+    // the external program boundary; a word's display order never changes it.
+    inline Integer permute_bits(const Integer& raw, std::initializer_list<unsigned> permutation)
+    {
+        const unsigned width = permutation.size(); require(width > 0, "empty word permutation");
+        std::set<unsigned> seen; Integer result = 0; unsigned bit = 0;
+        const Integer value = wrap(raw, width);
+        for (const unsigned target : permutation)
+        {
+            require(target < width && seen.insert(target).second, "invalid word permutation");
+            if (boost::multiprecision::bit_test(value, bit)) boost::multiprecision::bit_set(result, target);
+            ++bit;
+        }
+        return result;
+    }
+    inline Integer unpermute_bits(const Integer& canonical, std::initializer_list<unsigned> permutation)
+    {
+        const unsigned width = permutation.size(); require(width > 0, "empty inverse word permutation");
+        std::set<unsigned> seen; Integer result = 0; unsigned bit = 0;
+        const Integer value = wrap(canonical, width);
+        for (const unsigned source : permutation)
+        {
+            require(source < width && seen.insert(source).second, "invalid inverse word permutation");
+            if (boost::multiprecision::bit_test(value, source)) boost::multiprecision::bit_set(result, bit);
+            ++bit;
+        }
+        return result;
+    }
+
     enum class Op { BNUM, UNINTERPRETED, EXTRACT, REPEAT, ROTATE_LEFT, ROTATE_RIGHT, TRUE, FALSE, NOT, AND, OR, XOR, IMPLIES, EQ, DISTINCT, ITE, BNOT, BAND, BOR, BXOR, BNAND, BNOR, BXNOR, BCOMP, BADD, BSUB, BMUL, BNEG, BSHL, BLSHR, BASHR, CONCAT, ZERO_EXT, SIGN_EXT, EXT_ROTATE_LEFT, EXT_ROTATE_RIGHT, ULT, ULEQ, UGT, UGEQ, SLT, SLEQ, SGT, SGEQ, BUDIV, BUREM, BSDIV, BSREM, BSMOD, BUDIV_I, BUREM_I, BSDIV_I, BSREM_I, BSMOD_I };
     struct Value { Integer bits; unsigned width; };
     inline void append(std::vector<Value>& values, const std::vector<Integer>& inputs, Op op,

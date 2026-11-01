@@ -933,3 +933,42 @@ bindings confirm 16-bit RAM sources, zero frame delay, and runtime evaluation
 before current-event RAM updates. No extra coordinate permutations are present
 in these examples. This is presentation of existing evidence, not semantic
 input, a new recovery pass, or proof of application-level functionality.
+
+Executable word synthesis, milestone 1 (2026-11-01)
+-------------------------------------------------
+New user goal is end-to-end, as automatic/complete/readable as practical; see
+END_TO_END_AGENT_PLAN.txt. No native research goal or background research loop.
+The native exporter now consumes FIT_PROVED arithmetic instead of only storing
+it as an annotation. Generated C++ executes mathematical integer multiply/add,
+signed/unsigned interpretation, dyadic floor, explicit wrapping, and input/output
+routing permutations. Other nodes retain exact bitvector code. Decode the SAVED
+new function text and universally prove it against the raw graph before adoption;
+a copied fit-proof receipt cannot authorize an incorrect emitted expression.
+
+The actual analyze command passes checked lifting into the exporter. Added:
+  hal-recover synthesize PROVED_PROGRAM_DIR ARITHMETIC_JSON EMPTY_OUTPUT_DIR
+This checks prior artifacts, decodes saved source, joins annotations by physical
+node/phase/width/raw identity, and records ancestry when the decoded AST differs
+syntactically. It avoids re-running MI/SSE solely to adopt existing word models.
+Compilation/replay remains a separate claim from this resynthesis proof.
+
+Validation: all 11 CTests pass, 42.50s, build/word_synthesis_full_ctest.log.
+New regression compiles both direct and re-synthesized output and checks 8960
+cases each against original Z3 expressions: negative floor/round, unsigned
+interpretation, wrap, 80-bit words, nontrivial input/output permutations and exact
+fallback. Mutated constants, injected C++ statements, stale raw hashes and wrong
+models carrying copied proof receipts are rejected/refuted. Old memory/history
+and original-gate replay regressions also pass. An initial ctest invocation at
+the build root found no tests; only the plugin-directory results above count.
+
+First real artifact: build/synthesized_v1/controller_one, derived from the
+validated arithmetic3 one profile: 2941 FF nodes / 5376 RAM nodes, 956 actual
+arithmetic-node occurrences, 217 emitted functions and 217 saved-source proofs.
+No new original-gate replay result is claimed at this checkpoint.
+
+Before linking, the old algorithm_recovery.so and hal-recover inodes were retained
+in build/running_libraries/pre_word_synthesis and their normal paths atomically
+replaced with separate copies. The all-type controller MI continues on its old
+mapped code; later invocations use the new validated exporter. MI implementation,
+search limits and the case-serial queue are unchanged. Build products remain
+ignored; single-worker builds only.

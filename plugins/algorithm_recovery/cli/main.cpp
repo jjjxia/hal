@@ -68,10 +68,11 @@ namespace
 
 int main(int argc, char** argv)
 {
-    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}};
+    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}};
     if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
         std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
+                     "       hal-recover synthesize proved_program_directory arithmetic.json empty_output_directory\n"
                      "       hal-recover import recovered.json library.hgl empty_output_directory\n"
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
@@ -86,6 +87,13 @@ int main(int argc, char** argv)
             {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles", "--compare-window"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
+        if (std::string(argv[1]) == "synthesize")
+        {
+            z3::context ctx;
+            auto result = hal::algorithm_recovery::resynthesize_program(argv[2], argv[3], argv[4], ctx);
+            if (result.is_error()) throw std::runtime_error(result.get_error().get());
+            std::cout << result.get().dump(2) << '\n'; return 0;
+        }
         if (std::string(argv[1]) == "trace")
         {
             z3::context ctx;
@@ -155,7 +163,7 @@ int main(int argc, char** argv)
                 profiles[name]["arithmetic_counts"] = lifted.get().at("counts");
                 profiles[name]["fit_calls"] = lifted.get().at("fit_calls");
                 std::cout << "LIFTED " << name << ' ' << lifted.get().at("counts").dump() << std::endl;
-                auto program = hal::algorithm_recovery::export_program(graph, std::filesystem::path(argv[6]) / ("program_" + name));
+                auto program = hal::algorithm_recovery::export_program(graph, std::filesystem::path(argv[6]) / ("program_" + name), {}, lifted.get());
                 if (program.is_error()) throw std::runtime_error(program.get_error().get());
                 profiles[name]["program_status"] = program.get().at("status");
                 auto replay = hal::algorithm_recovery::replay_program(name, graph, analyzed.get(), trace, warmed.get(),

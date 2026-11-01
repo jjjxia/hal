@@ -50,6 +50,12 @@ add_test(NAME algorithm-recovery-folding COMMAND check-recovery-folding)
 add_executable(check-recovery-arithmetic arithmetic.cpp)
 target_link_libraries(check-recovery-arithmetic PRIVATE algorithm_recovery)
 add_test(NAME algorithm-recovery-arithmetic COMMAND check-recovery-arithmetic)
+add_executable(check-recovery-arithmetic-program arithmetic_program.cpp)
+target_link_libraries(check-recovery-arithmetic-program PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
+target_include_directories(check-recovery-arithmetic-program PRIVATE ${RECOVERY_SODIUM_INCLUDE})
+add_test(NAME algorithm-recovery-arithmetic-program COMMAND ${CMAKE_COMMAND}
+    -DGENERATOR=$<TARGET_FILE:check-recovery-arithmetic-program> -DCXX=${CMAKE_CXX_COMPILER}
+    -DWORK=${CMAKE_CURRENT_BINARY_DIR}/arithmetic_program -P ${CMAKE_CURRENT_SOURCE_DIR}/arithmetic_program.cmake)
 add_executable(check-recovery-routing routing.cpp)
 target_link_libraries(check-recovery-routing PRIVATE algorithm_recovery)
 add_test(NAME algorithm-recovery-routing COMMAND check-recovery-routing ${CMAKE_CURRENT_BINARY_DIR}/routing)
