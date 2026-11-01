@@ -23,7 +23,7 @@ namespace hal::algorithm_recovery
         }
     }
     Result<GuidedAnalysis> analyze_observations(Netlist* nl, const Json& grouped, OriginalCircuit& original,
-        const Observations& trace, z3::context& ctx, const std::filesystem::path& output, u32 window_length)
+        const Observations& trace, z3::context& ctx, const std::filesystem::path& output, u32 window_length, const std::vector<std::string>& profiles)
     {
         try
         {
@@ -52,9 +52,13 @@ namespace hal::algorithm_recovery
             }
             std::set<PhysicalBit> controls = original.controls; controls.insert(original.clocks.begin(), original.clocks.end());
             std::map<std::string, std::vector<u32>> windows; std::set<u32> times;
+            const std::set<std::string> selected(profiles.begin(), profiles.end());
+            require(selected.size() == profiles.size(), "duplicate analysis profile");
+            for (const auto& profile : selected) require(trace.metadata.at("windows").contains(profile), "profile absent from trace: " + profile);
             for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
             {
-                const auto& w = it.value(); require(w.size() >= window_length, "insufficient extraction window");
+                if (!selected.empty() && !selected.count(it.key())) continue;
+                const auto& w = it.value(); require(w.size() >= window_length, "insufficient trace for requested extraction window: " + it.key());
                 auto& used = windows[it.key()];
                 for (size_t index = w.size() - window_length; index < w.size(); ++index)
                 {
@@ -62,12 +66,18 @@ namespace hal::algorithm_recovery
                     used.push_back(t); times.insert(t);
                 }
             }
-            std::vector<std::map<u32, bool>> known(trace.pre.size());
-            for (auto t : times) for (auto control : controls)
-            {
-                const auto value = trace.value(control, t);
-                if (value >= 0 && native.count(control)) known[t][native.at(control)] = value != 0;
-            }
+            require(!windows.empty(), "no analysis profiles available");
+            // Only new control variants invoke SSE. Materializing a map of all
+            // controls for every event wastes memory on long observation windows.
+            const auto known_values = [&](u32 t) {
+                std::map<u32, bool> values;
+                for (auto control : controls)
+                {
+                    const auto value = trace.value(control, t);
+                    if (value >= 0 && native.count(control)) values[native.at(control)] = value != 0;
+                }
+                return values;
+            };
             std::vector<bool> bitmap;
             for (const auto* gate : nl->get_gates()) if (bitmap.size() <= gate->get_id()) bitmap.resize(static_cast<size_t>(gate->get_id()) + 1, false);
             for (const auto* gate : nl->get_gates())
@@ -140,7 +150,7 @@ namespace hal::algorithm_recovery
                         // Every included gate is combinational; FF/RAM endpoints
                         // are cut. Use one normalized snapshot time (0), retaining
                         // the real observation index and conditions in the proof.
-                        auto values = unwrap(sse::get_word_values_at_z3(targets, std::vector<u32>(targets.size(), 0), bitmap, {known.at(t)}, {}, false, ctx));
+                        auto values = unwrap(sse::get_word_values_at_z3(targets, std::vector<u32>(targets.size(), 0), bitmap, {known_values(t)}, {}, false, ctx));
                         ++calls; std::map<u32, z3::expr> terms;
                         for (size_t i = 0; i < targets.size(); ++i) terms.emplace(targets[i].second->get_id(), normalized(values.at(i)));
                         std::vector<z3::expr> bits;
@@ -220,7 +230,7 @@ namespace hal::algorithm_recovery
             }
             result.report = {{"status", "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED"}, {"groups", result.words.size()}, {"FF_bits", ff_count},
                 {"HAL_calls", calls}, {"cache_hits", cache_hits}, {"RAM_instances", base.memories.size()}, {"RAM_port_proofs", ram_proofs}, {"windows", windows}, {"proofs", proofs},
-                {"observation_files", trace.metadata.at("files")},
+                {"observation_files", trace.metadata.at("files")}, {"window_length", window_length},
                 {"manual_semantic_inputs", Json::array()}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
             artifacts::write(out / "sse_report.json", result.report.dump(2) + '\n');
             return OK(std::move(result));

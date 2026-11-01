@@ -57,5 +57,6 @@ namespace hal::algorithm_recovery
     // pad stimulus; no internal force, protocol roles, or observed RAM oracle.
     Result<Observations> generate_observations(const std::filesystem::path& source,
         const std::filesystem::path& verilog, const std::filesystem::path& primitive_model,
-        const std::filesystem::path& output, z3::context& ctx, u32 seed = 20261031, u32 profile_length = 768);
+        const std::filesystem::path& output, z3::context& ctx, u32 seed = 20261031, u32 profile_length = 768,
+        const std::vector<std::string>& profiles = {"zero", "one", "pattern", "irregular"});
 }

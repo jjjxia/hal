@@ -10,6 +10,11 @@ compiled-program replays PASS; all eight CTests PASS. The final audit below
 supersedes historical pending-work notes. This completes the C++ migration,
 not whole-device equivalence, unrestricted recovery, or a new research claim.
 
+FOLLOW-UP ACTIVE (2026-11-01): user requests expanded HAL identification settings
+and longer/configurable traces/windows. Configuration/API changes and regression
+tests are implemented; expanded real-case coverage and long-window results are
+still pending. See the latest follow-up checkpoint at the end of this file.
+
 Reference implementation (read-only):
 /tmp/dynamicRE-hal-controller-20261030/harder_netlists/consumer_bitstreams/hal_controller
 Reference commit: bbeb26c8e. Current results: HAL_NATIVE_RAM_RESULTS.json.
@@ -579,3 +584,61 @@ Source, tests, configuration and concise evidence are selectively committed on
 the user's existing algorithm-recovery branch. Generated artifacts remain
 ignored under build/. No push, paper-branch changes, D-drive inspection,
 research-loop restart, subagents or unrelated workspace edits were performed.
+
+FOLLOW-UP CHECKPOINT: expanded HAL settings and trace/window controls (2026-11-01)
+
+User authorization: expand module-identification configuration and actually check
+the unresolved orders; also change trace/window restrictions. Continue staged
+add/commit, no push. This is engineering follow-up, not a new native research goal.
+
+Implemented:
+- GroupingOptions and groups CLI flags --mi-types, --mi-controls, --mi-threads,
+  --dana-threads. Defaults now use HAL's nine all_checkable_candidate_types and
+  max_control_signals=3, with actual settings in both MI/group receipts. Explicit
+  counter,addition / controls=0 preserves the meaningful old selection.
+- Correction to earlier notes: subtraction was an invalid independent selector;
+  HAL's addition verification already covers subtraction. The former generator
+  warning was NOT evidence of missing subtraction capability. The selectable
+  list and verification code in module_identification establish this directly.
+- Equality/value_check-only results are retained as identified operations but
+  do not supply absolute numeric bit weights to the propagation seeds.
+- Trace --profile-length/--profiles/--seed and analyze --window/--profiles.
+  Default trace and window lengths remain reproducible. A selected trace starts
+  from the primitive INIT/reset sequence, not from omitted profiles' final state.
+  Analysis selection uses actual saved windows. NO_GRAPH reports now include
+  window length, reason, and required four-period length where representable.
+  SSE constructs known-control maps only on new variants instead of retaining
+  one for every event. Universal conditional/nonvacuity/RAM checks are unchanged.
+
+Expanded-run failure and fix:
+- First controller all-types/control-3 run crashed, exit 139. The second run with
+  stable binaries under GDB reproduced SIGSEGV in FunctionalCandidate::
+  find_control_signals: a constant output produced an empty influence vector,
+  but the comparison path indexed influence_vector[0]. This is a runtime failure,
+  not inability to recover an order. Logs: build/controller_groups_all3.log and
+  build/controller_groups_all3_debug.log. GDB's own exit 0 does NOT mean MI passed.
+- Bound the comparison control proposal count by actual influence-vector size,
+  preserving the unconditioned candidate. Also removed an adjacent out-of-range
+  alternate-threshold read when arithmetic influence statistics have <3 bins.
+  These changes are in module_identification/src/processing/create_functional_candidates.cpp.
+
+Validation completed before this checkpoint:
+- Ten CTests PASS, build/expanded_fixed_ctest.log. New actual HAL constant/buffer/
+  AND cone regression verifies empty influence handling, preserved positive and
+  disabled control proposals, and single-bin arithmetic control generation.
+- New trace regression checks actual Yosys outputs for selected named profiles
+  at 256 and 1024 events, including reset, lengths and rejection of duplicate/
+  unknown profiles. New folding test rejects a 512-event observation of 16/26/42
+  schedules, then recovers P=4368 with 17472 events and executes all 545 counter
+  updates with correct final values/history dependencies.
+- New original HMD trace generated successfully: build/hmd_pattern_24576_trace,
+  24576 events and 7600 observed nets, profile pattern only. This is a new generic
+  stimulus history from INIT; it is not a byte-identical extension of the old
+  four-profile trace. Log: build/hmd_pattern_24576_trace.log.
+
+Remaining: rerun both expanded real HAL configurations after the crash fix;
+compare physical group membership and every old/new order, including lost or
+changed orders; validate any recovered additions downstream. Analyze the long
+pattern trace with the enlarged window and report the actual result, keeping
+NO_GRAPH/UNKNOWN/failures explicit. Real coverage improvement has not yet been
+established. All outputs remain ignored under build/. Do not claim task complete.

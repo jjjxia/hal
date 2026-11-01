@@ -124,7 +124,9 @@ namespace hal
             // sort the values to categorize the signal of the highest influence as control signal
             std::sort(influence_vector.begin(), influence_vector.end(), [](const std::pair<Net*, double>& a, const std::pair<Net*, double>& b) { return a.second > b.second; });
             // const u32 max_control_signals = std::min(candidate.m_max_control_signals, u32(influence_vector.size() - 1));
-            const u32 max_control_signals = std::min(candidate.m_max_control_signals, u32(1));
+            // Constant candidate outputs have no influential inputs. Keep the
+            // unconditioned candidate instead of indexing an empty vector.
+            const u32 max_control_signals = std::min({candidate.m_max_control_signals, u32(1), u32(influence_vector.size())});
             for (u32 num_control_signals = 0; num_control_signals < max_control_signals; num_control_signals++)
             {
                 FunctionalCandidate new_candidate = FunctionalCandidate(candidate);
@@ -507,7 +509,7 @@ namespace hal
                 const u32 upper_bound = (sizes.size() == 1) ? *(size_list.begin()) : std::min({*(size_list.rbegin()), *std::next(size_list.rbegin(), 1)});
                 u32 threshold         = candidate.m_max_operands ? candidate.m_max_operands : upper_bound;
 
-                const u32 upper_bound_alt = (sizes.size() == 2) ? *(size_list.begin()) : std::min({*std::next(size_list.rbegin(), 1), *std::next(size_list.rbegin(), 2)});
+                const u32 upper_bound_alt = (sizes.size() == 2 || size_list.size() < 3) ? *(size_list.begin()) : std::min({*std::next(size_list.rbegin(), 1), *std::next(size_list.rbegin(), 2)});
                 u32 threshold_alt         = candidate.m_max_operands ? candidate.m_max_operands : upper_bound_alt;
 
                 const u32 max_bins_including_control = 2;

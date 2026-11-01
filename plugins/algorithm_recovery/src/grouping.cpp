@@ -32,24 +32,33 @@ namespace hal::algorithm_recovery
         }
     }
 
-    Result<GroupingResult> recover_groups(Netlist* nl, u32 dana_threads)
+    Result<GroupingResult> recover_groups(Netlist* nl, const GroupingOptions& options)
     {
         namespace mi = module_identification;
         namespace bo = bitorder_propagation;
         try
         {
-            require(nl != nullptr && dana_threads > 0, "missing netlist or invalid thread limit");
+            require(nl != nullptr && options.dana_threads > 0 && options.mi_threads > 0, "missing netlist or invalid thread limit");
+            require(!options.types.empty(), "no module-identification candidate types selected");
+            std::set<mi::CandidateType> selected; Json type_names = Json::array();
+            for (auto type : options.types)
+            {
+                require(std::find(mi::all_checkable_candidate_types.begin(), mi::all_checkable_candidate_types.end(), type) != mi::all_checkable_candidate_types.end(),
+                    "not a selectable HAL candidate type: " + enum_to_string(type) + "; subtraction is checked via addition");
+                require(selected.insert(type).second, "duplicate module-identification candidate type"); type_names.push_back(enum_to_string(type));
+            }
+            const Json mi_settings{{"types", type_names}, {"max_control_signals", options.max_control_signals}, {"threads", options.mi_threads}};
             require(nl->get_modules().size() == 1, "group recovery requires an imported flat netlist");
             dataflow::Configuration config(nl);
             config.with_flip_flops().with_min_group_size(8);
-            config.max_thread_count = dana_threads;
+            config.max_thread_count = options.dana_threads;
             std::vector<Gate*> rams;
             for (auto* gate : nl->get_gates()) if (gate->get_type()->get_name() == "SB_RAM40_4K") rams.push_back(gate);
             config.with_known_structures(rams);
-            std::cout << "DANA_START threads=" << dana_threads << std::endl;
+            std::cout << "DANA_START threads=" << options.dana_threads << std::endl;
             auto dana = unwrap(dataflow::analyze(config));
             GroupingResult result;
-            result.dana = {{"groups", Json::object()}, {"configuration", {{"min_group_size", 8}, {"threads", dana_threads},
+            result.dana = {{"groups", Json::object()}, {"configuration", {{"min_group_size", 8}, {"threads", options.dana_threads},
                 {"known_registers", Json::array()}, {"known_structures", "physical SB_RAM40_4K library pin groups"}}}};
             std::vector<std::vector<Gate*>> registers;
             std::set<u32> expected;
@@ -65,13 +74,20 @@ namespace hal::algorithm_recovery
             // Run MI on the original flat graph, exactly as the former isolated
             // import.hal process, before creating any DANA/MI modules.
             mi::Configuration mi_config(nl);
-            mi_config.with_max_thread_count(1).with_max_control_signals(0)
-                .with_types_to_check({mi::CandidateType::counter, mi::CandidateType::addition, mi::CandidateType::subtraction})
+            mi_config.with_max_thread_count(options.mi_threads).with_max_control_signals(options.max_control_signals)
+                .with_types_to_check(options.types)
                 .with_known_registers(registers);
-            std::cout << "MI_START" << std::endl;
+            std::cout << "MI_START " << mi_settings.dump() << std::endl;
             auto identified = unwrap(mi::execute(mi_config));
             auto candidates = identified.get_candidates();
-            result.candidates = {{"candidates", Json::object()}, {"scope", "HAL MI counter/add/sub, max_controls=0; DANA registers"}};
+            result.candidates = {{"candidates", Json::object()}, {"configuration", mi_settings}, {"scope", "Native HAL MI; inferred DANA registers; only numeric operations can seed absolute bit significance"}};
+            const auto numeric_seed = [](const auto& candidate) {
+                // Equality and comparison with an inferred constant do not fix
+                // numeric bit significance: a common permutation preserves them.
+                return candidate.is_verified() && std::any_of(candidate.m_types.begin(), candidate.m_types.end(), [](auto type) {
+                    return type != mi::CandidateType::equal && type != mi::CandidateType::value_check && type != mi::CandidateType::none && type != mi::CandidateType::mixed;
+                });
+            };
             for (const auto& [id, candidate] : candidates)
             {
                 Json operands = Json::array();
@@ -82,7 +98,7 @@ namespace hal::algorithm_recovery
                     {"gates", ids(candidate.m_gates)}, {"base_gates", ids(candidate.m_base_gates)}, {"operands", operands},
                     {"outputs", ids(candidate.m_output_nets)}, {"controls", ids(candidate.m_control_signals)},
                     {"info", candidate.get_candidate_info()}, {"types", types},
-                    {"merged_operation", candidate.get_merged_word_level_operation().to_string()}};
+                    {"merged_operation", candidate.get_merged_word_level_operation().to_string()}, {"numeric_order_seed_eligible", numeric_seed(candidate)}};
             }
             result.candidates["verified_count"] = identified.get_verified_candidates().size();
             result.candidates["verified_gates"] = identified.get_all_verified_gates().size();
@@ -119,7 +135,7 @@ namespace hal::algorithm_recovery
             };
             for (const auto& [id, candidate] : candidates)
             {
-                if (!candidate.is_verified()) continue;
+                if (!numeric_seed(candidate)) continue;
                 for (const auto* gate : candidate.m_gates) require(!gate->get_type()->has_property(GateTypeProperty::ff), "MI seed contains FF");
                 auto* module = nl->create_module("native_MI_" + std::to_string(id), nl->get_top_module(), candidate.m_gates);
                 for (unsigned op = 0; op < candidate.m_operands.size(); ++op)
@@ -162,7 +178,7 @@ namespace hal::algorithm_recovery
             }
             result.groups = {{"status", "HAL_DANA_BITORDER_EXTRACTED"}, {"words", Json::object()}, {"seeds", seed_rows},
                 {"orders", Json::array()},
-                {"manual_semantic_inputs", Json::array()}, {"configuration", {{"strict_first", true}, {"relaxed_fallback", true}, {"preserve_strict_orders", true}}}};
+                {"manual_semantic_inputs", Json::array()}, {"configuration", {{"strict_first", true}, {"relaxed_fallback", true}, {"preserve_strict_orders", true}, {"module_identification", mi_settings}}}};
             std::set<u32> seen;
             std::map<std::string, unsigned> counts, bits;
             for (const auto& word : words)

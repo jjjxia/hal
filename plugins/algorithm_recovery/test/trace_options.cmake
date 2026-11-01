@@ -1,0 +1,5 @@
+file(REMOVE_RECURSE "${WORK}")
+execute_process(COMMAND "${GENERATOR}" "${WORK}" "${MODEL}" RESULT_VARIABLE result)
+if(NOT result EQUAL 0)
+    message(FATAL_ERROR "trace profile/length regression failed: ${result}")
+endif()

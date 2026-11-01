@@ -26,6 +26,6 @@ namespace hal
         // original LUT/carry semantics. RAM ports remain unconditionally symbolic.
         Result<GuidedAnalysis> analyze_observations(Netlist* nl, const nlohmann::json& groups,
             OriginalCircuit& original, const Observations& trace, z3::context& ctx,
-            const std::filesystem::path& output, u32 window_length = 512);
+            const std::filesystem::path& output, u32 window_length = 512, const std::vector<std::string>& profiles = {});
     }
 }

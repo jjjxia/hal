@@ -248,11 +248,16 @@ namespace hal::algorithm_recovery
     }
 
     Result<Observations> generate_observations(const std::filesystem::path& source, const std::filesystem::path& verilog,
-        const std::filesystem::path& primitive_model, const std::filesystem::path& output, z3::context& ctx, u32 seed, u32 length)
+        const std::filesystem::path& primitive_model, const std::filesystem::path& output, z3::context& ctx, u32 seed, u32 length,
+        const std::vector<std::string>& profiles)
     {
         try
         {
             require(length > 128 && length <= (1u << 20), "invalid stimulus length");
+            require(!profiles.empty(), "no stimulus profiles selected"); std::set<std::string> seen_profiles;
+            for (const auto& profile : profiles)
+                require((profile == "zero" || profile == "one" || profile == "pattern" || profile == "irregular") && seen_profiles.insert(profile).second,
+                    "unknown or duplicate stimulus profile: " + profile);
             OriginalCircuit circuit(source, ctx); const auto& original = circuit.module();
             std::map<PhysicalBit, unsigned> clock_counts;
             std::set<PhysicalBit> resets;
@@ -309,7 +314,6 @@ namespace hal::algorithm_recovery
             std::vector<PhysicalBit> observed(required.begin(), required.end());
             IntegerSeed state{seed}; std::mt19937 random(state);
             std::ostringstream stimulus; Json windows = Json::object();
-            const std::vector<std::string> profiles{"zero", "one", "pattern", "irregular"};
             for (unsigned profile = 0; profile < profiles.size(); ++profile)
             {
                 windows[profiles[profile]] = Json::array();
@@ -318,7 +322,7 @@ namespace hal::algorithm_recovery
                     boost::multiprecision::cpp_int packed = 0;
                     for (unsigned i = 0; i < pads.size(); ++i)
                     {
-                        unsigned value = profile == 0 ? 0 : profile == 1 ? 1 : profile == 2 ? (t / (3 + 2 * (i % 11))) & 1 : random() >> 31;
+                        unsigned value = profiles[profile] == "zero" ? 0 : profiles[profile] == "one" ? 1 : profiles[profile] == "pattern" ? (t / (3 + 2 * (i % 11))) & 1 : random() >> 31;
                         const auto& reset = t < 8 ? asserted : release; if (reset.count(pads[i])) value = reset.at(pads[i]);
                         if (value) packed |= boost::multiprecision::cpp_int(1) << i;
                     }
@@ -370,6 +374,7 @@ namespace hal::algorithm_recovery
             for (auto [bit, value] : asserted) asserted_json[std::to_string(bit)] = value;
             for (const auto& file : {std::filesystem::absolute(source), std::filesystem::absolute(verilog), std::filesystem::absolute(primitive_model), tb_path, stim, trace, final_ram}) files[file.string()] = artifacts::file_hash(file);
             Json metadata{{"status", "ORIGINAL_GATE_TRACE"}, {"frames", profiles.size() * length}, {"observed", observed}, {"clocks", clocks}, {"controls", controls}, {"windows", windows},
+                {"profile_length", length}, {"profiles", profiles}, {"initial_discard", 128},
                 {"release_pad_assignment", release_json}, {"initial_reset_pad_assignment", asserted_json}, {"seed", seed}, {"files", files}, {"manual_semantic_inputs", Json::array()},
                 {"scope", "Original-gate simulation; generic physical pad stimuli, discovered primary clocks/resets, X/Z retained; no internal force or protocol model."}};
             artifacts::write(out / "native_trace.json", metadata.dump(2) + '\n');

@@ -12,25 +12,69 @@
 #include <iostream>
 #include "algorithm_recovery/program.h"
 #include "algorithm_recovery/replay.h"
+#include "hal_core/utilities/enums.h"
+#include <limits>
+#include <sstream>
+
+namespace
+{
+    using Options = std::map<std::string, std::string>;
+    Options parse_options(int argc, char** argv, int first, const std::set<std::string>& allowed)
+    {
+        Options result;
+        for (int i = first; i < argc; i += 2)
+        {
+            const std::string name = argv[i];
+            if (!allowed.count(name) || i + 1 >= argc || !result.emplace(name, argv[i + 1]).second)
+                throw std::runtime_error("unknown, missing-value or duplicate option: " + name);
+        }
+        return result;
+    }
+    u32 number(const Options& options, const std::string& name, u32 fallback)
+    {
+        if (!options.count(name)) return fallback;
+        const auto& text = options.at(name);
+        if (text.empty() || text.find_first_not_of("0123456789") != std::string::npos) throw std::runtime_error("invalid unsigned integer: " + name);
+        const auto value = std::stoull(text);
+        if (value > std::numeric_limits<u32>::max()) throw std::runtime_error("integer too large: " + name);
+        return value;
+    }
+    std::vector<std::string> list(const std::string& text)
+    {
+        std::vector<std::string> result; std::set<std::string> seen; std::string value; std::istringstream input(text);
+        if (text.empty() || text.back() == ',') throw std::runtime_error("empty list entry");
+        while (std::getline(input, value, ','))
+        { if (value.empty() || !seen.insert(value).second) throw std::runtime_error("empty or duplicate list entry"); result.push_back(value); }
+        return result;
+    }
+}
 
 int main(int argc, char** argv)
 {
-    if (!((argc == 4 && (std::string(argv[1]) == "extract-ram" || std::string(argv[1]) == "groups")) || (argc == 5 && std::string(argv[1]) == "import") || (argc == 6 && std::string(argv[1]) == "trace") || (argc == 7 && std::string(argv[1]) == "analyze")))
+    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}};
+    if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
         std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
                      "       hal-recover import recovered.json library.hgl empty_output_directory\n"
-                     "       hal-recover groups input.hal empty_output_directory\n"
-                     "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory\n"
-                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory\n"
+                     "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
+                     "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
+                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...]\n"
                      "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
         return 2;
     }
     try
     {
+        const std::map<std::string, std::set<std::string>> accepted{
+            {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
+            {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles"}}};
+        const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
+        const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "trace")
         {
             z3::context ctx;
-            auto trace = hal::algorithm_recovery::generate_observations(argv[2], argv[3], argv[4], argv[5], ctx);
+            const auto profiles = options.count("--profiles") ? list(options.at("--profiles")) : std::vector<std::string>{"zero", "one", "pattern", "irregular"};
+            auto trace = hal::algorithm_recovery::generate_observations(argv[2], argv[3], argv[4], argv[5], ctx,
+                number(options, "--seed", 20261031), number(options, "--profile-length", 768), profiles);
             if (trace.is_error()) throw std::runtime_error(trace.get_error().get());
             std::cout << "TRACED " << trace.get().pre.size() << " events, " << trace.get().positions.size() << " observed nets\n";
             return 0;
@@ -50,7 +94,8 @@ int main(int argc, char** argv)
             nlohmann::json groups; std::ifstream(argv[3]) >> groups;
             z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[4], ctx);
             auto trace = hal::algorithm_recovery::Observations::load(argv[5]);
-            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6]);
+            const auto profiles_to_analyze = options.count("--profiles") ? list(options.at("--profiles")) : std::vector<std::string>{};
+            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], number(options, "--window", 512), profiles_to_analyze);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
             auto warmed = hal::algorithm_recovery::replay_memories(analyzed.get(), original, trace,
                 std::filesystem::path(argv[5]) / "native_ram_final.txt", std::filesystem::path(argv[6]) / "memory_replay");
@@ -64,7 +109,13 @@ int main(int argc, char** argv)
                 if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
                 const auto& graph = folded.get();
                 profiles[name] = {{"available", graph.available}, {"period", graph.period}, {"origin", graph.origin},
+                    {"window_length", input.length}, {"required_complete_periods", 4},
                     {"nodes", graph.nodes.size()}, {"ram_nodes", graph.ram_nodes.size()}, {"histories", graph.histories.size()}, {"excluded", graph.excluded}};
+                if (!graph.available)
+                {
+                    profiles[name]["reason"] = graph.period ? "INSUFFICIENT_PERIODIC_WINDOW" : "NO_PERIODIC_WORDS";
+                    if (graph.period <= std::numeric_limits<u64>::max() / 4) profiles[name]["required_window_length"] = graph.period * 4;
+                }
                 std::cout << "FOLDED " << name << ' ' << profiles[name].dump() << std::endl;
                 auto routing = hal::algorithm_recovery::recover_routing(graph, input, std::filesystem::path(argv[6]) / ("routing_" + name));
                 if (routing.is_error()) throw std::runtime_error(routing.get_error().get());
@@ -100,7 +151,16 @@ int main(int argc, char** argv)
         {
             const auto out = std::filesystem::absolute(argv[3]);
             if (std::filesystem::exists(out) && !std::filesystem::is_empty(out)) throw std::runtime_error("group output directory must be empty");
-            auto groups = hal::algorithm_recovery::recover_groups(nl.get());
+            hal::algorithm_recovery::GroupingOptions settings;
+            settings.dana_threads = number(options, "--dana-threads", settings.dana_threads);
+            settings.mi_threads = number(options, "--mi-threads", settings.mi_threads);
+            settings.max_control_signals = number(options, "--mi-controls", settings.max_control_signals);
+            if (options.count("--mi-types") && options.at("--mi-types") != "all")
+            {
+                settings.types.clear();
+                for (const auto& type : list(options.at("--mi-types"))) settings.types.push_back(hal::enum_from_string<hal::module_identification::CandidateType>(type));
+            }
+            auto groups = hal::algorithm_recovery::recover_groups(nl.get(), settings);
             if (groups.is_error()) throw std::runtime_error(groups.get_error().get());
             std::filesystem::create_directories(out);
             for (const auto& [name, value] : std::map<std::string, nlohmann::json>{{"dana", groups.get().dana}, {"mi_simple", groups.get().candidates}, {"groups", groups.get().groups}})

@@ -33,7 +33,8 @@ Build from the HAL repository root:
     check-recovery-arithmetic check-recovery-arithmetic-fixture \
     check-recovery-routing check-recovery-routing-fixture \
     check-recovery-program check-recovery-program-fixture \
-    check-recovery-replay check-recovery-replay-fixture -j 4
+    check-recovery-replay check-recovery-replay-fixture \
+    check-recovery-trace-options check-recovery-mi-controls -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -56,12 +57,44 @@ cases fail explicitly. Generated IO simulation models leave FF initialization
 unconstrained. Import checks do not prove sequential or silicon equivalence.
 
 Group recovery calls native HAL DANA with minimum group size 8 and only physical
-RAM pin-group structures. Its inferred groups feed actual MI (counter/add/sub,
-max_controls=0), followed by strict bitorder propagation and relaxed propagation
+RAM pin-group structures. Its inferred groups feed actual MI (all HAL-selectable
+candidate types, max_control_signals=3 by default), followed by strict bitorder propagation and relaxed propagation
 only on unresolved targets. Strict results are checked unchanged. Only verified
-MI operands/results and library RAM bus indices seed orders. Unresolved order
-remains a storage coordinate. The current MI engine reports no subtraction
-candidate generator; this existing limitation remains visible in its log.
+MI operands/results and library RAM bus indices seed orders. Equality and
+value-check-only candidates remain in the identification report but do not seed
+absolute numeric significance: their operand permutations do not fix bit weights.
+Unresolved order remains a storage coordinate. HAL checks subtraction via the
+addition selector; subtraction is not a separate selectable generator. The old
+warning from explicitly selecting it did not establish missing subtraction support.
+
+Configure identification explicitly (no manual semantic seeds):
+
+  hal-recover groups input.hal build/expanded_groups \
+    --mi-types all --mi-controls 3 --mi-threads 1 --dana-threads 4
+
+The equivalent legacy selection is --mi-types counter,addition --mi-controls 0.
+Explicit type lists use HAL's selectable names; unsupported selectors are errors.
+Actual settings and numeric-seed eligibility are saved in the group/MI reports.
+HAL retains its own per-candidate heuristics (for example, its comparison path
+proposes at most one control); the configured maximum is not a completeness claim.
+
+Configure observation lengths and select named profiles:
+
+  hal-recover trace recovered.json recovered.v cells_sim.v build/long_pattern \
+    --profiles pattern --profile-length 24576 --seed 20261031
+  hal-recover analyze ordered.hal groups.json recovered.json build/long_pattern \
+    build/long_analysis --profiles pattern --window 17472
+
+Defaults remain all four trace profiles, 768 events each, and a 512-event
+extraction window. Profile selection on trace creates a new simulation starting
+from INIT/reset, in the specified profile order; it does not retain the state
+of omitted preceding profiles. Analysis selection only chooses among the actual
+saved profile windows and does not alter observations. Reports record selected
+profiles, lengths and extraction indices. All original FF/RAM/proof/replay checks
+still apply. NO_GRAPH diagnostics report the available window and the required
+four complete joint periods; a larger window may expose different local periods
+and does not itself guarantee recovery. Long windows construct control snapshots
+only when a new HAL SSE variant is needed, avoiding redundant per-event maps.
 
 DANA now has Configuration::max_thread_count (also exposed to its Python binding),
 covering processing and evaluation workers; zero keeps automatic selection.

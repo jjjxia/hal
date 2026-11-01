@@ -23,6 +23,31 @@ static z3::expr word(z3::context& ctx, const std::vector<std::string>& names)
     for (auto it = names.rbegin(); it != names.rend(); ++it) values.push_back(ctx.bv_const(it->c_str(), 1));
     return values.size() == 1 ? values[0] : z3::concat(values);
 }
+static void long_period_test(z3::context& ctx)
+{
+    // Independent counter updates every 16, 26 and 42 events. A short trace
+    // detects their local schedules, but does not cover their joint period.
+    const auto make_input = [&](unsigned length) {
+        FoldInput input; input.length = length;
+        for (const unsigned period : {16u, 26u, 42u})
+        {
+            const auto name = "period" + std::to_string(period); WordWindow w; w.bits = bits(name + "b", 8);
+            const auto next = word(ctx, w.bits) + ctx.bv_val(1, 8);
+            for (unsigned t = 0; t < length; ++t)
+            { w.writes.push_back(t % period ? Write::hold : Write::full); w.equations.push_back(next); }
+            input.words.emplace(name, std::move(w));
+        }
+        return input;
+    };
+    const auto short_graph = unwrap(fold_observed(make_input(512), ctx));
+    check(!short_graph.available && short_graph.period == 4368, "short joint-period window accepted");
+    const auto graph = unwrap(fold_observed(make_input(17472), ctx));
+    check(graph.available && graph.period == 4368 && graph.nodes.size() == 545, "long joint-period window not recovered");
+    History history; for (const auto& src : graph.histories) history.emplace(src, ctx.bv_val(0, 8));
+    const auto frame = unwrap(run_frame(graph, history, {}, {}, ctx));
+    for (const unsigned period : {16u, 26u, 42u})
+        check(z3::eq(frame.values.at({"period" + std::to_string(period), 4368 - period}), ctx.bv_val((4368 / period) & 255, 8)), "long-frame last-write binding incorrect");
+}
 static void sequential_test(z3::context& ctx)
 {
     FoldInput in; in.start = 101; in.length = 12;
@@ -125,6 +150,6 @@ static void ram_test(z3::context& ctx)
 }
 int main()
 {
-    try { z3::context ctx; sequential_test(ctx); ram_test(ctx); std::cout << "PASS wide-word folding, full-window exclusions, last writes and coupled RAM frames\n"; }
+    try { z3::context ctx; sequential_test(ctx); ram_test(ctx); long_period_test(ctx); std::cout << "PASS wide-word folding, full-window exclusions, last writes, coupled RAM frames and 4368-event joint period\n"; }
     catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
 }
