@@ -22,7 +22,7 @@ int main(int argc, char** argv)
                      "       hal-recover groups input.hal empty_output_directory\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory\n"
                      "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory\n"
-                     "Native import, grouping, trace, SSE/folding and RAM extraction; full pipeline migration is in progress.\n";
+                     "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
         return 2;
     }
     try

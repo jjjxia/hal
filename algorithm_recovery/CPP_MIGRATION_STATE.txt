@@ -3,6 +3,13 @@ Branch: algorithm-recovery (user's existing branch); initial HEAD 3f8cfd29de8.
 Objective: migrate the tested HAL + InvFold firmware pipeline into HAL C++, not
 a C++ launcher for Python. No manual semantic grouping/order/address inputs.
 
+CURRENT STATUS (2026-11-01): COMPLETE for migration of the tested firmware
+recovery chain into HAL C++. Final implementation: 982f4ca6ab1 plus the final
+usage/documentation audit. Both native case analyses and all seven available
+compiled-program replays PASS; all eight CTests PASS. The final audit below
+supersedes historical pending-work notes. This completes the C++ migration,
+not whole-device equivalence, unrestricted recovery, or a new research claim.
+
 Reference implementation (read-only):
 /tmp/dynamicRE-hal-controller-20261030/harder_netlists/consumer_bitstreams/hal_controller
 Reference commit: bbeb26c8e. Current results: HAL_NATIVE_RAM_RESULTS.json.
@@ -480,3 +487,95 @@ Validation completed before this component commit:
 Goal remains active. Finish real-case runs and regression comparisons, audit the
 complete migrated component chain, update the final current status, and commit
 the final evidence. Do not claim completed migration from this checkpoint alone.
+
+FINAL MIGRATION AUDIT (2026-11-01; supersedes the preceding checkpoint)
+
+Both fixed production analyze runs exited 0 and saved NATIVE_CPP_CHAIN_AUDITED.
+The complete seven-program replay and integration checks are now finished:
+
+  case        profile     period  FF nodes  training  withheld
+  controller  irregular      16      1436        32         8
+  controller  one            32      2941        16         4
+  controller  pattern        96      8825         5         1
+  controller  zero           32      2879        16         4
+  HMD         irregular      16      1392        32         8
+  HMD         one            32      2901        16         4
+  HMD         zero           32      2807        16         4
+  HMD         pattern      4368  NO_GRAPH (512-event extraction window)
+
+All 133 training and 33 disjoint withheld frames passed. The actual compiled
+programs compared 5273446 known FF output bits and 2402304 known RAM read bits,
+with zero mismatch. The 4416 unknown FF output bits and 565248 unknown RAM read
+bits remain explicitly unknown. Every profile's known/unknown counts, frames,
+initialized segments, RAM oracle exclusion, node counts and periods exactly
+match the original verifier. Full per-frame RAM storage, held reads, history
+shifts and before/after read transitions also passed; RAM states originate from
+INIT warmup, with no observed read values supplied as inputs. The independently
+warmed final storage matched all 86016 known simulator bits in each case.
+
+Final production directories and evidence:
+- build/native_controller_replayed_verified and build/native_hmd_replayed_verified
+  contain fresh SSE/fold/routing/arithmetic/export/replay outputs. Logs are
+  build/{controller,hmd}_native_replayed_verified.log.
+- build/{controller,hmd}_replay_integration.log: the new C++ comparison checker
+  confirms every coverage count and all executable/source/contract/frame/compiler
+  artifact identities. Controller 4 programs/86 frames; HMD 3 programs/80 frames.
+- build/{controller,hmd}_replay_arithmetic_integration.log: all 5551 original
+  proved node occurrences preserved (3863 controller, 1688 HMD); actual native
+  adoption remains 6908 (4820/2088). Exact FIT_PROVED node-ID sets also match the
+  preceding native program-stage outputs for every profile. Existing controller
+  fit timeouts remain raw and explicit; they were not converted to counterexamples.
+- build/{controller,hmd}_replay_routing_integration.log: all 445 original active
+  unknown-order decisions preserved (245/200); no false numeric-order upgrades.
+- All seven graphs retain 23181 FF nodes and 43008 RAM-port bindings. The 1496
+  saved-function proofs are checked against the actual emitted C++ expressions,
+  with source/model binding identities checked before and after compilation.
+- build/replay_all_ctest.log: all eight regression tests PASS, including the new
+  adversarial applicability/coverage/process tests and prior operator/width,
+  coupled RAM, real Yosys primitive, routing and artifact-tamper checks. After
+  these passes, only the CLI JSON move bug (validated by both complete runs) and
+  its help text changed. Final CLI build/help smoke check passed; build logs
+  replay_cli_fix_build.log, replay_final_cli_build.log, replay_final_cli_usage.log.
+
+Input/provenance and scope audit:
+- The backend runs consumed the already validated NATIVE import/group/trace
+  outputs, not the old Python .hal or SSE fixtures. Unchanged ordered.hal hashes:
+  controller a3d28cb0adfa389f6fc66a4ce15bdd4ad89351d203d289508e69c63b579e594f;
+  HMD 2db48ef5b239ee59b8a09f7dcf801fceb1bf21ecdf1fc49a2135750e8a20f8a9.
+  Each run rechecked source/trace/final-dump hashes and physical FF/RAM
+  correspondences. This reuses the preceding verified native frontend evidence;
+  it is not a claim to have regenerated that unchanged prefix in this final run.
+- Component chain is implemented in frontend.cpp (primitive import/pin/parameter/
+  truth-table checks), grouping.cpp (actual HAL DANA/MI/strict+relaxed orders),
+  observations.cpp (original truth tables/FF events and Icarus observations),
+  guided.cpp (actual HAL SSE and conditional/unconditional proofs), memory.cpp
+  (mode-0 state), folding/routing/arithmetic/lifting.cpp (inverse folding and
+  checked proposals), program/cpp_function/standalone (saved C++ export and proof),
+  and replay/process.cpp (actual compiled-program verification). Native DANA
+  thread limits replace the old LD_PRELOAD shim. No Python recovery entrypoint
+  or old recovery artifact is required by the production commands.
+- execve traces build/{controller,hmd}_replayed_execve.log confirm that complete
+  analyze runs launch only the C++ compiler/toolchain and generated executables.
+  Source inspection confirms trace invokes only iverilog/vvp. Legacy files are
+  read only by the separate regression checkers. A generated executable's ldd
+  lists standard C/C++ libraries only; HAL itself retains its existing Python
+  linkage. No performance comparison with HAL is inferred from these runs.
+- Both retain 21 RAMs/168 unconditional RAM-port proofs; controller 364 groups,
+  3469 FF bits, 406 guided proofs; HMD 363/3505/404. Unresolved orders remain
+  107 groups/2399 bits and 115 groups/2489 bits. There are no new manual semantic
+  inputs. Inputs are recovered primitive JSON/Verilog, not raw bitstreams.
+- Primary-clock/primitive/RAM-mode restrictions, observed-control schedules,
+  explicit FF boundaries/history, chosen initial read/unknown operand values,
+  unresolved order and HMD NO_GRAPH remain part of the result. Runtime helpers,
+  compiler and Boost are trusted/tested. Finite replay plus expression proofs
+  does not imply unconditional schedule validity or whole-device equivalence.
+
+Final native_verified.json SHA256:
+controller 7dc2fbedf827b5580a57399deea294d68d11d0b3140318dab54b21650dc4e7e0
+HMD        39a1ca38fea642e84272e30c6017476bdadccf4e42dbb20aec0cac4c2224eac1
+
+No pending implementation/validation remains for this migration objective.
+Source, tests, configuration and concise evidence are selectively committed on
+the user's existing algorithm-recovery branch. Generated artifacts remain
+ignored under build/. No push, paper-branch changes, D-drive inspection,
+research-loop restart, subagents or unrelated workspace edits were performed.

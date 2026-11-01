@@ -1,13 +1,23 @@
-Native algorithm recovery (migration in progress)
-================================================
+Native algorithm recovery
+=========================
 
-This plugin is being ported from algorithm_recovery/invfold and the separately
-preserved firmware adapter. Its commands cover import, native grouping/ordering,
+This plugin implements the HAL + InvFold firmware recovery chain in C++.
+Its commands cover import, native grouping/ordering,
 original-gate trace generation, guided SSE, folding, checked routing orders,
 arithmetic lifting, standalone C++ program export, RAM extraction and original-gate
 coupled replay of the actual compiled program. The C++ API also implements raw
-coupled frame execution. Final migration audit is pending. See
-algorithm_recovery/CPP_MIGRATION_STATE.txt.
+coupled frame execution. Component validation and migration evidence are in
+algorithm_recovery/CPP_MIGRATION_STATE.txt. Historical Python sources remain for
+comparison; production commands do not invoke them.
+
+Inputs are already recovered flat primitive JSON plus its matching original
+gate Verilog and an iCE40 gate library/model. This is not a bitstream decoder.
+The supported firmware path uses primary clocks and mode-zero SB_RAM40_4K.
+Grouping/order/clock/reset/RAM bindings come from physical structure, HAL and
+the extension, without manual semantic word groups or observed RAM-read inputs.
+Unknown orders, explicit FF cuts, unsupported primitives/modes and insufficient
+periodic windows remain visible. Recovery, finite replay and per-expression
+proofs do not establish whole-device equivalence or unrestricted generalization.
 
 Build from the HAL repository root:
 
