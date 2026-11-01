@@ -5,6 +5,9 @@ This is a manually supplied word-equation frontend, NOT anonymous word recovery.
 Source roles/provenance stay in oracle.json; InvFold receives recovery.json only.
 `prepare DIR` writes inputs without simulation. `run-reference DIR` compiles the
 unchanged pinned RTL and validates every supplied word update before recovery.
+Only window equations enter recovery.json; reference_equations.json retains
+all cycles for adapter validation. After the first schema error this case is
+development/adapter-repaired, not a fresh held-out success.
 """
 import argparse
 import hashlib
@@ -239,7 +242,9 @@ def prepare(out, source):
     meta = {"window": list(range(ORIGIN, WINDOW_END)), "widths": W,
             "ports": {"in": {"x0": 8, "x1": 8}, "out": {p: W[w] for p, w in OUTPUTS.items()}},
             "write_enable": we}
-    dump(out / "recovery.json", {"equations": eqs, "meta": meta})
+    window = set(meta["window"])
+    dump(out / "recovery.json", {"equations": [e for e in eqs if e["T"] in window], "meta": meta})
+    dump(out / "reference_equations.json", {"equations": eqs})
     dump(out / "oracle.json", {"period": PERIOD, "origin": ORIGIN, "events": events,
                               "source_word_map": {"w%d" % k: {"source": n, "width": w, "probe": p}
                                                   for k, (n, w, p) in enumerate(WORDS)}})
@@ -273,6 +278,9 @@ endmodule
        NCYC, fmt, probes, fmt, probes)
     (out / "reference_tb.v").write_text(tb)
     manifest = {"case": "qtrstage", "source_commit": PIN, "source_files": {str(p): sha(p) for p in sources},
+                "evaluation_split": "development_adapter_repaired",
+                "prior_attempt": "build/c2_recovery_v1/heldout/qtrstage: input schema ERROR before InvFold; retained unchanged",
+                "input_schema_revision": "Window-only recovery equations; all-cycle reference equations separate and hashed.",
                 "adapter_sha256": sha(__file__), "parameters": {"IWIDTH": 8, "OWIDTH": 9, "LGWIDTH": 3,
                                                                "INVERSE": 0, "SHIFT": 0},
                 "priors": ["All 202 FF bits supplied as 26 ordered words; packed real/imag lanes split.",
@@ -283,7 +291,7 @@ endmodule
                 "period": PERIOD, "compare_from": ORIGIN, "window_end": WINDOW_END, "cycles": NCYC,
                 "source_lines": ["qtrstage.v:73-206", "convround.v:67-72"],
                 "prepared_hashes": {name: sha(out / name) for name in
-                                    ("recovery.json", "oracle.json", "source_model_trace.json", "stimulus.json",
+                                    ("recovery.json", "reference_equations.json", "oracle.json", "source_model_trace.json", "stimulus.json",
                                      "stimulus.hex", "reference_tb.v")}}
     dump(out / "manifest.json", manifest)
     print(json.dumps({"status": "PREPARED_NOT_RTL_VALIDATED", "directory": str(out), "words": len(W),
@@ -300,6 +308,11 @@ def run_reference(out):
     for name, digest in manifest["prepared_hashes"].items():
         if sha(out / name) != digest:
             raise ValueError("prepared artifact changed: " + name)
+    recovery = json.loads((out / "recovery.json").read_text())
+    reference_equations = json.loads((out / "reference_equations.json").read_text())["equations"]
+    window = set(recovery["meta"]["window"])
+    if recovery["equations"] != [e for e in reference_equations if e["T"] in window]:
+        raise ValueError("recovery equations differ from reference equations restricted to the recovery window")
     compile_cmd = ["iverilog", "-g2012", "-s", "test", "-o", str(out / "reference_sim"),
                    *manifest["source_files"], str(out / "reference_tb.v")]
     for cmd, logfile in ((compile_cmd, "iverilog.log"), (["vvp", str(out / "reference_sim")], "vvp.log")):
@@ -343,9 +356,8 @@ def run_reference(out):
     # Use the frozen expression evaluator, never Folded/resolve/build/recovery.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "invfold"))
     import smt2
-    recovery = json.loads((out / "recovery.json").read_text())
     equation_checks, hold_checks, unknown_equations = 0, 0, 0
-    for eq in recovery["equations"]:
+    for eq in reference_equations:
         t, target = eq["T"], eq["target"]
         widths = {"%s_o_Q_%d" % (w, t): width for w, width in W.items()}
         widths.update({"x0_%d" % t: 8, "x1_%d" % t: 8})
@@ -385,6 +397,8 @@ def run_reference(out):
                "unknown_word_observations": unknown, "unknown_equations_skipped_in_prefix": unknown_equations,
                "compare_from": ORIGIN, "failures": failures,
                "trace_sha256": sha(out / "trace.json"), "recovery_sha256": sha(out / "recovery.json"),
+               "reference_equations_sha256": sha(out / "reference_equations.json"),
+               "window_restriction_check": "PASS", "evaluation_split": manifest["evaluation_split"],
                "oracle_sha256": sha(out / "oracle.json"), "source_commit": PIN}
     dump(out / "reference_validation.json", receipt)
     print(json.dumps({k: v for k, v in receipt.items() if k != "failures"}))
