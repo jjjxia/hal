@@ -706,3 +706,49 @@ The comparison checker additionally rejects an actual-HMD fixture with one
 reversed known order (wiring preserved), and one with a lost known order; each
 returns exit 1 and records precisely one conflict/loss respectively. These
 negative fixtures are isolated under build/ and never feed recovery.
+
+Completed controller control-limit ablation (2026-11-01)
+------------------------------------------------------
+Command: hal-recover groups build/native_controller_import/import.hal
+  build/controller_groups_arithmetic3 --mi-types counter,addition --mi-controls 3
+Native HAL run completed (about 30 minutes; concurrently running HMD search,
+not a controlled performance benchmark). All settings are in its receipts.
+Compared with native_controller_groups_final via the physical comparison tool:
+  same 364 groups / 3469 FFs and identical Q/D/gate membership;
+  ordered multi-bit groups 71 -> 81; ordered multi-bit bits 884 -> 945;
+  unresolved groups 107 -> 97; unresolved bits 2399 -> 2338;
+  10 gained groups / 61 bits, zero old known orders lost or changed.
+All additions are strict HAL_BITORDER_Q results:
+  DANA_module_2:8, _7:10, _57:12, _130:5, _131:5, _132:5,
+  _174:4, _175:4, _176:4, _177:4.
+Strict count 66 -> 76; relaxed count remains 5; singletons remain 186.
+HAL verified modules 8 -> 28 (COUNTER 6 -> 23, ADDITION 2 -> 5), verified gates
+221 -> 514. The expanded result has 7 zero-control, 8 one-control, 5 two-control
+and 8 three-control candidates. MI numeric seeds 17 -> 59; RAM seeds remain 86.
+No manual semantic seeds or word orders were provided. This is direct evidence
+that the old controls=0 configuration limited recovery; the previous unresolved
+inventory cannot be described as HAL's exhausted recovery capability.
+
+Fresh downstream production run: build/controller_arithmetic3_verified, using
+the new ordered.hal/groups.json, original recovered JSON and unchanged
+build/native_controller_trace. Exit 0, NATIVE_CPP_CHAIN_AUDITED:
+  406 conditional SSE checks, 168 unconditional RAM-port checks;
+  all four profiles export/compile/pass original-gate coupled replay;
+  periods and FF/RAM graph sizes unchanged;
+  all old per-profile replay counts and observation hashes exactly preserved;
+  69 training + 17 withheld frames, 2991546 known FF-bit comparisons,
+  1357824 known RAM-read comparisons, 2496 unknown FF output bits and
+  319488 unknown RAM-read bits remain explicit; no known mismatch;
+  862 emitted C++ functions, each independently re-read and expression-proved.
+Proved arithmetic occurrences increase 4820 -> 5128 (not distinct algorithms):
+  irregular 432 -> 460; one 900 -> 956; pattern 2652 -> 2820; zero 836 -> 892.
+Unknown-order occurrences decrease 4907 -> 4423. Raw/quant/refuted fitting
+proposals are not promoted to unproved executable models. No whole-device or
+universal schedule guarantee is added by these finite replay results.
+
+Controller full-type retry is now build/controller_groups_all3_threads2,
+--mi-threads 2, all nine types / max_control_signals=3, under an explicit 4 GiB
+per-process virtual-address-space ceiling (ulimit -v 4194304). This is a resource
+limit for the evaluation, not a semantic restriction or a completeness claim.
+It runs alongside the original HMD all-type/control-3 case; no third heavy job.
+Full-type results and the unbuilt empty-equality guard remain pending.
