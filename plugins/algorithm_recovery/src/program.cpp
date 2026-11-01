@@ -2,6 +2,7 @@
 #include "algorithm_recovery/evaluation.h"
 #include "artifacts.h"
 #include "program_resources.h"
+#include "structured_schedule.h"
 #include <iostream>
 #include <limits>
 
@@ -197,13 +198,15 @@ namespace hal::algorithm_recovery
                 model["kernels"].push_back({{"function", "kernel_" + std::to_string(i)}, {"inputs", kernel.inputs}, {"width", kernel.output},
                     {"implementation", kernel.arithmetic ? "PROVED_WORD_ARITHMETIC" : "EXACT_BITVECTOR_FALLBACK"}});
             }
+            const auto schedule = export_structured_schedule(model, out);
+            cpp += "\n#include \"recovered_schedule.h\"\n\n";
             const auto model_text = model.dump(); const auto delimiter = "REC" + artifacts::sha256(model_text).substr(0, 12);
             require(model_text.find(")" + delimiter + '"') == std::string::npos, "raw-string delimiter collision");
             cpp += "const char model_text[] = R\"" + delimiter + "(";
             const auto model_offset = cpp.size(); cpp += model_text + ")" + delimiter + "\";\n";
             cpp += "int main()\n{\n    return run_json_lines(model_text, {";
             for (unsigned i = 0; i < kernels.size(); ++i) { if (i) cpp += ", "; cpp += "kernel_" + std::to_string(i); }
-            cpp += "});\n}\n";
+            cpp += "}, execute_recovered_schedule);\n}\n";
             artifacts::write(out / "recovered.cpp", cpp);
             artifacts::write(out / "recovery_bits.h", resources::bits);
             artifacts::write(out / "recovery_runtime.h", resources::runtime);
@@ -236,9 +239,12 @@ namespace hal::algorithm_recovery
                 proofs[id] = {{"kernel", obligation.kernel}, {"query", file.string()}, {"sha256", artifacts::file_hash(out / file)}, {"result", "unsat"}};
             }
             Json files = Json::object();
-            for (const auto* name : {"recovered.cpp", "recovery_bits.h", "recovery_runtime.h", "json.hpp"}) files[name] = artifacts::file_hash(out / name);
+            for (const auto* name : {"recovered.cpp", "recovery_bits.h", "recovery_runtime.h", "json.hpp", "recovered_schedule.h", "schedule.json"})
+                files[name] = artifacts::file_hash(out / name);
             Json report = {{"status", "SAVED_CPP_EXPRESSIONS_PROVED"}, {"period", graph.period}, {"origin", graph.origin}, {"nodes", graph.nodes.size()},
                 {"arithmetic_nodes", arithmetic_nodes},
+                {"structured_schedule", {{"status", schedule.at("status")}, {"ff_update_rules", schedule.at("ff_update_rules")},
+                    {"ram_update_rules", schedule.at("ram_update_rules")}}},
                 {"ram_nodes", graph.ram_nodes.size()}, {"kernels", kernel_rows}, {"proofs", proofs}, {"files", files},
                 {"model_offset", model_offset}, {"model_length", model_text.size()}, {"model_sha256", artifacts::sha256(model_text)},
                 {"scope", "Universal equality of every saved C++ expression under the fixed runtime operation semantics, with exact source bindings. Runtime helpers, graph execution, C++ compiler and Boost remain trusted/tested code; no whole-device or unconditional schedule proof."}};
@@ -266,6 +272,13 @@ namespace hal::algorithm_recovery
             const auto model_text = cpp.substr(report.at("model_offset").get<size_t>(), report.at("model_length").get<size_t>());
             require(artifacts::sha256(model_text) == report.at("model_sha256"), "program binding identity changed");
             const auto model = Json::parse(model_text);
+            if (report.contains("structured_schedule"))
+            {
+                require(report.at("files").contains("recovered_schedule.h") && report.at("files").contains("schedule.json"), "missing structured schedule identities");
+                const auto schedule = Json::parse(artifacts::read(directory / "schedule.json"));
+                require(schedule.at("status") == "EXACT_SCHEDULE_EXPANSION_CHECKED" && schedule.at("model_sha256") == report.at("model_sha256") &&
+                    schedule.at("source_sha256") == report.at("files").at("recovered_schedule.h"), "structured schedule/model binding differs");
+            }
             require(model.at("nodes").size() == report.at("nodes") && model.at("ram_nodes").size() == report.at("ram_nodes") &&
                 model.at("kernels").size() == report.at("kernels").size(), "program inventory mismatch");
             for (const auto& row : report.at("kernels"))

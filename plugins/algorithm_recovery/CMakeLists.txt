@@ -30,6 +30,8 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
     configure_file(src/program_resources.h.in ${CMAKE_CURRENT_BINARY_DIR}/program_resources.h @ONLY)
     target_include_directories(algorithm_recovery PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_sources(algorithm_recovery PRIVATE src/cpp_function.cpp src/cpp_arithmetic.cpp src/program.cpp src/resynthesis.cpp include/algorithm_recovery/program.h)
+    target_sources(algorithm_recovery PRIVATE src/structured_schedule.cpp src/structured_schedule.h)
+    target_sources(algorithm_recovery PRIVATE src/resynthesis_replay.cpp)
     target_sources(algorithm_recovery PRIVATE src/replay.cpp src/process.cpp src/process.h include/algorithm_recovery/replay.h)
 
     add_executable(hal-recover cli/main.cpp)

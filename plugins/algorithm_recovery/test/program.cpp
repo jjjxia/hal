@@ -128,7 +128,11 @@ int main(int argc, char** argv)
                 graph.ram_nodes.push_back({name, port, phase, value, sources});
             }
         }
-        unwrap(export_program(graph, out / "frames")); unwrap(check_program_artifacts(out / "frames"));
+        for (unsigned phase = 0; phase < 4; ++phase)
+            graph.nodes.push_back({"sample", phase, delta, {{"delta", {SourceKind::input, "delta", phase, 0}}}, true});
+        const auto frame_report = unwrap(export_program(graph, out / "frames")); unwrap(check_program_artifacts(out / "frames"));
+        check(frame_report.at("structured_schedule").at("ff_update_rules") == 4 &&
+              frame_report.at("structured_schedule").at("ram_update_rules") == 16, "repeated updates were not consolidated");
         std::ofstream frame_requests(out / "frames" / "requests.jsonl"), frame_expected(out / "frames" / "expected.jsonl");
         auto states = initial_memories(graph); History history;
         for (const auto& src : graph.histories) history.emplace(src, ctx.bv_val("1512366075204170929041", 80));
@@ -152,6 +156,18 @@ int main(int argc, char** argv)
             const auto result = unwrap(run_frame(graph, history, inputs, states, ctx));
             frame_expected << expected(result).dump() << '\n'; history = result.history; states = result.memories;
         }
+        FoldGraph order; order.available = true; order.period = 2;
+        for (unsigned phase = 0; phase < 2; ++phase)
+            for (const auto& name : phase ? std::vector<std::string>{"order_b", "order_a"} : std::vector<std::string>{"order_a", "order_b"})
+                order.nodes.push_back({name, phase, delta, {{"delta", {SourceKind::input, "delta", phase, 0}}}, true});
+        unwrap(export_program(order, out / "order"));
+        check(Json::parse(artifacts::read(out / "order" / "schedule.json")).at("words").at("mode") == "EXACT_PHASE_DISPATCH",
+              "conflicting phase orders were silently reordered");
+        FrameValues order_inputs;
+        order_inputs.emplace(std::make_pair(std::string("delta"), 0u), ctx.bv_val(0, 16));
+        order_inputs.emplace(std::make_pair(std::string("delta"), 1u), ctx.bv_val(65535, 16));
+        artifacts::write(out / "order" / "requests.jsonl", request({}, order_inputs, {}).dump() + '\n');
+        artifacts::write(out / "order" / "expected.jsonl", expected(unwrap(run_frame(order, {}, order_inputs, {}, ctx))).dump() + '\n');
         FoldGraph absent; check(unwrap(export_program(absent, out / "absent")).at("status") == "NO_GRAPH" && !fs::exists(out / "absent" / "recovered.cpp"), "missing graph fabricated");
         auto malformed = graph; malformed.ram_nodes.pop_back(); check(export_program(malformed, out / "malformed").is_error(), "missing RAM port exported");
         check(export_program(graph, out / "frames").is_error(), "existing program overwritten");

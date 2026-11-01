@@ -972,3 +972,43 @@ replaced with separate copies. The all-type controller MI continues on its old
 mapped code; later invocations use the new validated exporter. MI implementation,
 search limits and the case-serial queue are unchanged. Build products remain
 ignored; single-worker builds only.
+
+Structured executable schedule, milestone 2 (2026-11-01)
+------------------------------------------------------
+The exporter now normalizes each source by state identity and event lag, merges
+identical update rules, derives exact phase residue conditions, and emits
+recovered_schedule.h as the ACTUAL frame executor. The new path does not walk
+the JSON graph to perform updates. All original node/source/time bindings and
+ordering are checked by exact expansion. If phase-specific operation orders
+cannot be combined into one acyclic order, an explicit per-phase switch retains
+the original sequences. All FF expressions run before any RAM state change;
+all RAM ports are evaluated before committing any RAM, preserving simultaneous
+cross-memory read-before-write semantics and arbitrary-width histories.
+
+Source/header and schedule.json hashes join the program manifest. Kernel source
+proofs remain universal; schedule expansion is checked, while the small emitted
+schedule/runtime implementation remains trusted/tested (not a full C++ proof).
+Do not call its phase counter the original FSM state encoding.
+
+Relevant tests pass in build/structured_replay_ctest.log, 50.21s: original-gate
+replay fixture, direct/re-synthesized arithmetic, arbitrary-width multi-frame
+history/RAM execution, consolidation of repeated updates, and conflicting phase
+orders requiring exact dispatch. The native synthesize CLI now also compiles
+reference and candidate SEQUENTIALLY, then executes eight consecutive zero,
+all-one and seeded-random frames, conserving all bindings and comparing complete
+FF/history/RAM responses. This is differential validation against the original
+saved program, explicitly not a newly extracted original-gate observation.
+
+Real controller one: build/synthesized_v2/controller_one has 2941 FF occurrences
+-> 316 update rules and 5376 RAM-port occurrences -> 223 rules; both use merged
+rules, no ordering fallback. Actual recovered_schedule.h is 1109 lines.
+build/synthesized_v1/controller_one compiled and returned the correct 16-bit
+RAM-copy result for 65535; its arithmetic was already saved-source proved.
+The v3 controller one rerun includes the new automatic compiled differential
+validation; consult build/controller_structured_compiled.log and its replay
+receipt for completion. Do not count it complete based on this checkpoint.
+
+Guarded FSM/event recovery (milestone 3) remains unimplemented at this checkpoint.
+Detailed implementation decisions are in END_TO_END_AGENT_PLAN.txt. Preserve the
+existing all-type serial queue and do not relink over a library inode mapped by
+the v3 synthesizer if it is still running.

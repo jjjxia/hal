@@ -74,6 +74,66 @@ Current state
   Milestone 1 code and regression validation complete; native synthesize command
   available, and the first real controller one artifact has 956 executable
   arithmetic occurrences with 217 saved-source proofs. Further firmware compile/
-  replay and delivery remain. Milestone 2 implementation in progress.
+  replay and delivery remain. Milestone 2 code/regression validation complete;
+  actual controller one has 316 FF / 223 RAM update rules in compiled C++.
+  Its v3 automatic compiled differential replay is running; consult receipts.
+  Milestone 3 is the next implementation task, not completed by schedule folding.
   All-type serial retry is independently in its controller stage; its larger
   resource budget alone does not implement these synthesis milestones.
+
+Milestone 3 implementation decision (2026-11-01, not implemented yet)
+  Use a distinct guarded event-transition representation, not a fabricated
+  observed period=1. Reuse the proved expression/schedule emitter as a one-event
+  execution backend only with an explicit execution-kind contract. Include all
+  DANA FF groups (including unknown numeric order and nonperiodic/no-write groups)
+  as physical storage. Every old FF value is state, not a trace-fed cut input.
+
+  Extract unconditional word D/control/observable cones with HAL SSE's native
+  vector<Net*> API. Check against OriginalCircuit's independent LUT/carry
+  interpretation. Retain trace-guided specializations as guarded alternatives,
+  with the unconditional HAL expression as exact fallback for unobserved guards.
+  Construct each FF's enable, edge, synchronous/asynchronous reset/set and hold
+  semantics from its actual primitive/pins; mixed word controls become masked
+  bit updates rather than exclusions. Pack physical FF/RAM leaves into existing
+  storage words without inventing numeric order. Fit and prove readable
+  arithmetic on the recovered expressions; unsupported fits stay exact.
+
+  An event runner should calculate clock edges from symbolic control functions
+  on old/new snapshots, compute all FF/RAM updates from one pre-update snapshot,
+  and commit them together. Derived clocks and FF-dependent asynchronous resets
+  require delta-event settling, not a silent primary-clock-only assumption.
+  Stop with explicit nonquiescence if a bounded settling loop does not stabilize.
+  RAM uses existing extracted mode-0 INIT/ports and read-before-write semantics.
+  Unknown initial $dff/IO bits and RAM read latches must remain explicit choices;
+  do not claim a complete four-state model from the current two-state runtime.
+
+  Input/output closure includes physical pad inputs and observable pad drives.
+  OriginalCircuit intentionally omits pad $mux drivers (A=z); export their B/S
+  as output data/drive-enable via HAL instead of reading a driven pad as an
+  internal oracle. Treat resolved inout reads as the hardware environment input.
+  Confirm actual clocks/reset support before picking any simpler event backend.
+
+  Implementation references:
+    observations.h: OriginalFF / OriginalCircuit physical pins, support/function
+    observations.cpp: FF regex and Yosys primitive update semantics
+    guided.cpp: physical HAL mapping, combinational bitmap, normalized SSE,
+      conditional variant proof receipts and unconditional RAM-port extraction
+    sequential_symbolic_execution.h: get_word_values_at_z3(vector<vector<Net*>>)
+    /usr/share/yosys/ice40/cells_sim.v: SB_DFF_INIT=0; $dff IO initialization differs
+  Do not implement a second hand-written recovery interpreter in place of HAL.
+  Reference gate interpretation remains the checking side of the pipeline.
+
+  Preferred event-backend split: emit a proved combinational control/observable
+  program (clocks, enable/reset/set and pad data/drive-enable) plus a proved data
+  program (unconditional D, guarded trace variants, and unconditional RAM ports).
+  Their FF/RAM input words are internal inputs wired from the event driver's own
+  current state, not exposed trace-fed boundaries. Generate explicit C++ FF
+  control branches in the driver; select a guarded specialized D when applicable,
+  otherwise use full HAL D. This keeps arithmetic visible without trying to fit
+  an entire muxed next-state word to one affine model. All data/control/port
+  functions see one old-state snapshot per delta; update all FFs/RAM together.
+  Emit an explicit execution_kind for combinational/event programs; no observed
+  period assertion may be inferred from a one-step code-generation frame.
+  Existing primitive/runtime semantics need differential Yosys/Icarus tests;
+  an end-to-end artifact must report these trusted parts separately from
+  universal function equivalence. Do not silently reduce output observations.

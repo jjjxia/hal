@@ -92,7 +92,9 @@ int main(int argc, char** argv)
             z3::context ctx;
             auto result = hal::algorithm_recovery::resynthesize_program(argv[2], argv[3], argv[4], ctx);
             if (result.is_error()) throw std::runtime_error(result.get_error().get());
-            std::cout << result.get().dump(2) << '\n'; return 0;
+            auto replay = hal::algorithm_recovery::replay_resynthesis(argv[2], argv[4], std::filesystem::path(argv[4]) / "replay");
+            if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
+            std::cout << result.get().dump(2) << '\n' << replay.get().at("status") << '\n'; return 0;
         }
         if (std::string(argv[1]) == "trace")
         {

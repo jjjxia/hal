@@ -27,4 +27,7 @@ namespace hal::algorithm_recovery
     Result<nlohmann::json> resynthesize_program(const std::filesystem::path& program,
         const std::filesystem::path& arithmetic, const std::filesystem::path& output,
         z3::context& ctx, const ProgramOptions& options = {});
+    Result<nlohmann::json> replay_resynthesis(const std::filesystem::path& original,
+        const std::filesystem::path& synthesized, const std::filesystem::path& output,
+        unsigned frames = 8, const std::string& compiler = "c++", unsigned process_timeout_ms = 300000);
 }

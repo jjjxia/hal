@@ -114,6 +114,9 @@ int main(int argc, char** argv)
         check(export_program(graph, out / "stale", {}, stale).is_error(), "stale arithmetic identity accepted");
         auto wrong = lifting; wrong["nodes"][0]["fit"]["constant"] = {"2", "1"};
         check(export_program(graph, out / "wrong", {}, wrong).is_error(), "wrong arithmetic adopted through a copied proof receipt");
+        const auto replay = unwrap(replay_resynthesis(out / "program", out / "resynthesized", out / "differential", 3));
+        check(replay.at("frames") == 3 && replay.at("static_binding_conservation_checked") == true,
+              "compiled resynthesis comparison did not cover complete frames");
         std::cout << "PASS native arithmetic synthesis and negative proof checks\n"; return 0;
     }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }

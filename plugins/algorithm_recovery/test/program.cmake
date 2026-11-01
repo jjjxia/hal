@@ -2,7 +2,7 @@ execute_process(COMMAND "${GENERATOR}" generate "${WORK}" RESULT_VARIABLE status
 if(NOT status EQUAL 0)
     message(FATAL_ERROR "native C++ export/check generation failed")
 endif()
-foreach(kind operations frames)
+foreach(kind operations frames order)
     execute_process(COMMAND "${CXX}" -std=c++17 -O0 "${WORK}/${kind}/recovered.cpp" -o "${WORK}/${kind}/recovered"
         RESULT_VARIABLE status OUTPUT_FILE "${WORK}/${kind}/compile.log" ERROR_FILE "${WORK}/${kind}/compile.log")
     if(NOT status EQUAL 0)

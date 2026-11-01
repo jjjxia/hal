@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <tuple>
 
@@ -64,10 +65,47 @@ namespace hal_recovered
             history.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), value.str()});
         return {{"values", values}, {"history", history}, {"memories", memory_json(frame.memories)}, {"reads", frame.reads}};
     }
+    using InputValues = std::map<Key, Integer>;
+    using HistoryValues = std::map<HistoryKey, Integer>;
+    using FrameExecutor = void (*)(Frame&, const InputValues&, const HistoryValues&);
+    inline Integer schedule_input(const InputValues& inputs, const std::string& name, unsigned phase, unsigned width)
+    {
+        const auto& value = inputs.at({name, phase}); check_value(value, width); return value;
+    }
+    inline Integer schedule_signal(const Frame& state, const HistoryValues& history, const std::string& name,
+                                   unsigned phase, unsigned period, uint64_t lag, unsigned width)
+    {
+        require(period > 0 && phase < period, "invalid schedule time"); Integer value;
+        if (lag <= phase) value = state.values.at({name, static_cast<unsigned>(phase - lag)});
+        else
+        {
+            const uint64_t delta = lag - phase, delay = delta / period + (delta % period != 0);
+            require(delay <= std::numeric_limits<unsigned>::max(), "schedule history delay overflow");
+            const unsigned previous = delta % period ? period - delta % period : 0;
+            value = history.at({name, previous, static_cast<unsigned>(delay)});
+        }
+        check_value(value, width); return value;
+    }
+    inline void schedule_write(Frame& state, const std::string& name, unsigned phase, const Integer& value)
+    { require(state.values.emplace(Key{name, phase}, value).second, "duplicate structured word write"); }
+    inline void schedule_memory(Frame& state, const InputValues& inputs, unsigned phase, const std::string& name,
+                                unsigned read_clock, unsigned write_clock, const std::map<std::string, unsigned>& port, Json& reads)
+    {
+        auto& memory = state.memories.at(name); const auto before = memory.read;
+        if (schedule_input(inputs, "event_rise_" + std::to_string(read_clock), phase, 1) != 0 && port.at("RE") && port.at("RCLKE"))
+            memory.read = memory.data[port.at("RADDR") & 255];
+        if (schedule_input(inputs, "event_rise_" + std::to_string(write_clock), phase, 1) != 0 && port.at("WE") && port.at("WCLKE"))
+        {
+            const unsigned mask = (~port.at("MASK")) & 65535, address = port.at("WADDR") & 255;
+            memory.data[address] = (memory.data[address] & (~mask & 65535)) | (port.at("WDATA") & mask);
+        }
+        reads[name] = {before, memory.read};
+    }
     class Program
     {
     public:
-        Program(Json model, std::vector<Kernel> kernels) : m_model(std::move(model)), m_kernels(std::move(kernels))
+        Program(Json model, std::vector<Kernel> kernels, FrameExecutor executor = nullptr)
+            : m_model(std::move(model)), m_kernels(std::move(kernels)), m_executor(executor)
         {
             const auto period = m_model.at("period").get<unsigned>(); require(period > 0, "no executable graph");
             m_nodes.resize(period); m_ram_nodes.resize(period);
@@ -105,6 +143,9 @@ namespace hal_recovered
             require(result.memories.size() == m_model.at("memories").size(), "wrong memory inventory");
             for (auto it = m_model.at("memories").begin(); it != m_model.at("memories").end(); ++it)
                 require(result.memories.count(it.key()), "missing memory instance");
+            if (m_executor) m_executor(result, inputs, history);
+            else
+            {
             const auto evaluate = [&](const Json& node) {
                 std::vector<Integer> operands;
                 for (const auto& source : node.at("sources"))
@@ -145,6 +186,7 @@ namespace hal_recovered
                 }
                 result.reads.push_back(std::move(reads));
             }
+            }
             for (const auto& row : m_model.at("histories"))
             {
                 const std::string name = row.at(0); const unsigned phase = row.at(1), delay = row.at(2);
@@ -156,13 +198,14 @@ namespace hal_recovered
     private:
         Json m_model;
         std::vector<Kernel> m_kernels;
+        FrameExecutor m_executor;
         std::vector<std::vector<Json>> m_nodes, m_ram_nodes;
     };
-    inline int run_json_lines(const char* model, std::vector<Kernel> kernels)
+    inline int run_json_lines(const char* model, std::vector<Kernel> kernels, FrameExecutor executor = nullptr)
     {
         try
         {
-            const Program program(Json::parse(model), std::move(kernels));
+            const Program program(Json::parse(model), std::move(kernels), executor);
             std::string line;
             while (std::getline(std::cin, line)) if (!line.empty()) std::cout << program.request(Json::parse(line)).dump() << std::endl;
             require(!std::cin.bad() && bool(std::cout), "program stream failure"); return 0;
