@@ -1,0 +1,77 @@
+End-to-end firmware -> readable executable C++: execution plan
+Owner: Codex; authorized by user 2026-11-01. Ordinary engineering task, no
+research goal/loop. Work in the independent HAL checkout, commit coherent steps.
+
+Objective
+  Native HAL + our C++ extension, with no per-design semantic hints, should
+  recover as much executable behavior and readable structure as the input
+  supports. Produce actual synthesized C++, not merely equations in JSON or a
+  handwritten algorithm description. Preserve original physical identities,
+  widths, bit order, clocks/resets, RAM, unknowns and all proof boundaries.
+
+Architectural decision
+  A trace-guided equation is a specialization of the circuit's transition
+  relation under recorded control assumptions. A repeated trace schedule is one
+  execution schema, not the complete control automaton. Retain guards and state
+  dependencies, merge equivalent updates, and obtain unobserved behavior from
+  the original symbolic circuit when supported. Do not manufacture missing
+  branches or require the whole-device observed-period LCM to discover every
+  useful transition. Keep raw, exact fallback expressions where lifting fails.
+
+Milestones (execute, validate, commit; do not stop at this plan)
+
+1. Synthesize executable arithmetic into the existing native C++ exporter.
+   - Consume FIT_PROVED models and proved routing coordinate permutations.
+   - Emit direct integer arithmetic with explicit signedness, dyadic floor,
+     wrap and permutation semantics. Keep unlifted exact functions as fallback.
+   - Decode the saved generated function bytes and prove them against the raw
+     graph function; also compile and replay, including negative/wrap cases.
+   - Enable it in the actual analyze pipeline. Provide a native re-export path
+     for the existing seven validated programs without re-running HAL MI.
+
+2. Recover executable structure from the periodic graph.
+   - Normalize source bindings by time lag and state identity; consolidate
+     repeated word updates with identical operation, guards and dependencies.
+   - Emit explicit state updates, phase conditions and repeated execution in
+     C++ with original word names. Preserve simultaneous-event and RAM ordering.
+   - Validate expansion of the structured schedule against every original node,
+     source, phase, history entry and RAM operation before adopting it.
+   - Retain a complete traceable mapping and report genuinely unresolved pieces.
+
+3. Recover guarded state transitions beyond a single instantiated schedule.
+   - Persist conditional SSE variants as transitions, including physical guards,
+     FF write/reset semantics, dependencies and the existing equivalence proofs.
+   - Merge identical transitions across observations and profiles. Preserve
+     data-dependent guards in emitted control flow, rather than hard-code their
+     trace values or equate schedule phase with the original FSM state.
+   - Evaluate a native event/state backend with symbolic original-circuit
+     fallback for uncovered guards/aperiodic groups. Use HAL SSE for extraction
+     and the independent original interpreter for checking, not a hand-written
+     recovery substitute. Explicitly retain unsupported/X-state cases.
+   - Apply it to the HMD pattern gap; a large LCM must not silently erase
+     recoverable local state transitions.
+
+4. End-to-end validation and delivery.
+   - Meaningful regression cases: signed arithmetic, wrap, nontrivial routing,
+     delay across frames, branch guards, simultaneous clocks, RAM read-before-
+     write, unknown initialization, and malformed/mismatched artifact rejection.
+   - Compile and execute both firmware outputs against original-gate reference
+     observations with unchanged known/unknown-bit accounting and withheld data.
+   - Show the actual highest-level generated source and exact invocation paths;
+     distinguish demonstrated function from speculative product/protocol roles.
+   - Record coverage and remaining limitations in one current record; selective
+     add/commit code/configuration/compact results, no build artifacts or push.
+
+Resource and execution discipline
+  Existing all-type HAL expansion remains one serial queue: controller then
+  HMD; each case 180 minutes and 16 GiB per-process virtual address space.
+  Do not start another heavy recovery case concurrently or modify bytes of
+  libraries mapped by its running process. Development builds use one worker
+  and separate/preserved output inodes as needed. Never overwrite validated
+  artifacts or change a proof contract merely to obtain a passing result.
+
+Current state
+  Plan created; milestone 1 in progress. Existing seven executable artifacts
+  still use raw bit-operation functions, while arithmetic is only an annotation.
+  All-type serial retry is independently in its controller stage; its larger
+  resource budget alone does not implement these synthesis milestones.
