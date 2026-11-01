@@ -57,8 +57,9 @@ Independent module results (base representation; unique graph counts)
   Word observations        3192                     3264
   Output observations      504                      408
 
-  Each occurrence checks AST position, source width, actual strict-earlier
-  producer, producer logical identity and sample index/delay. Repeated operands
+  Each occurrence checks AST position, source width, producer logical identity
+  and sample index/delay. Register producers must be strict-earlier writes;
+  external inputs may be read in the same cycle. Repeated operands
   count separately. Raw nodes include controls/pipeline stages, not just named
   arithmetic operators; repeated windows are not independent designs/tests.
   hwbfly's ce_phase control is independently checked against RTL and its enables
@@ -115,15 +116,16 @@ Negative controls and guarantee separation
   same-edge new-value read, and deletion of one repeated operand occurrence.
   All35 applicable controlled structural mutations are detected;5 duplicate
   deletion controls are N/A for the non-repeating recurrence expression.
-  On quantized_shared, wrong signed shift and wrong rounding shift retain
+  On quantized_shared, wrong signed shift and wrong quantization shift amount retain
   producer structure but FAIL finite semantics. Corrupting one actual prefix
   datum also FAILS semantics. These are evaluator controls, not DUT failures.
   All8 applicable copy-history corruptions are rejected before normalization;
   the2 already copy-cut cases require no copy-history test.
   This run adds no universal RTL-equation, runtime or whole-device certificate.
   Oracle provenance uses independent forward old-state tags, but shares the
-  source-equation leaves and AST occurrence enumerator with the adapter/scorer;
-  it is not an independently extracted RTL AST. Directed extreme inputs in the
+  supplied source-equation leaves; it is not an independently extracted RTL AST.
+  The controlled generator also shares the scorer's AST occurrence enumerator;
+  the upstream adapters traverse their ASTs separately. Directed extreme inputs in the
   controlled generator occur in its startup prefix, not an exhaustive scored
   rounding/overflow boundary suite. Outside-contract rotating/hidden-pipeline/
   across-operation-inlining cases were not run as negative controls.
