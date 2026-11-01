@@ -642,3 +642,42 @@ changed orders; validate any recovered additions downstream. Analyze the long
 pattern trace with the enlarged window and report the actual result, keeping
 NO_GRAPH/UNKNOWN/failures explicit. Real coverage improvement has not yet been
 established. All outputs remain ignored under build/. Do not claim task complete.
+
+Long-window result and diagnostic checkpoint (2026-11-01)
+--------------------------------------------------------
+Completed both build/hmd_pattern_window17472 and
+build/hmd_pattern_window17472_diagnostic on the new 24576-event pattern trace,
+using the preserved native_hmd_groups to isolate the window effect. Both exit 0
+with NO_EXECUTABLE_GRAPH, not a recovered program. Each validates all 363 groups /
+3505 FF bits with 404 conditional SSE checks and 168 unconditional RAM-port checks.
+RAM replay: 43302384 known observations, 3146256 unknown observations, 256 unknown
+operand observations, 208896 enabled reads, 49152 enabled writes, 785920 written
+bit events, 86016 known final-storage bits; no known mismatch.
+
+The diagnostic command adds --compare-window 512 to the --window 17472 analysis.
+It folds an exact suffix of the same proved extraction without replacing the
+main graph, omitting newly periodic groups or changing acceptance thresholds.
+Main interval [7104,24576): local-period histogram
+  2:142, 4:19, 16:100, 26:1, 42:6, 336:1, 672:7, 2688:1, 5376:6.
+Comparison interval [24064,24576):
+  2:144, 4:19, 16:100, 26:1, 42:6.
+The joint period grows from 4368 to 69888; the required four-period window grows
+from 17472 to 279552. Thirteen groups become periodic in the longer window:
+  DANA_module_105:336; _173/_176/_185/_186/_188/_189/_40:672;
+  _35:2688; _177/_191/_195/_32:5376.
+Additionally _207 and _289 change their finite observed period from 2 to 5376.
+This directly refutes the expectation that one enlargement to 17472 necessarily
+suffices. It is not evidence that no further enlargement or different folding
+method can recover a program. No 279552-event analysis has been performed.
+Local periods, histogram, indices and comparison scope are saved in fold_report.
+
+Added check-recovery-grouping-comparison: compares exact physical Q/D/gate maps
+and DANA membership, then records gained, lost and conflicting known orders.
+Self-comparisons preserve all 71 controller / 67 HMD multi-bit orders. Actual
+expanded comparisons are pending the two live all-type/control-3 HAL runs.
+Explicit MI selectors now accept lower/upper case; an actual imported fixture
+with --mi-types counter,addition --mi-controls 0 completed successfully and
+recorded COUNTER/ADDITION. Rebuilt CLI via hal-recover/fast without relinking the
+libraries used by the two live MI runs. Ten CTests pass (diagnostics_ctest.log).
+The extra empty-equality-proposal source guard is not in that tested binary yet;
+it will be built/tested after the live MI runs finish. FOLLOW-UP STILL ACTIVE.

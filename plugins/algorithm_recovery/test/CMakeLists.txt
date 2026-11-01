@@ -73,6 +73,9 @@ target_include_directories(check-recovery-arithmetic-fixture PRIVATE ${RECOVERY_
 
 add_executable(check-recovery-frontend-fixture frontend_fixture.cpp)
 target_link_libraries(check-recovery-frontend-fixture PRIVATE algorithm_recovery)
+add_executable(check-recovery-grouping-comparison grouping_comparison.cpp)
+target_link_libraries(check-recovery-grouping-comparison PRIVATE nlohmann_json::nlohmann_json ${RECOVERY_SODIUM_LIBRARY})
+target_include_directories(check-recovery-grouping-comparison PRIVATE ${RECOVERY_SODIUM_INCLUDE})
 add_executable(check-recovery-frontend frontend.cpp)
 target_link_libraries(check-recovery-frontend PRIVATE algorithm_recovery)
 add_test(NAME algorithm-recovery-frontend COMMAND check-recovery-frontend

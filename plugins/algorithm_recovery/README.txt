@@ -34,7 +34,8 @@ Build from the HAL repository root:
     check-recovery-routing check-recovery-routing-fixture \
     check-recovery-program check-recovery-program-fixture \
     check-recovery-replay check-recovery-replay-fixture \
-    check-recovery-trace-options check-recovery-mi-controls -j 4
+    check-recovery-trace-options check-recovery-mi-controls \
+    check-recovery-grouping-comparison -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -73,7 +74,8 @@ Configure identification explicitly (no manual semantic seeds):
     --mi-types all --mi-controls 3 --mi-threads 1 --dana-threads 4
 
 The equivalent legacy selection is --mi-types counter,addition --mi-controls 0.
-Explicit type lists use HAL's selectable names; unsupported selectors are errors.
+Explicit type lists use HAL's selectable names, case-insensitively; unsupported
+selectors are errors.
 Actual settings and numeric-seed eligibility are saved in the group/MI reports.
 HAL retains its own per-candidate heuristics (for example, its comparison path
 proposes at most one control); the configured maximum is not a completeness claim.
@@ -95,6 +97,22 @@ still apply. NO_GRAPH diagnostics report the available window and the required
 four complete joint periods; a larger window may expose different local periods
 and does not itself guarantee recovery. Long windows construct control snapshots
 only when a new HAL SSE variant is needed, avoiding redundant per-event maps.
+
+For a controlled window comparison, add --compare-window 512 to analyze. This
+folds the exact suffix of the same proved extraction, recording both sets of
+local periods, their histograms and the resulting joint periods in fold_report.
+The comparison is diagnostic only; it never substitutes a smaller graph or
+excludes newly periodic words from the main recovery result.
+
+Compare identification configurations by physical FF coordinates:
+
+  build/bin/hal_plugins/check-recovery-grouping-comparison \
+    build/old_groups/groups.json build/new_groups/groups.json build/order_comparison.json
+
+This requires identical DANA membership and Q/D/gate wiring, then reports added,
+lost and changed known orders independently of module names or unresolved list
+enumeration. A lost or conflicting old order fails the comparison. This checks
+preservation and coverage; it is not an independent proof of HAL-inferred weights.
 
 DANA now has Configuration::max_thread_count (also exposed to its Python binding),
 covering processing and evaluation workers; zero keeps automatic selection.

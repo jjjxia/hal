@@ -15,6 +15,7 @@
 #include "hal_core/utilities/enums.h"
 #include <limits>
 #include <sstream>
+#include <cctype>
 
 namespace
 {
@@ -47,6 +48,22 @@ namespace
         { if (value.empty() || !seen.insert(value).second) throw std::runtime_error("empty or duplicate list entry"); result.push_back(value); }
         return result;
     }
+    nlohmann::json fold_diagnostic(const hal::algorithm_recovery::FoldGraph& graph, const hal::algorithm_recovery::FoldInput& input)
+    {
+        nlohmann::json histogram = nlohmann::json::object();
+        for (const auto& [name, period] : graph.periods)
+        { const auto key = std::to_string(period); histogram[key] = histogram.value(key, 0u) + 1; }
+        nlohmann::json result{{"available", graph.available}, {"period", graph.period}, {"origin", graph.origin},
+            {"window_start", input.start}, {"window_length", input.length}, {"required_complete_periods", 4},
+            {"local_periods", graph.periods}, {"period_histogram", histogram},
+            {"nodes", graph.nodes.size()}, {"ram_nodes", graph.ram_nodes.size()}, {"histories", graph.histories.size()}, {"excluded", graph.excluded}};
+        if (!graph.available)
+        {
+            result["reason"] = graph.period ? "INSUFFICIENT_PERIODIC_WINDOW" : "NO_PERIODIC_WORDS";
+            if (graph.period <= std::numeric_limits<u64>::max() / 4) result["required_window_length"] = graph.period * 4;
+        }
+        return result;
+    }
 }
 
 int main(int argc, char** argv)
@@ -58,7 +75,7 @@ int main(int argc, char** argv)
                      "       hal-recover import recovered.json library.hgl empty_output_directory\n"
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
-                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...]\n"
+                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...] [--compare-window N]\n"
                      "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
         return 2;
     }
@@ -66,7 +83,7 @@ int main(int argc, char** argv)
     {
         const std::map<std::string, std::set<std::string>> accepted{
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
-            {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles"}}};
+            {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles", "--compare-window"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "trace")
@@ -95,7 +112,10 @@ int main(int argc, char** argv)
             z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[4], ctx);
             auto trace = hal::algorithm_recovery::Observations::load(argv[5]);
             const auto profiles_to_analyze = options.count("--profiles") ? list(options.at("--profiles")) : std::vector<std::string>{};
-            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], number(options, "--window", 512), profiles_to_analyze);
+            const auto window = number(options, "--window", 512), comparison_window = number(options, "--compare-window", 0);
+            if (options.count("--compare-window") && (!comparison_window || comparison_window > window))
+                throw std::runtime_error("comparison window must be positive and no larger than extraction window");
+            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], window, profiles_to_analyze);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
             auto warmed = hal::algorithm_recovery::replay_memories(analyzed.get(), original, trace,
                 std::filesystem::path(argv[5]) / "native_ram_final.txt", std::filesystem::path(argv[6]) / "memory_replay");
@@ -108,13 +128,22 @@ int main(int argc, char** argv)
                 auto folded = hal::algorithm_recovery::fold_observed(input, ctx);
                 if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
                 const auto& graph = folded.get();
-                profiles[name] = {{"available", graph.available}, {"period", graph.period}, {"origin", graph.origin},
-                    {"window_length", input.length}, {"required_complete_periods", 4},
-                    {"nodes", graph.nodes.size()}, {"ram_nodes", graph.ram_nodes.size()}, {"histories", graph.histories.size()}, {"excluded", graph.excluded}};
-                if (!graph.available)
+                profiles[name] = fold_diagnostic(graph, input);
+                if (options.count("--compare-window"))
                 {
-                    profiles[name]["reason"] = graph.period ? "INSUFFICIENT_PERIODIC_WINDOW" : "NO_PERIODIC_WORDS";
-                    if (graph.period <= std::numeric_limits<u64>::max() / 4) profiles[name]["required_window_length"] = graph.period * 4;
+                    const auto length = comparison_window;
+                    hal::algorithm_recovery::FoldInput smaller; smaller.length = length; smaller.start = input.start + input.length - length;
+                    smaller.inputs = input.inputs; smaller.memories = input.memories;
+                    for (const auto& [word_name, word] : input.words)
+                    {
+                        hal::algorithm_recovery::WordWindow row; row.bits = word.bits; row.numeric_order_known = word.numeric_order_known;
+                        row.writes.assign(word.writes.end() - length, word.writes.end()); row.equations.assign(word.equations.end() - length, word.equations.end());
+                        smaller.words.emplace(word_name, std::move(row));
+                    }
+                    auto comparison = hal::algorithm_recovery::fold_observed(smaller, ctx);
+                    if (comparison.is_error()) throw std::runtime_error(comparison.get_error().get());
+                    profiles[name]["comparison"] = fold_diagnostic(comparison.get(), smaller);
+                    profiles[name]["comparison"]["scope"] = "Diagnostic only: exact suffix of the same proved extraction; no graph replacement or exclusion of newly periodic words";
                 }
                 std::cout << "FOLDED " << name << ' ' << profiles[name].dump() << std::endl;
                 auto routing = hal::algorithm_recovery::recover_routing(graph, input, std::filesystem::path(argv[6]) / ("routing_" + name));
@@ -158,7 +187,11 @@ int main(int argc, char** argv)
             if (options.count("--mi-types") && options.at("--mi-types") != "all")
             {
                 settings.types.clear();
-                for (const auto& type : list(options.at("--mi-types"))) settings.types.push_back(hal::enum_from_string<hal::module_identification::CandidateType>(type));
+                for (auto type : list(options.at("--mi-types")))
+                {
+                    for (auto& character : type) character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+                    settings.types.push_back(hal::enum_from_string<hal::module_identification::CandidateType>(type));
+                }
             }
             auto groups = hal::algorithm_recovery::recover_groups(nl.get(), settings);
             if (groups.is_error()) throw std::runtime_error(groups.get_error().get());
