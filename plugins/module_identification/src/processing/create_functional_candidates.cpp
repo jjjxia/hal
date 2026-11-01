@@ -95,7 +95,9 @@ namespace hal
             }
             const auto& var_names = var_names_res.get();
 
-            if (var_names.size() % 2 == 0)
+            // Equality needs two nonempty operands. A constant cone has zero
+            // variables and otherwise reaches verification with empty vectors.
+            if (!var_names.empty() && var_names.size() % 2 == 0)
             {
                 candidates.push_back(FunctionalCandidate(candidate));
             }

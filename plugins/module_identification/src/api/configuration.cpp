@@ -16,7 +16,7 @@ namespace hal
 
         Configuration& Configuration::with_max_thread_count(const u32& max_thread_count)
         {
-            m_max_thread_count = m_max_thread_count;
+            m_max_thread_count = max_thread_count;
             return *this;
         }
 

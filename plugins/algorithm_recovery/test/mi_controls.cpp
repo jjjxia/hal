@@ -4,6 +4,9 @@
 #include "module_identification/candidates/base_candidate.h"
 #include "module_identification/candidates/functional_candidate.h"
 #include "module_identification/types/candidate_types.h"
+#include "module_identification/api/module_identification.h"
+#include "module_identification/api/configuration.h"
+#include "module_identification/api/result.h"
 #include "hal_core/netlist/netlist.h"
 #include <fstream>
 #include <iostream>
@@ -37,6 +40,10 @@ int main(int argc, char** argv)
             check(candidate.m_output_nets.size() == 1, "fixture output is not visible");
             const auto influences = unwrap(structural.ctx.get_boolean_influence(candidate.m_output_nets.front(), {}));
             check(influences.size() == (name == "constant" ? 0 : name == "buffer" ? 1 : 2), "unexpected real Boolean influence support");
+            candidate.m_candidate_type = mi::CandidateType::equal;
+            check(unwrap(mi::FunctionalCandidate::discard_equal_candidate(structural.ctx, candidate)).size() == (name == "and" ? 1 : 0),
+                "equality proposal must have two nonempty operands");
+            candidate.m_candidate_type = mi::CandidateType::less_equal;
             const auto proposals = unwrap(mi::FunctionalCandidate::find_control_signals(structural.ctx, candidate));
             check(proposals.size() == (name == "constant" ? 1 : 2), "control proposal inventory changed");
             check(proposals.front().m_control_signals.empty(), "unconditioned candidate was lost");
@@ -46,8 +53,15 @@ int main(int argc, char** argv)
             candidate.m_max_control_signals = 3; candidate.m_candidate_type = mi::CandidateType::counter; candidate.m_max_operands = 1;
             candidate.m_influence_count_to_input_nets = {{1, {candidate.m_input_nets.front()}}};
             check(!unwrap(mi::FunctionalCandidate::identify_control_signals(structural.ctx, candidate)).empty(), "single influence bin was not handled");
+            if (name == "and")
+            {
+                mi::Configuration parallel(imported.netlist.get());
+                parallel.with_max_thread_count(2).with_max_control_signals(3).with_types_to_check({mi::CandidateType::equal, mi::CandidateType::less_equal});
+                check(parallel.m_max_thread_count == 2, "thread configuration was ignored");
+                unwrap(mi::execute_on_gates(gates, parallel));
+            }
         }
-        std::cout << "PASS actual constant/buffer/AND cones: empty influence, positive/disabled control proposals, single-bin arithmetic controls\n";
+        std::cout << "PASS actual constant/buffer/AND cones: empty influence/operand rejection, positive/disabled controls, single-bin arithmetic controls, parallel MI\n";
     }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

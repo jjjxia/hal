@@ -404,7 +404,8 @@ namespace hal
                     Result(nl, std::vector<std::pair<BaseCandidate, VerifiedCandidate>>());
                 }
 
-                const u32 num_threads = std::min(config.m_max_thread_count, std::thread::hardware_concurrency() - 1);
+                const auto hardware_threads = std::thread::hardware_concurrency();
+                const u32 num_threads = std::max(1u, std::min(config.m_max_thread_count, hardware_threads > 1 ? hardware_threads - 1 : 1u));
 
                 log_info("module_identification", "running with {} threads and {} multithreading priority", num_threads, static_cast<int>(config.m_multithreading_priority));
 

@@ -752,3 +752,40 @@ per-process virtual-address-space ceiling (ulimit -v 4194304). This is a resourc
 limit for the evaluation, not a semantic restriction or a completeness claim.
 It runs alongside the original HMD all-type/control-3 case; no third heavy job.
 Full-type results and the unbuilt empty-equality guard remain pending.
+
+MI thread-setting and empty-equality fixes (2026-11-01)
+----------------------------------------------------
+Correction to the preceding retry checkpoint: controller_groups_all3_threads2
+REQUESTED two workers, but HAL's actual log said one. Configuration::
+with_max_thread_count used the self-assignment m_max_thread_count =
+m_max_thread_count. That retry was terminated early, exit 143; it produced no
+grouping result and is not counted as a two-worker measurement. Fixed the setter
+and ensured actual worker selection has at least one worker even if hardware
+concurrency is zero/one. An actual execute_on_gates regression now requests two
+workers and the HAL execution log confirms two (mi_controls_thread_fix_test_v2.log).
+
+Also reject zero-variable equality proposals before operand creation. Such
+constant cones cannot supply two nonempty equality operands; previously their
+verification logged empty-vector errors and rejected them later. Actual HAL
+constant/buffer/AND fixtures test rejection/preservation, alongside the earlier
+influence/control regressions and the parallel MI execution.
+
+Ten CTests pass on the successfully rebuilt targets, 25.22s, in
+build/mi_configuration_fix_ctest.log. Initial test builds failed on missing
+complete-type includes, now fixed. Do not cite the older
+mi_controls_thread_fix_test.log as validation of the new test: that invocation
+ran the preceding executable after a failed build. The v2 build/test and final
+suite were gated on successful compilation.
+
+To keep the long-running HMD search intact, its loaded MI library inode was
+retained at build/running_libraries/60cdf/module_identification.so, then the
+normal path was atomically replaced with a separate identical file before
+building only module_identification/fast and the test target. No bytes mapped by
+the running HMD process were rewritten. It continues with the old valid library
+(without the new empty-equality/thread fixes); new processes use the new library.
+Old MI binary SHA256: b7a6f200ed8659f3a051f1c3cd853d8082fb6fe44c2aaa4398a0674e32da0e0c
+New MI binary SHA256: 79937cb9617d500f0268377bd2b7f82885c9a1acb775106d58752d311e6435be
+The old read-only GDB diagnostic needs the preserved binary's symbols if reused;
+do not interpret old-process stack offsets through the newly rebuilt library.
+Next full controller retry: build/controller_groups_all3_threads2_v2, all types,
+controls=3, two actual workers, same explicit 4 GiB address-space ceiling.
