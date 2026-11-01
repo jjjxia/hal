@@ -64,3 +64,49 @@ Source search disposition
    Bambu/Vitis HLS were absent from PATH. CHStone ChenIDct and MachSuite stencil2d
    are later source candidates; no HLS installation or additional trials now.
    Hilbert and constructed shared biquad remain development cases.
+
+User follow-up (2026-11-01): separate InvFold evaluation and Index interpretation
+   Keep the two active e2e trials above. Add a separate equation-to-graph track
+   so frontend word-order failures do not get mislabeled as InvFold failures.
+   Candidate inputs, selected now but not yet run:
+   - ZipCPU slowfil (same pinned dspfilters): ring-buffer sample RAM + shared MAC.
+     Compare with slowfil_srl to isolate last-writer/address recovery. Count as
+     one FIR family, not two unrelated algorithms.
+   - ZipCPU dblclockfft, pin 3378b77d83a98b06184656a5cb9b54e50dfe4485:
+     16-point FFT at -k 1/2/3, fixed precision/output order. Real generator changes
+     multiplier sharing. Author top-level test exit is not a sufficient oracle;
+     require original RTL/gate and exact fixed-point checks before scoring.
+   - CHStone jpeg/chenidct.c, pin 2b7e20ffd3365016faf1e4e2b86496a5c95445fb:
+     integer 8x8 IDCT. Independent author/algorithm source; Bambu installation and
+     kernel reference-boundary capture are preparation gaps, not recovery failure.
+   Reserve HACE mvt/kernel_2mm for cross-HLS variation after missing multiplier
+   implementations and exact external-memory semantics are obtained. Do not
+   invent primitive timing from names and then call the result original RTL.
+
+   Isolated InvFold contract: obtain exact periodic equations, explicit effective
+   writes, widths and startup histories; certify against the original gate model
+   where supported. Ground-truth-derived grouping is allowed ONLY as a separately
+   labeled isolation input. Score write-event splitting, producer/consumer links,
+   sample delays, raw graph execution and section recognition independently.
+   Preserve bit-vector rounding/overflow. Compare no-event-splitting and raw
+   time-unrolling ablations; do not demand graph isomorphism across arbitrary HLS
+   transformations when the theorem only covers fixed bindings/retiming.
+   Freeze rules before each held-out input; adaptations become development runs.
+   Error/UNKNOWN/unsupported/prior-dependent success remain separate outcomes.
+   These future cases are not additional active jobs and do not expand the
+   current two-case runtime budget without a separate execution entry.
+
+   Index follow-up: explain the actual recovered computation, not only counts.
+   Already established: modular counters, guarded word updates, register copies,
+   quantified arithmetic/bit operations, and RAM read/write data movement with
+   physical clock/reset/enable semantics. Full state programs are executable;
+   that alone has not identified positioning, decoding, FIFO or packet protocol.
+   Next inspect generated state/periodic graphs to group connected state updates,
+   RAM address/data flows, enables and output serializers; produce one readable
+   block/dataflow view and representative executable routines for each firmware.
+   Every role label must cite recovered equations/physical bindings plus an
+   observable behavioral check. Product/domain descriptions may help interpret
+   results but are not anonymous recovery evidence. Distinguish automatically
+   recovered objects, analyst interpretation and unresolved roles. Map every
+   claimed algorithm to its exact-function, finite-replay or full-certificate
+   guarantee; do not import the constructed biquad certificate by analogy.
