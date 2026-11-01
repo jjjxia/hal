@@ -27,6 +27,12 @@ Index 手柄 / 头显：可读的原生 C++ 恢复结果
   手柄最终回放：build/guarded_state_v1/controller/state_full_output_replay/replay.json
   头显最终回放：build/guarded_state_v1/hmd/state_replay/replay.json
 
+  后续人工数据流解读：algorithm_recovery/INDEX_ALGORITHM_INTERPRETATION.txt。
+  已从两份输出中追踪到 16 位条件分发、三个共址 256 x 16 RAM、两个
+  9 位指针和空/满比较，可解释为三路环形缓冲区的队列控制。该标签来自
+  对自动恢复表达式的人工解读；RAM 写入不直接受满条件阻止，尚无安全
+  FIFO 不变式证明，也没有据此认定定位或光信号解码算法。
+
 2. 实际恢复出来的行为
 
   手柄 DANA_module_0 的 8 位状态可读成下面的等价排版：
