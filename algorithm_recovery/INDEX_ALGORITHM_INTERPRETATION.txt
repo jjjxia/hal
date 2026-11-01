@@ -38,6 +38,15 @@ Index 已恢复算法结构：当前证据与人工解释
   这里只约定了元组顺序，没有恢复外部协议中一个 48 位整数的字节序。
   三路 RAM 内容 INIT 均为零，读锁存器初值未知；运行时保留该区别。
 
+  物理位绑定（各数组从最低位到最高位）：
+    手柄 wp=[469,471,473,475,477,479,481,483,1937]；
+         rp=[549,551,553,555,557,559,561,563,2287]。
+    头显 wp=[1503,1505,1507,1509,1511,1513,1515,1517,6315]；
+         rp=[1446,1448,1450,1452,1454,1456,1458,1460,6098]。
+    schema：controller/state_machine/state_schema.json:23321,23351；
+            hmd/state_machine/state_schema.json:26010,26040
+    （以上 schema 路径共同前缀为 build/guarded_state_v1/）。
+
   以下是两个程序共同支持的局部状态递推（同事件均使用旧状态）：
     empty = (wp == rp);
     full  = ((wp ^ rp) == 0x100);              // 9 位指针
@@ -129,3 +138,6 @@ Index 已恢复算法结构：当前证据与人工解释
   成立，保留上述真实局部递推。不要为获得熟悉标签修改原行为或隐藏条件。
   完整论文端到端保证仍须把这些状态/RAM/控制关系接入组合认证；现有固件
   的逐表达式证明和 3072 事件回放不能替代该义务。
+  回放收据：build/guarded_state_v1/controller/state_full_output_replay/replay.json
+            build/guarded_state_v1/hmd/state_replay/replay.json；均为有限回放 PASS，
+  明确使用 two-state X completion；未知观测被统计，不算已证明。
