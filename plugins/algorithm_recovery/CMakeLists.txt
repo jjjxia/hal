@@ -16,8 +16,8 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
         endif()
     endforeach()
     hal_add_plugin(algorithm_recovery SHARED
-        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h include/algorithm_recovery/folding.h include/algorithm_recovery/frontend.h include/algorithm_recovery/grouping.h
-        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp src/frontend.cpp src/grouping.cpp
+        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h include/algorithm_recovery/folding.h include/algorithm_recovery/frontend.h include/algorithm_recovery/grouping.h include/algorithm_recovery/observations.h include/algorithm_recovery/guided.h
+        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp src/frontend.cpp src/grouping.cpp src/observations.cpp src/guided.cpp
         LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json dataflow module_identification bitorder_propagation PRIVATE ${RECOVERY_SODIUM_LIBRARY})
     target_include_directories(algorithm_recovery PRIVATE ${RECOVERY_SODIUM_INCLUDE})
 

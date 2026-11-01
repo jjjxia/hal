@@ -1,11 +1,16 @@
 // Real-input migration test. The production folder takes typed HAL expressions;
 // only this test reads the previous adapter's preserved JSON stage artifacts.
 #include "algorithm_recovery/folding.h"
+#include "algorithm_recovery/guided.h"
+#include "hal_core/netlist/netlist.h"
+#include "hal_core/netlist/persistent/netlist_serializer.h"
+#include "hal_core/plugin_system/plugin_manager.h"
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <optional>
 #include <stdexcept>
 
 using namespace hal::algorithm_recovery;
@@ -42,10 +47,23 @@ static Source source(const Json& row)
     check(kind == "sig" || kind == "in" || kind == "ram", "unsupported source in reference");
     return {kind == "sig" ? SourceKind::signal : kind == "in" ? SourceKind::input : SourceKind::ram, row[1], row[2], row[3]};
 }
+static z3::expr reorder(z3::context& ctx, const z3::expr& value,
+                       const std::vector<std::string>& wanted, const std::vector<std::string>& current)
+{
+    check(wanted.size() == current.size() && wanted.size() == value.get_sort().bv_size(), "coordinate width mismatch");
+    z3::expr_vector bits(ctx);
+    for (auto bit = wanted.rbegin(); bit != wanted.rend(); ++bit)
+    {
+        const auto pos = std::find(current.begin(), current.end(), *bit);
+        check(pos != current.end(), "coordinate membership mismatch");
+        const unsigned index = std::distance(current.begin(), pos); bits.push_back(value.extract(index, index));
+    }
+    return (bits.size() == 1 ? bits[0] : z3::concat(bits)).simplify();
+}
 
 int main(int argc, char** argv)
 {
-    if (argc != 3) { std::cerr << "Usage: check-recovery-folding-fixture case_directory recovered.json\n"; return 2; }
+    if (argc != 3 && argc != 7) { std::cerr << "Usage: check-recovery-folding-fixture case_directory recovered.json [ordered.hal groups.json native_trace_directory empty_analysis_directory]\n"; return 2; }
     try
     {
         const fs::path root(argv[1]);
@@ -53,6 +71,23 @@ int main(int argc, char** argv)
         check(sse.at("status") == "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED", "wrong SSE fixture status");
         check(ram.at("status") == "HAL_RAM_PORT_EQUATIONS_CHECKED", "wrong RAM fixture status");
         z3::context ctx;
+        std::optional<GuidedAnalysis> fresh;
+        if (argc == 7)
+        {
+            check(hal::plugin_manager::load("hgl_parser") && hal::plugin_manager::load("algorithm_recovery"), "missing HAL plugins");
+            auto nl = hal::netlist_serializer::deserialize_from_file(argv[3]);
+            OriginalCircuit circuit(argv[2], ctx); auto trace = Observations::load(argv[5]);
+            auto prior_trace = read(root / "native_trace.json");
+            for (const auto* field : {"observed", "clocks", "windows", "release_pad_assignment", "initial_reset_pad_assignment", "frames", "seed"})
+                check(trace.metadata.at(field) == prior_trace.at(field), std::string("trace metadata changed: ") + field);
+            check(trace.metadata.at("controls").get<std::set<Json>>() == prior_trace.at("controls").get<std::set<Json>>(), "control set changed");
+            auto result = analyze_observations(nl.get(), read(argv[4]), circuit, trace, ctx, argv[6]);
+            if (result.is_error()) throw std::runtime_error(result.get_error().get());
+            fresh.emplace(std::move(result.get()));
+            check(fresh->words.size() == sse.at("words").size(), "native guided word count changed");
+            std::cout << "PASS fresh native SSE " << fresh->report.at("HAL_calls") << " conditional proofs; "
+                      << fresh->report.at("RAM_port_proofs") << " unconditional RAM proofs" << std::endl;
+        }
         std::vector<z3::expr> forms;
         for (const auto& form : sse.at("forms")) forms.push_back(physical(ctx, form));
         std::map<std::pair<unsigned, std::string>, z3::expr> effective;
@@ -75,6 +110,7 @@ int main(int argc, char** argv)
             if (it.value().at("direction") != "output")
                 for (const auto& bit : it.value().at("bits"))
                     base.inputs.emplace("pad" + bit.dump(), std::vector<std::string>{"b" + bit.dump()});
+        std::map<std::pair<unsigned, unsigned>, std::pair<z3::expr, z3::expr>> window_proofs;
         for (auto profile = sse.at("windows").begin(); profile != sse.at("windows").end(); ++profile)
         {
             std::cout << "CHECK " << profile.key() << " preparing native window" << std::endl;
@@ -108,6 +144,34 @@ int main(int argc, char** argv)
                     w.equations.push_back(effective.at(key));
                 }
                 input.words.emplace(word.key(), std::move(w));
+            }
+            const auto old_coordinates = input.words;
+            if (fresh)
+            {
+                const auto& now = fresh->windows.at(profile.key());
+                check(now.start == input.start && now.length == input.length && now.words.size() == input.words.size(), "fresh window changed");
+                for (const auto& [name, old_word] : input.words)
+                {
+                    const auto& new_word = now.words.at(name);
+                    check(std::set<std::string>(new_word.bits.begin(), new_word.bits.end()) == std::set<std::string>(old_word.bits.begin(), old_word.bits.end()), "fresh word membership differs: " + name);
+                    check(new_word.numeric_order_known == old_word.numeric_order_known, "fresh order provenance differs: " + name);
+                    if (new_word.numeric_order_known) check(new_word.bits == old_word.bits, "fresh numeric bit order differs: " + name);
+                    check(new_word.writes == old_word.writes, "fresh write masks differ: " + name);
+                    for (unsigned t = 0; t < input.length; ++t)
+                    {
+                        const auto a = reorder(ctx, new_word.equations.at(t), old_word.bits, new_word.bits);
+                        const auto& b = old_word.equations.at(t); const auto key = std::make_pair(a.id(), b.id());
+                        if (!z3::eq(a, b) && !window_proofs.count(key))
+                        {
+                            z3::solver proof(ctx); proof.set("timeout", 60000u); proof.add(a != b);
+                            check(proof.check() == z3::unsat, "fresh guided equation equivalence not proven: " + name);
+                            window_proofs.emplace(key, std::make_pair(a, b));
+                        }
+                    }
+                }
+                // Fold the actual native SSE result. The old forms above are
+                // used only as a regression oracle, never as production input.
+                input = now;
             }
             auto folded = fold_observed(input, ctx);
             if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
@@ -144,21 +208,32 @@ int main(int argc, char** argv)
                 z3::expr_vector from(ctx), to(ctx);
                 for (auto s = node.at("sources").begin(); s != node.at("sources").end(); ++s)
                 {
-                    const auto symbol = native.at(source(s.value()));
+                    const auto src = source(s.value()); const auto symbol = native.at(src);
                     from.push_back(ctx.bv_const(s.key().c_str(), widths.at(s.key())));
-                    to.push_back(ctx.bv_const(symbol.c_str(), widths.at(s.key())));
+                    auto value = ctx.bv_const(symbol.c_str(), widths.at(s.key()));
+                    const auto coordinate = src.kind == SourceKind::input && src.name.rfind("cut_", 0) == 0 ? src.name.substr(4) : src.name;
+                    if (fresh && old_coordinates.count(coordinate) && src.kind != SourceKind::ram)
+                        value = reorder(ctx, value, old_coordinates.at(coordinate).bits, input.words.at(coordinate).bits);
+                    to.push_back(value);
                 }
                 auto prior = parse(ctx, node.at("smt2"), widths);
                 prior = prior.substitute(from, to).simplify();
                 // Structural equality in this context is already an exact match;
                 // otherwise require a universal proof, never sampling or UNKNOWN.
-                const auto query_key = std::make_pair(prior.id(), now.equation.id());
-                if (!z3::eq(prior, now.equation) && !proof_cache.count(query_key))
+                const auto actual = fresh ? reorder(ctx, now.equation, old_coordinates.at(now.name).bits, input.words.at(now.name).bits) : now.equation;
+                const auto query_key = std::make_pair(prior.id(), actual.id());
+                if (!z3::eq(prior, actual) && !proof_cache.count(query_key))
                 {
                     z3::solver solver(ctx); solver.set("timeout", 60000u);
-                    solver.add(prior != now.equation);
-                    check(solver.check() == z3::unsat, "node expression equivalence not proven");
-                    proof_cache.emplace(query_key, std::make_pair(prior, now.equation));
+                    solver.add(prior != actual);
+                    const auto status = solver.check();
+                    if (status != z3::unsat)
+                    {
+                        if (fresh) std::ofstream(fs::path(argv[6]) / "failed_node.smt2") << solver.to_smt2();
+                        throw std::runtime_error("node expression equivalence not proven: " + now.name + " phase=" + std::to_string(now.phase) +
+                            " result=" + (status == z3::sat ? std::string("SAT") : "UNKNOWN " + solver.reason_unknown()));
+                    }
+                    proof_cache.emplace(query_key, std::make_pair(prior, actual));
                 }
                 ++proven;
                 if (proven % 1000 == 0) std::cout << "CHECK " << profile.key() << ' ' << proven << " nodes equivalent" << std::endl;

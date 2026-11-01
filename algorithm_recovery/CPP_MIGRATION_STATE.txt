@@ -125,25 +125,87 @@ controller ordered.hal a3d28cb0adfa389f6fc66a4ce15bdd4ad89351d203d289508e69c63b5
 hmd import.hal b2658608e3e63fad8204a827fcf5f7865f59ac735079f8e3fcb098ee1f37d02a
 hmd ordered.hal 2db48ef5b239ee59b8a09f7dcf801fceb1bf21ecdf1fc49a2135750e8a20f8a9
 
-Remaining: native trace generation and conditional SSE extraction/original-LUT
-checks, arithmetic fits and universal checks, routing-order
-inference, standalone native program export, independent real-case coupled
-replay and complete end-to-end checks on both inputs.
+DONE COMPONENT (2026-11-01): native original-gate observations and guided HAL SSE,
+observations.h/.cpp and guided.h/.cpp. hal-recover now has trace and analyze.
+The C++ generator discovers clocks and pad-controlled resets, emits generic
+external stimulus and an original-gate Icarus testbench, and preserves X/Z.
+It invokes iverilog/vvp directly, without Python or internal force. Trace loading
+checks SHA256 receipts and row widths/counts. The native independent original
+JSON interpreter implements LUT truth tables and carry, rejecting unknown
+proof-cone parameters, unsupported endpoints and combinational feedback.
+
+Guided analysis queries actual HAL module pin groups, uses physical FF D/Q
+correspondence, and calls native HAL SSE on combinational cones with normalized
+snapshot time zero. Every observed control specialization must be nonvacuous
+and universally equal to the original LUT/carry interpretation. All RAM ports
+are checked unconditionally. The resulting typed windows feed the C++ folder;
+production trace/analyze never reads the old Python artifacts.
+
+Validation on final sources (all processes exited 0):
+- Four CTests PASS. New observation test: all 20 iCE40 FF variants x 512 events,
+  10240 bits against actual Yosys/Icarus. Wrong synchronous/asynchronous reset,
+  clock polarity and enable semantics detected. Includes original LUT input
+  ordering, unknown parameters/endpoints/feedback and trace tampering/truncation.
+- Controller and HMD trace generation each completed 3072 events, observing
+  respectively 7524 and 7600 nets. Stimulus, complete pre/post trace and final
+  RAM dump are byte-identical to the preserved reference. Clock/reset/window/
+  observed-bit metadata matches; controls match as sets.
+- Fresh native import/groups + new native trace -> conditional SSE: controller
+  364 groups / 3469 bits / 406 proofs, HMD 363 / 3505 / 404 proofs. Both also pass
+  168 unconditional RAM-port proofs across 21 RAMs. An earlier summary saying
+  404 controller calls was inaccurate: the preserved reference also has 406.
+- Full fresh-window/fold comparison PASS on both cases: all four 512-event
+  windows' word equations/write classifications, all seven graphs' 23181 FF
+  nodes and 43008 RAM port bindings, exact periods/origins/histories/exclusions.
+  HMD pattern correctly remains NO_GRAPH (4368 > the available window).
+  Unresolved storage coordinates are compared by physical Q-bit identity,
+  including cut_ boundary words, on both operands and results. Known numeric
+  orders still must match exactly. Test-only coordinate conversion is not a
+  production bitorder hint and does not upgrade any unresolved order.
+- This now exercises the native import/groups/trace/SSE/RAM/folding prefix.
+  It still does not establish native arithmetic lifting, full recovered-program
+  replay or whole-device equivalence. Regression reference files are test-only.
+- Final logs: build/controller_native_guided_verified.log,
+  build/hmd_native_guided_verified.log, build/guided_ctest_final.log.
+  Outputs: build/native_{controller,hmd}_trace and
+  build/native_{controller,hmd}_guided_verified. All artifacts remain ignored.
+  No live processes/handles remain.
+- Initial integration failures were fixed before the final successful runs:
+  pure-output tristate recognition, C++ Z3 overloads for assertions and Boolean
+  constants, and test-only coordinate conversion of unresolved cut_ operands.
+  Earlier failure/debug logs remain local; none are reported as successful runs.
+
+New trace SHA256 identities (same as reference):
+controller stimulus 96472d98ee89c280a9ac3c45dcc20a89bdfe8a5e70b8da9c7f70459950e7b156
+controller trace 4e166d42e0360b7cc2d4caea666310791928b24dd6fabd3a532bb06ab81b936f
+controller final RAM 0fa02e4f1b82abf5b63d36d3fc7af33d3dcc6c228f7860fad4c12aaff1e90a9e
+hmd stimulus 0805654ce58c89b329e9e42a9bc6505b001f02a28af1a847f4293bc6adfbdfee
+hmd trace e2251de40efb0e62522035b3787fe91354498b988785a2eaced21454e36f498b
+hmd final RAM 636d2406a9231d81bb5e9fa6c7320cb045b19558b74c5b7bacfb5e3a9eeb56cf
+
+Original FF event classification now distinguishes synchronous SR/SS from
+asynchronous R/S and respects E priority and negative clocks. This corrects the
+old adapter's generic reset handling; the real cases contain asynchronous types.
+It covers settled sampled pre/post-clock events, not arbitrary asynchronous
+event scheduling. Real-device coupled replay is still a separate required step.
+MemoryWindow.model clocks retain HAL IDs; GuidedAnalysis.physical_nets maps them
+to the original physical IDs for the future replay adapter.
+
+Remaining: arithmetic fits and universal checks, routing-order inference,
+standalone native program export, independent real-case coupled replay and
+complete end-to-end checks on both inputs.
 Do not report full migration/recovery while any of these remain.
 
-Next useful entry: port hal_native_trace.py and hal_native_sse.py plus the
-independent original-primitive evaluator in reference.py. Discover primary
-clocks/reset assignments, preserve X/Z and pre/post sampling, emit original-gate
-Icarus traces without internal force; use actual native HAL SSE with recorded
-control assumptions and nonvacuous equivalence checks. Inspect primitive
-clock/reset semantics from local cells_sim.v/HAL components. Connect resulting
-typed windows directly to folding.h, retaining the 512-event/full-window contract.
-The existing fixture adapter must not become a dependency on the old Python
-pipeline. Preserve the original input
+Next useful entry: native arithmetic lifting from
+algorithm_recovery/invfold/invfold.py (fit_floor_linear, exact/dyadic/floor/round
+coefficient classes and universal checks), then hal_native_routing.py. Preserve
+observed-control proof conditions and numeric-order provenance. Neither the
+test fixture loader nor the old Python pipeline may become a runtime dependency.
+Preserve the original input
 contract (already recovered primitive JSON/netlist, not a new bitstream decoder).
 
-Goal-turn audit: preceding folding turn and this frontend/grouping turn are
-progress (source changes plus authoritative tests); full C++ migration stays active.
+Goal-turn audit: RAM, folding, frontend/grouping and now trace/guided-SSE phases
+have source changes plus authoritative tests; full C++ migration stays active.
 
 Preserve reference limitations: unresolved word orders, observed-control
 conditioning, iCE40 mode-0/primary-clock restrictions, HMD pattern NO_GRAPH.
@@ -152,3 +214,7 @@ Original Python artifacts stay available as regression oracles, not runtime.
 
 No research/novelty loop restarted. Shared dynamicRE STATE belongs to another
 objective/session and is not modified. No automatic push.
+
+User reaffirmed 2026-11-01: selectively add and commit each completed, validated
+development increment. Do not accumulate unrelated uncommitted stages. Keep
+generated netlists/proof queries/logs/builds ignored and never automatically push.

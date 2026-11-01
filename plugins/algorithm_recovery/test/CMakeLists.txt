@@ -1,10 +1,19 @@
 add_executable(check-recovery-memory memory.cpp)
 target_link_libraries(check-recovery-memory PRIVATE algorithm_recovery)
+add_executable(check-recovery-observations observations.cpp)
+target_link_libraries(check-recovery-observations PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
+target_include_directories(check-recovery-observations PRIVATE ${RECOVERY_SODIUM_INCLUDE})
 
 find_program(RECOVERY_IVERILOG iverilog)
 find_program(RECOVERY_VVP vvp)
 find_file(RECOVERY_ICE40_MODEL cells_sim.v PATHS /usr/share/yosys/ice40)
 if(RECOVERY_IVERILOG AND RECOVERY_VVP AND RECOVERY_ICE40_MODEL)
+    add_test(NAME algorithm-recovery-observations-yosys COMMAND ${CMAKE_COMMAND}
+        -DGENERATOR=$<TARGET_FILE:check-recovery-observations>
+        -DIVERILOG=${RECOVERY_IVERILOG} -DVVP=${RECOVERY_VVP}
+        -DMODEL=${RECOVERY_ICE40_MODEL}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ff_primitive
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/observations_yosys.cmake)
     add_test(NAME algorithm-recovery-memory-yosys COMMAND ${CMAKE_COMMAND}
         -DGENERATOR=$<TARGET_FILE:check-recovery-memory>
         -DIVERILOG=${RECOVERY_IVERILOG} -DVVP=${RECOVERY_VVP}

@@ -2,9 +2,9 @@ Native algorithm recovery (migration in progress)
 ================================================
 
 This plugin is being ported from algorithm_recovery/invfold and the separately
-preserved firmware adapter. Its commands cover import, native grouping/ordering
-and RAM extraction. The C++ API
-also implements observed-period folding and coupled frame execution. The full
+preserved firmware adapter. Its commands cover import, native grouping/ordering,
+original-gate trace generation, guided SSE, folding and RAM extraction. The C++ API
+also implements coupled frame execution. The full
 netlist-to-algorithm pipeline is not yet migrated. See
 algorithm_recovery/CPP_MIGRATION_STATE.txt.
 
@@ -18,7 +18,7 @@ Build from the HAL repository root:
   cmake --build build --target hal-recover check-recovery-memory \
     check-recovery-ram-extraction check-recovery-folding \
     check-recovery-folding-fixture check-recovery-frontend \
-    check-recovery-frontend-fixture -j 4
+    check-recovery-frontend-fixture check-recovery-observations -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -32,7 +32,7 @@ Import a raw recovered primitive JSON and recover groups/orders without Python:
   build/bin/hal_plugins/hal-recover groups build/case_import/import.hal build/case_groups
   build/bin/hal_plugins/hal-recover extract-ram build/case_groups/ordered.hal build/case_ram.json
 
-Output directories for import/groups must be absent or empty. The importer
+Output directories for import/groups/trace/analyze must be absent or empty. The importer
 accepts one flat module with scalar pads. It preserves original cell insertion
 order and primitive parameters, lowers scalar positive-edge IO $dff and the
 specific tri-state $mux form, and checks all imported pins/parameters/global IO
@@ -148,8 +148,66 @@ they are converted to the typed production API. The folder does not read an old
 graph or invoke the old InvFold. The test then compares all seven existing graphs
 across the two cases: periods, origins, every FF node's source bindings and
 universally equivalent expression, history entries and every RAM port binding.
-It also checks the HMD pattern's existing NO_GRAPH outcome. This does not yet
-verify a newly migrated trace/SSE frontend or real-case frame replay.
+It also checks the HMD pattern's existing NO_GRAPH outcome. This fixture-only
+invocation does not test trace/SSE generation or real-case frame replay.
+
+Native trace and guided recovery (requires iverilog and vvp on PATH):
+
+  build/bin/hal_plugins/hal-recover trace recovered.json recovered.v \
+    /usr/share/yosys/ice40/cells_sim.v build/case_trace
+  build/bin/hal_plugins/hal-recover analyze build/case_groups/ordered.hal \
+    build/case_groups/groups.json recovered.json build/case_trace build/case_analysis
+
+Trace generation discovers primary clocks by FF fanout and determines inactive
+pad-controlled resets with SAT. Four generic pad profiles are used; X/Z are
+retained, and tristate pads release the external driver when the original
+internal output enable is active. It emits the testbench in C++ and invokes
+Icarus directly with argv, without a shell or Python. Receipt hashes bind original
+JSON/Verilog, Yosys primitive model, stimulus, testbench, trace and final RAM dump.
+Loading rejects changed artifacts, malformed rows and truncated observations.
+For exact comparison with the old stimulus stream, a native integer-seed
+initialization feeds std::mt19937 (32-bit seed). Algorithm reference:
+https://github.com/python/cpython/blob/v3.12.0/Modules/_randommodule.c
+(init_by_array, MT19937 Nishimura/Matsumoto initialization); no Python RNG call.
+
+analyze uses actual HAL SSE module pin groups and the FF's physical D/Q wiring.
+Only combinational LUT/carry gates are included, so snapshots use normalized
+SSE time zero; FF outputs and RAM reads remain state cutpoints. Observed primitive
+control values specialize queries. Every specialization requires a nonvacuous
+universal equality proof against an independent original-JSON LUT/carry
+interpreter. All eight RAM port equations per instance are checked unconditionally.
+Original-cone unknown constants, unsupported endpoints and feedback fail explicitly.
+The last 512 events of each profile feed the typed C++ folder directly. The
+analysis directory contains proof queries/hashes, sse_report.json and a compact
+fold_report.json. This is not yet a standalone recovered-program export.
+
+FF event classification follows the actual primitive: SR/SS are synchronous,
+R/S asynchronous, E has the priority specified by Yosys, and N uses the falling
+edge. Unknown relevant controls/clocks remain unknown. Classification is for
+the sampled, settled pre/post-clock events; it is not a general asynchronous
+event scheduler. The primitive CTest compares all 20 iCE40 FF variants with
+Yosys on 512 events (10240 bits), including holds and enabled/disabled reset/set.
+Wrong sync/async, clock polarity and enable semantics must each be detected.
+LUT input ordering, unknown parameters/cones and receipt corruption are tested.
+
+Real-case regression using the fresh native path:
+
+  build/bin/hal_plugins/check-recovery-folding-fixture \
+    PREVIOUS_REFERENCE_CASE_DIRECTORY recovered.json \
+    build/case_groups/ordered.hal build/case_groups/groups.json \
+    build/case_trace build/case_analysis_regression
+
+This invokes native guided analysis on the new trace, checks every extracted
+window's word membership/order/write mask and universal equation equality, then
+folds the NEW equations and compares every node and RAM binding with the saved
+reference. Known numeric orders must match exactly. Unresolved storage lists may
+be enumerated differently after import: only the test permutes them by physical
+Q-bit identity on both the operands and results before comparing semantics.
+This does not infer a numeric order or change the production graph.
+Old Python artifacts are read only by this test as regression evidence.
+Neither production trace/analyze nor the production folder loads those artifacts.
+MemoryWindow.model clock IDs remain HAL net IDs; GuidedAnalysis.physical_nets
+maps them to physical trace IDs for a future real-case frame replay adapter.
 
 Arithmetic fitting with universal checks, routing-order inference and standalone
 program export remain required migration steps; the raw executor is not a
