@@ -1,0 +1,50 @@
+Native C++ migration, 2026-10-31
+Branch: algorithm-recovery (user's existing branch); initial HEAD 3f8cfd29de8.
+Objective: migrate the tested HAL + InvFold firmware pipeline into HAL C++, not
+a C++ launcher for Python. No manual semantic grouping/order/address inputs.
+
+Reference implementation (read-only):
+/tmp/dynamicRE-hal-controller-20261030/harder_netlists/consumer_bitstreams/hal_controller
+Reference commit: bbeb26c8e. Current results: HAL_NATIVE_RAM_RESULTS.json.
+HAL algorithm_recovery/invfold/invfold.py is also a migration source.
+
+DONE COMPONENT: plugins/algorithm_recovery native RAM extraction, HAL SSE binding,
+mode/INIT/pin decoding, synchronous masked read-before-write state transition.
+Built via the HAL CMake plugin system. hal-recover exposes extract-ram only.
+No Python is invoked for this extraction or its new native tests. HAL's shared
+plugin infrastructure still links Python libraries (not a standalone no-Python
+HAL build claim).
+
+Validation (2026-10-31):
+- CTest algorithm-recovery-memory-yosys PASS: 512 events, 20480 known output/
+  final-storage bits, nonzero INIT, partial masks, read hold, collisions and
+  independent edges. All three intentionally wrong transition rules detected.
+- Controller and HMD native extraction regression PASS: each 21 RAMs and 168
+  universally equivalent port equations against the preserved verified Python
+  adapter; exact INIT/pins/clocks. Unsupported modes and unknown INIT rejected.
+- hal-recover command successfully extracted both real .hal inputs. These .hal
+  files still originate from the old Python frontend; end-to-end migration has
+  NOT been demonstrated.
+- Reproduction commands: plugins/algorithm_recovery/README.txt. Logs, generated
+  JSON, compiled objects and generated primitive testbench remain in ignored build/.
+
+Input identities (SHA256):
+controller ordered.hal b9b5698f036b36911cefd32c10a3d5f05d989f8545842dab25e59605f518e0d3
+controller native_ram.json 7070448b8ad05995d968ce5870883057797cbca020de2ca2c36644f8318fecf4
+hmd ordered.hal 668a5e5ee91c7d567d78ad125bc86b20badc521b44efa94cdce59ed2c220e171
+hmd native_ram.json 1dd079b06191d6d794dd3386b244df39e1a41c538bac01606f3bda1222d1bf01
+Yosys cells_sim.v b5b2bcd86c0d6eea269015aaebff1d5fb66e7ec3f7eded0bde07406e5ac99527
+
+Remaining: native frontend, DANA/MI/two-pass bitorder orchestration, trace and
+conditional SSE extraction, period detection/last-write graph, arithmetic fits
+and universal checks, routing inference, coupled RAM frame execution, native
+program export, independent differential checks on both complete real inputs.
+Do not report full migration/recovery while any of these remain.
+
+Preserve reference limitations: unresolved word orders, observed-control
+conditioning, iCE40 mode-0/primary-clock restrictions, HMD pattern NO_GRAPH.
+No whole-device equivalence, complete high-level algorithm, or speed claim.
+Original Python artifacts stay available as regression oracles, not runtime.
+
+No research/novelty loop restarted. Shared dynamicRE STATE belongs to another
+objective/session and is not modified. No automatic push.

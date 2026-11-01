@@ -1,4 +1,6 @@
 *
+!algorithm_recovery/
+!algorithm_recovery/**/*
 !bitorder_propagation*
 !bitorder_propagation/**/*
 !boolean_influence*
