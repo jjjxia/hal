@@ -301,12 +301,18 @@ namespace hal::algorithm_recovery
                     lookup.emplace(physical_bit(bits[i]), it.key() + (bits.size() == 1 ? "" : "[" + std::to_string(i) + "]"));
             }
             std::set<PhysicalBit> required = circuit.inputs;
+            for (const auto& port : original.at("ports"))
+                for (const auto& bit : port.at("bits")) required.insert(physical_bit(bit));
             required.insert(circuit.clocks.begin(), circuit.clocks.end()); required.insert(circuit.controls.begin(), circuit.controls.end());
             for (const auto& [q, ff] : circuit.flip_flops) { required.insert(q); required.insert(ff.pins.at("D")); }
             std::map<PhysicalBit, PhysicalBit> tristates;
             for (const auto& cell : original.at("cells"))
             {
-                if (cell.at("type") == "$mux") require(tristates.emplace(physical_bit(cell.at("connections").at("Y")[0]), physical_bit(cell.at("connections").at("S")[0])).second, "multiple pad tristates");
+                if (cell.at("type") == "$mux")
+                {
+                    require(tristates.emplace(physical_bit(cell.at("connections").at("Y")[0]), physical_bit(cell.at("connections").at("S")[0])).second, "multiple pad tristates");
+                    for (const auto* pin : {"B", "S", "Y"}) required.insert(physical_bit(cell.at("connections").at(pin)[0]));
+                }
                 if (cell.at("type") == "SB_RAM40_4K") for (const auto& connection : cell.at("connections"))
                     for (const auto& bit : connection) required.insert(physical_bit(bit));
             }

@@ -69,11 +69,12 @@ namespace
 
 int main(int argc, char** argv)
 {
-    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}};
+    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}, {"replay-state", 5}};
     if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
         std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
                      "       hal-recover synthesize proved_program_directory arithmetic.json empty_output_directory\n"
+                     "       hal-recover replay-state state_program_directory trace_directory empty_output_directory\n"
                      "       hal-recover state ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...]\n"
                      "       hal-recover import recovered.json library.hgl empty_output_directory\n"
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
@@ -90,6 +91,13 @@ int main(int argc, char** argv)
             {"state", {"--window", "--profiles"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
+        if (std::string(argv[1]) == "replay-state")
+        {
+            const auto trace = hal::algorithm_recovery::Observations::load(argv[3]);
+            auto replay = hal::algorithm_recovery::replay_state_machine(argv[2], trace, argv[3], argv[4]);
+            if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
+            std::cout << replay.get().dump(2) << '\n'; return 0;
+        }
         if (std::string(argv[1]) == "synthesize")
         {
             z3::context ctx;
@@ -205,7 +213,7 @@ int main(int argc, char** argv)
                 else { state_pass = true; verified["state_machine"]["replay"] = state_replay.get(); }
             }
             verified["state_machine"]["scope"] = "Separate guarded event backend includes all FF/RAM storage, clocks/resets/enable/hold and unconditional fallbacks. No global observed period required. Proof scope and finite replay/X limitations are in its own receipts.";
-            verified["status"] = state_pass ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "PARTIAL_RECOVERY_STATE_STAGE_FAILED";
+            verified["status"] = state_pass ? (executed ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "NATIVE_CPP_STATE_CHAIN_AUDITED") : "PARTIAL_RECOVERY_STATE_STAGE_FAILED";
             std::ofstream receipt(std::filesystem::path(argv[6]) / "native_verified.json"); receipt << verified.dump(2) << '\n';
             if (!receipt) throw std::runtime_error("cannot save native verification report");
             if (!state_pass) std::cerr << verified["state_machine"].dump(2) << '\n';

@@ -93,7 +93,18 @@ namespace hal::algorithm_recovery
             const auto initial = executable.request({{"command", "initial"}}); auto state = initial.at("state");
             Json external = Json::object(); for (auto bit : input_set) external["pad" + std::to_string(bit)] = "0";
             std::map<std::string, uint64_t> counts;
-            const unsigned discard = trace.metadata.value("initial_discard", 0u); unsigned max_delta = 0;
+            // initial_discard belongs to trace-window selection, not to the
+            // state-program contract. Check all known observations from event 0.
+            const unsigned discard = 0; unsigned max_delta = 0;
+            std::set<size_t> extraction_events;
+            const bool same_extraction_trace = schema.contains("extraction_observation_files") && schema.at("extraction_observation_files") == trace.metadata.at("files");
+            if (same_extraction_trace) for (const auto& window : schema.at("extraction_windows")) for (const auto& event : window) extraction_events.insert(event.get<size_t>());
+            std::set<std::string> unobserved_outputs;
+            const auto control_bit = [](const std::string& name) -> PhysicalBit {
+                if (name == "c_zero") return -1; if (name == "c_one") return -2;
+                require(name.rfind("c_b", 0) == 0 && name.size() > 3 && name.find_first_not_of("0123456789", 3) == std::string::npos, "invalid physical output control");
+                return std::stoll(name.substr(3));
+            };
             const auto compare = [&](const Integer& value, const std::vector<PhysicalBit>& bits, size_t t, bool after, const std::string& kind, const std::string& name) {
                 require(value >= 0 && value < (Integer(1) << bits.size()), "state result outside width");
                 for (unsigned i = 0; i < bits.size(); ++i)
@@ -119,7 +130,27 @@ namespace hal::algorithm_recovery
                         compare(Integer(state.at("memories").at(ram.key()).at("read").get<unsigned>()), ram.value().at("rdata_bits"), t, stage == 1, "RAM_read", ram.key());
                     for (auto pad = schema.at("pads").begin(); pad != schema.at("pads").end(); ++pad)
                         compare(decimal(state.at("pads").at(pad.key())), {pad.value().at("physical").get<PhysicalBit>()}, t, stage == 1, "resolved_pad", pad.key());
+                    for (auto pin = schema.at("outputs").begin(); pin != schema.at("outputs").end(); ++pin)
+                    {
+                        const auto& actual = response.at("outputs").at(pin.key());
+                        for (const auto* field : {"enable", "data"})
+                        {
+                            const auto bit = control_bit(pin.value().at(field));
+                            if (bit >= 0 && !trace.positions.count(bit)) { unobserved_outputs.insert(pin.key() + "." + field); continue; }
+                            compare(Integer(actual.at(field).get<bool>()), {bit}, t, stage == 1, "output_" + std::string(field), pin.key() + "." + field);
+                        }
+                        const PhysicalBit bit = pin.value().at("physical");
+                        if (!input_set.count(bit))
+                        {
+                            if (!trace.positions.count(bit)) { unobserved_outputs.insert(pin.key() + ".drive"); continue; }
+                            const auto& row = (stage == 1 ? trace.post : trace.pre).at(t); const char expected = row.at(row.size() - 1 - trace.positions.at(bit));
+                            if (expected == 'x') { ++counts["unknown_output_drive_values"]; continue; }
+                            ++counts["known_output_drive_values"];
+                            require(actual.at("drive") == std::string(1, expected), "state output drive mismatch " + pin.key() + " event=" + std::to_string(t));
+                        }
+                    }
                 }
+                if (t >= discard) ++counts[same_extraction_trace ? (extraction_events.count(t) ? "extraction_events_checked" : "withheld_events_checked") : "events_without_training_classification"];
                 if (t % 256 == 255) std::cout << "STATE_REPLAY " << t + 1 << '/' << stimuli.size() << std::endl;
             }
             executable.finish();
@@ -146,8 +177,9 @@ namespace hal::algorithm_recovery
             }
             require(seen.size() == names.size() * 256, "incomplete final RAM dump");
             Json report{{"status", "SAVED_STATE_PROGRAM_ORIGINAL_GATE_REPLAY_PASS"}, {"events", stimuli.size()}, {"warmup_events_executed", discard}, {"counts", counts}, {"max_delta_events_observed", max_delta},
+                {"unobserved_output_fields", unobserved_outputs}, {"training_window_identity_matched", same_extraction_trace},
                 {"initial_choices", initial}, {"compile_command", command}, {"program_manifest_sha256", artifacts::file_hash(program / "state_program.json")}, {"executable_sha256", artifacts::file_hash(out / "state_machine")},
-                {"observation_files", trace.metadata.at("files")}, {"scope", "Continuous own FF/RAM execution from primitive initialization with explicit two-state X completions; external native pad stimulus only, automatic release while device drives inout. All known FF/read/pad observations after the original warmup and all known final RAM bits compared. Unknown observations counted, not proved. Finite replay, not a universal whole-device equivalence proof."}};
+                {"observation_files", trace.metadata.at("files")}, {"scope", "Continuous own FF/RAM execution from primitive initialization with explicit two-state X completions; external native pad stimulus only, automatic release while device drives inout. All known FF/read/pad/output observations from event zero and all known final RAM bits compared. Missing output observations listed explicitly. Unknown observations counted, not proved. Finite replay, not a universal whole-device equivalence proof."}};
             artifacts::write(out / "replay.json", report.dump(2) + '\n'); return OK(report);
         }
         catch (const std::exception& error) { return ERR(error.what()); }

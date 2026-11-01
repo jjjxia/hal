@@ -34,6 +34,8 @@ namespace hal::algorithm_recovery
             Json schema{{"execution_kind", "GUARDED_EVENT_TRANSITIONS"}, {"words", Json::object()}, {"memories", Json::object()},
                 {"pads", Json::object()}, {"outputs", Json::object()}, {"bindings", Json::object()}, {"proofs", Json::array()},
                 {"source_json", original.source_path}, {"source_sha256", original.source_sha256}, {"manual_semantic_inputs", Json::array()}};
+            schema["extraction_windows"] = guided.report.at("windows");
+            schema["extraction_observation_files"] = guided.report.at("observation_files");
             std::map<PhysicalBit, u32> native;
             z3::expr_vector native_from(ctx), native_to(ctx), physical_from(ctx), physical_to(ctx);
             for (const auto& [id, bit] : guided.physical_nets)

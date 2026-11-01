@@ -16,10 +16,11 @@ int main(int argc, char** argv)
         const auto out = fs::absolute(argv[1]); fs::create_directories(out);
         Json module{{"ports", Json::object()}, {"netnames", Json::object()}, {"cells", Json::object()}};
         module["cells"]["ff"] = {{"type", "SB_DFFR"}, {"connections", {{"C", {2}}, {"D", {3}}, {"R", {4}}, {"Q", {5}}}}};
-        for (const auto& [name, bit] : std::map<std::string, unsigned>{{"C",2}, {"D",3}, {"R",4}, {"Q",5}})
-        { module["ports"][name] = {{"direction", name == "Q" ? "output" : "input"}, {"bits", {bit}}}; module["netnames"][name] = {{"bits", {bit}}}; }
+        module["cells"]["invert"] = {{"type", "SB_LUT4"}, {"parameters", {{"LUT_INIT", "0101010101010101"}}}, {"connections", {{"I0", {5}}, {"I1", {"0"}}, {"I2", {"0"}}, {"I3", {"0"}}, {"O", {6}}}}};
+        for (const auto& [name, bit] : std::map<std::string, unsigned>{{"C",2}, {"D",3}, {"R",4}, {"Q",5}, {"O",6}})
+        { module["ports"][name] = {{"direction", bit >= 5 ? "output" : "input"}, {"bits", {bit}}}; module["netnames"][name] = {{"bits", {bit}}}; }
         artifacts::write(out / "original.json", Json{{"modules", {{"recovered", module}}}}.dump());
-        artifacts::write(out / "original.v", "module recovered(input C,D,R,output Q); SB_DFFR ff(.C(C),.D(D),.R(R),.Q(Q)); endmodule\n");
+        artifacts::write(out / "original.v", "module recovered(input C,D,R,output Q,O); SB_DFFR ff(.C(C),.D(D),.R(R),.Q(Q)); SB_LUT4 #(.LUT_INIT(16'h5555)) invert(.I0(Q),.I1(1'b0),.I2(1'b0),.I3(1'b0),.O(O)); endmodule\n");
         z3::context ctx;
         for (const auto& [profile, length] : std::map<std::string, unsigned>{{"one", 256}, {"pattern", 1024}})
         {
@@ -33,6 +34,7 @@ int main(int argc, char** argv)
                 require(trace.value(3, t) == data && trace.value(4, t) == (t < 8), "selected profile used wrong stimulus or reset");
                 if (t < 8) q = 0; else if (t % 2 == 0) q = data;
                 require(trace.value(5, t, true) == q, "selected-profile Yosys output differs");
+                require(trace.value(6, t, true) == 1-q, "combinational output observation missing or incorrect");
             }
         }
         require(generate_observations(out / "original.json", out / "original.v", argv[2], out / "duplicate", ctx, 93, 256, {"one", "one"}).is_error(), "duplicate profiles accepted");

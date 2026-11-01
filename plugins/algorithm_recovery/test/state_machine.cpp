@@ -115,6 +115,9 @@ int main(int argc, char** argv)
         require(specialized, "missing observed guard specialization; fallback test would be vacuous");
         auto report = unwrap(replay_state_machine(root/"state", trace, root, root/"replay", argv[6]));
         require(report.at("max_delta_events_observed") >= 3 && report.at("counts").at("known_final_RAM_bits") == 4096, "derived-clock or full RAM validation missing");
+        require(report.at("unobserved_output_fields").empty() && report.at("counts").at("known_output_drive_values").get<unsigned>() >= 33*256*2 &&
+                report.at("warmup_events_executed") == 0 && report.at("counts").at("extraction_events_checked") == 64 && report.at("counts").at("withheld_events_checked") == 320,
+                "output observation or independent event coverage was lost");
         const auto body = artifacts::read(root/"state"/"state_machine.cpp"); artifacts::write(root/"state"/"state_machine.cpp", body + "// fault\n");
         require(check_state_artifacts(root/"state").is_error(), "state driver tampering accepted"); artifacts::write(root/"state"/"state_machine.cpp", body);
         auto mutant = body; const std::string needle = "clock_edge(before, now, \"c_b2\", false)";

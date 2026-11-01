@@ -1078,3 +1078,40 @@ initially unknown IO FF bits. Do not infer firmware replay PASS from export.
 The all-type queue was temporarily SIGSTOPed for strict serial firmware
 validation; controller receipt records suspension. Its original 180-minute wall
 deadline includes suspension. Restore both process groups after state validation.
+
+Output observability and reusable replay follow-up (2026-11-01)
+-------------------------------------------------------------
+Controller v1 whole-state replay PASS for all 3072 events FROM EVENT ZERO:
+21299913 known FF bits, 1670896 known RAM read bits, 86016 known final RAM bits,
+491456 known resolved-pad bits. Unknown counts: 13623 FF, 393488 RAM read,
+64 resolved pad. Max 3 delta events. No trace-fed FF/RAM state or frame reset.
+Receipt: build/guarded_state_v1/controller/state_replay/replay.json.
+
+The old trace omitted three pure output-pad values and one output enable.
+Trace generation now observes every port plus tristate B/S/Y, and replay checks
+output data/enable plus pure-output drives (including known Z). Missing output
+fields are explicitly listed. New controller trace adds physical 13,51,71,197;
+its 3072-event stimulus and ALL 7524 prior observed nets match byte-for-byte,
+including X/Z. See build/state_full_output_controller_trace/observation_extension.json.
+This expands observation, never weakens the old contract. Replay with these
+additional outputs is running; do not count it passed yet at this checkpoint.
+
+New replay-state command validates existing generated state source against a
+separate original-gate trace without re-extracting/re-fitting it. New exports
+bind extraction windows/observation identities and report extraction vs withheld
+event counts when the trace identity matches. Differently observed traces do
+not silently acquire a training/withheld classification. Every known observation
+is checked starting at event zero: initial_discard selects extraction windows,
+not exclusions from whole-state validation. Initial unknowns remain explicit.
+
+Relevant state/trace CTests PASS, 11.02s, build/state_output_ctest.log. The state
+fixture now verifies all observations from zero, all observable output fields,
+64 extraction + 320 withheld events, as well as the previous edge fault mutant.
+The trace fixture additionally checks a combinational output that is neither
+FF state nor a data/control cut. End-to-end wrapper smoke run also PASS:
+algorithm_recovery/recover_to_cpp.sh build/e2e_smoke_source build/e2e_smoke_native
+This executes native import -> HAL groups -> original gate trace -> all four
+periodic arithmetic/schedule compile/replays -> full-state compile/replay.
+The generic source fixture is the trace-options FF plus output-inversion example,
+with canonical empty parameter objects. No per-design recovery hints supplied.
+See build/e2e_smoke_native/pipeline.json and analysis/native_verified.json.
