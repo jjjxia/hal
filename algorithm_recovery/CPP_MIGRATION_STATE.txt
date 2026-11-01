@@ -432,3 +432,51 @@ Goal-turn audit: previous routing turn was progress (0ef96558e27); this turn als
 changes authoritative native implementation and verifies actual saved compiled
 programs on both firmware cases. Goal remains active; no research-loop restart,
 shared dynamicRE STATE edit or automatic push.
+
+IMPLEMENTED COMPONENT (2026-11-01): native original-gate replay, replay.h/.cpp,
+with direct compiled-program execution via bounded JSON-line process IPC.
+analyze now runs INIT-based RAM warmup, then compiles and replays each exported
+profile and saves native_verified.json. GuidedWord retains the actual control
+cone for per-frame applicability checks. No Python runtime or legacy artifact
+is used by production replay. See README.txt for contracts and commands.
+
+The RAM warmup uses internal read registers, all-old-state port evaluation,
+physical FF/pad cuts and independent edges. It compares all ports, pre/post reads
+and the complete final original-simulator storage dump. Segment initialization
+uses the independently warmed RAM plus observed prior FF history; continuations
+use the real executable's returned history/RAM. Every active word's full/HOLD/
+reset/control schedule is checked, with explicit exclusions, unknown-bit counts,
+and positive training/withheld coverage thresholds. Actual source/proof/runtime,
+compiled metadata/INIT, executable/contract/frame/compiler identities are checked
+and recorded. These are finite applicable-frame checks, not a whole-device proof.
+
+Validation completed before this component commit:
+- Eight CTests PASS, build/replay_all_ctest.log. New replay test compiles and
+  executes a saved program on actual Yosys/Icarus observations: 24 training,
+  13 withheld frames; three other withheld frames separately perturb the actual
+  control, enable and reset while Q stays unchanged, and must all be excluded.
+  Wrong known output, no applicable withheld coverage and changed proof bytes
+  are rejected. IPC tests cover a 2 MiB response, early exit, malformed JSON,
+  absent executable, timeout and child cleanup.
+- First real-case attempts passed full INIT-to-final warmup on both cases:
+  each 21 RAMs, 3072 events, 5412336 known/393744 unknown port/read observations,
+  26112 enabled reads, 6144 enabled writes, 96256 written-bit events and
+  86016 known final-storage bits; no observed RAM reads used as inputs.
+- Both actual compiled irregular programs passed 32 training/8 withheld frames
+  with exactly the original known/unknown counts. Both CLI attempts then failed
+  while recording the result: HAL Result::get() returns an rvalue, so assigning
+  the JSON before reading it again moved it to null. Fixed by reading the stored
+  JSON. The original failed runs/logs remain build/native_{controller,hmd}_replayed
+  and build/{controller,hmd}_native_replayed.log; they are NOT complete passes.
+- Rebuilt fixed hal-recover. Complete real-case reruns are active under execve
+  tracing: build/native_{controller,hmd}_replayed_verified, logs
+  build/{controller,hmd}_native_replayed_verified.log and
+  build/{controller,hmd}_replayed_execve.log. Native inputs are the same checked
+  native import/groups/trace artifacts from preceding stages. Full seven-profile
+  result/counter comparison and arithmetic/routing coverage checks remain pending.
+- No new artifact ignore rule is needed: build/ already ignores generated
+  sources, copied headers, executables, SMT queries, traces, receipts and logs.
+
+Goal remains active. Finish real-case runs and regression comparisons, audit the
+complete migrated component chain, update the final current status, and commit
+the final evidence. Do not claim completed migration from this checkpoint alone.

@@ -11,6 +11,7 @@ namespace hal
             std::vector<PhysicalBit> q, d;
             std::map<u32, z3::expr> equations;
             std::vector<std::vector<FFUpdate>> updates;
+            std::vector<PhysicalBit> control_cone; // actual SSE specialization controls
             bool numeric_order_known = false;
         };
         struct GuidedAnalysis

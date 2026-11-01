@@ -130,6 +130,7 @@ namespace hal::algorithm_recovery
                 }
                 std::vector<PhysicalBit> ordered_controls(all_controls.begin(), all_controls.end());
                 std::sort(ordered_controls.begin(), ordered_controls.end(), [](auto a, auto b) { return std::to_string(a) < std::to_string(b); });
+                row.control_cone = ordered_controls;
                 std::map<std::vector<int>, z3::expr> variants;
                 for (auto t : times)
                 {
@@ -219,6 +220,7 @@ namespace hal::algorithm_recovery
             }
             result.report = {{"status", "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED"}, {"groups", result.words.size()}, {"FF_bits", ff_count},
                 {"HAL_calls", calls}, {"cache_hits", cache_hits}, {"RAM_instances", base.memories.size()}, {"RAM_port_proofs", ram_proofs}, {"windows", windows}, {"proofs", proofs},
+                {"observation_files", trace.metadata.at("files")},
                 {"manual_semantic_inputs", Json::array()}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
             artifacts::write(out / "sse_report.json", result.report.dump(2) + '\n');
             return OK(std::move(result));

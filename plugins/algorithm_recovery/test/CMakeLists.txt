@@ -8,6 +8,13 @@ find_program(RECOVERY_IVERILOG iverilog)
 find_program(RECOVERY_VVP vvp)
 find_file(RECOVERY_ICE40_MODEL cells_sim.v PATHS /usr/share/yosys/ice40)
 if(RECOVERY_IVERILOG AND RECOVERY_VVP AND RECOVERY_ICE40_MODEL)
+    add_executable(check-recovery-replay replay.cpp)
+    target_link_libraries(check-recovery-replay PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
+    target_include_directories(check-recovery-replay PRIVATE ${RECOVERY_SODIUM_INCLUDE})
+    add_test(NAME algorithm-recovery-replay COMMAND ${CMAKE_COMMAND}
+        -DGENERATOR=$<TARGET_FILE:check-recovery-replay> -DCXX=${CMAKE_CXX_COMPILER}
+        -DIVERILOG=${RECOVERY_IVERILOG} -DVVP=${RECOVERY_VVP} -DMODEL=${RECOVERY_ICE40_MODEL}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/replay -P ${CMAKE_CURRENT_SOURCE_DIR}/replay.cmake)
     add_test(NAME algorithm-recovery-observations-yosys COMMAND ${CMAKE_COMMAND}
         -DGENERATOR=$<TARGET_FILE:check-recovery-observations>
         -DIVERILOG=${RECOVERY_IVERILOG} -DVVP=${RECOVERY_VVP}
@@ -49,6 +56,9 @@ add_test(NAME algorithm-recovery-program COMMAND ${CMAKE_COMMAND}
 add_executable(check-recovery-program-fixture program_fixture.cpp)
 target_link_libraries(check-recovery-program-fixture PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
 target_include_directories(check-recovery-program-fixture PRIVATE ${RECOVERY_SODIUM_INCLUDE})
+add_executable(check-recovery-replay-fixture replay_fixture.cpp)
+target_link_libraries(check-recovery-replay-fixture PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
+target_include_directories(check-recovery-replay-fixture PRIVATE ${RECOVERY_SODIUM_INCLUDE})
 add_executable(check-recovery-routing-fixture routing_fixture.cpp)
 target_link_libraries(check-recovery-routing-fixture PRIVATE algorithm_recovery)
 add_executable(check-recovery-arithmetic-fixture arithmetic_fixture.cpp)

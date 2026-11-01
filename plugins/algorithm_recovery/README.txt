@@ -4,10 +4,9 @@ Native algorithm recovery (migration in progress)
 This plugin is being ported from algorithm_recovery/invfold and the separately
 preserved firmware adapter. Its commands cover import, native grouping/ordering,
 original-gate trace generation, guided SSE, folding, checked routing orders,
-arithmetic lifting and standalone C++ program export
-and RAM extraction. The C++ API
-also implements coupled frame execution. The full
-netlist-to-algorithm pipeline is not yet migrated. See
+arithmetic lifting, standalone C++ program export, RAM extraction and original-gate
+coupled replay of the actual compiled program. The C++ API also implements raw
+coupled frame execution. Final migration audit is pending. See
 algorithm_recovery/CPP_MIGRATION_STATE.txt.
 
 Build from the HAL repository root:
@@ -23,7 +22,8 @@ Build from the HAL repository root:
     check-recovery-frontend-fixture check-recovery-observations \
     check-recovery-arithmetic check-recovery-arithmetic-fixture \
     check-recovery-routing check-recovery-routing-fixture \
-    check-recovery-program check-recovery-program-fixture -j 4
+    check-recovery-program check-recovery-program-fixture \
+    check-recovery-replay check-recovery-replay-fixture -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -393,5 +393,61 @@ Exercise every saved real-case kernel and one complete coupled frame:
 This compares compiled code with independent Z3 execution of the proved saved
 expressions. It checks all kernel dispatch entries and a full frame's outputs,
 history, RAM state and read transitions on arbitrary inputs. It does not replace
-original-gate trace replay with INIT warmup and held-out applicable frames, which
-remains the next required migration step.
+original-gate trace replay with INIT warmup and held-out applicable frames.
+
+Original-gate coupled replay (replay.h):
+
+  replay_memories(analysis, original, trace, final_dump, empty_directory)
+  replay_program(profile, graph, analysis, trace, warmup, program_directory,
+                 empty_directory, options)
+
+analyze automatically warms all RAMs, then compiles and replays every available
+exported program. It writes memory_replay/memory_replay.json,
+replay_PROFILE/{replay.json,contract.json,frames.jsonl}, and native_verified.json.
+The final status is NATIVE_CPP_CHAIN_AUDITED only if at least one program executed;
+all-unavailable profiles produce NO_EXECUTABLE_GRAPH. NO_GRAPH never gets a
+fabricated executable. Missing proofs, changed artifact identities, mismatched
+known bits, process failures and insufficient applicable coverage fail the run.
+
+RAM warmup begins with extracted INIT and an explicit initial held-read choice
+of zero. All symbolic port functions evaluate against old internal RAM read
+registers, followed by independent read/write clock edges and masked updates.
+Other physical FF/pad cuts come from the original trace; unknown operands use
+zero with counts. Observed RAM reads are comparisons only, never inputs. Warmup
+checks each port, pre/post read values and the final original-simulator storage
+dump, preserving known/unknown counts. Original RAM instances are matched by
+their exact physical RDATA buses rather than guessed semantic names.
+
+The per-profile contract records each active word's write/HOLD/reset schedule
+and known controls actually used by guided SSE. Replay checks these conditions
+at every event, including HOLD phases. Frames outside the contract, overlapping
+the training boundary, or lacking history are separately counted. A segment
+starts with independently warmed RAM and observed prior FF history; subsequent
+frames use the actual executable's returned RAM/history without reseeding.
+Outputs, every before/after RAM read, full RAM state and history shifts are
+checked. X/Z observations remain unknown and are counted rather than claimed
+proved. The default minimum is three training and one disjoint withheld frame;
+both thresholds must remain positive and are included in the receipt.
+
+The runner uses direct exec, bounded JSON-line IPC and explicit process timeouts.
+It records compiler version, exact command, executable/source-manifest hashes,
+contract hash and per-frame request/response hashes. It checks saved source and
+proof identities before and after compilation, plus actual executable metadata
+and INIT. Runtime helpers/compiler remain trusted and independently tested.
+Finite applicable replay is not whole-device equivalence or proof that the
+observed schedule holds for all inputs. Explicit cuts and unknown orders remain.
+
+The replay CTest uses actual Yosys/Icarus FF/LUT observations and a compiled
+program. Control, enable and reset perturbations leave Q unchanged but must
+exclude exactly three withheld frames. Wrong known output, absence of applicable
+withheld coverage and changed proof bytes must fail. Large IPC responses, early
+exit, malformed JSON, unavailable executables and timeout cleanup are exercised.
+
+Compare every original known/unknown bit count, frame and RAM count and verify
+the actual saved replay artifact identities:
+
+  build/bin/hal_plugins/check-recovery-replay-fixture \
+    PREVIOUS_REFERENCE_CASE_DIRECTORY build/case_analysis
+
+Only this separate regression checker reads legacy result files. Production
+recovery/replay does not invoke Python or consume legacy recovery artifacts.

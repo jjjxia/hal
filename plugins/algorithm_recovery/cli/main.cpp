@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include "algorithm_recovery/program.h"
+#include "algorithm_recovery/replay.h"
 
 int main(int argc, char** argv)
 {
@@ -51,7 +52,11 @@ int main(int argc, char** argv)
             auto trace = hal::algorithm_recovery::Observations::load(argv[5]);
             auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6]);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
+            auto warmed = hal::algorithm_recovery::replay_memories(analyzed.get(), original, trace,
+                std::filesystem::path(argv[5]) / "native_ram_final.txt", std::filesystem::path(argv[6]) / "memory_replay");
+            if (warmed.is_error()) throw std::runtime_error(warmed.get_error().get());
             nlohmann::json profiles = nlohmann::json::object();
+            nlohmann::json replays = nlohmann::json::object();
             hal::algorithm_recovery::ArithmeticRecovery arithmetic;
             for (const auto& [name, input] : analyzed.get().windows)
             {
@@ -73,9 +78,22 @@ int main(int argc, char** argv)
                 auto program = hal::algorithm_recovery::export_program(graph, std::filesystem::path(argv[6]) / ("program_" + name));
                 if (program.is_error()) throw std::runtime_error(program.get_error().get());
                 profiles[name]["program_status"] = program.get().at("status");
+                auto replay = hal::algorithm_recovery::replay_program(name, graph, analyzed.get(), trace, warmed.get(),
+                    std::filesystem::path(argv[6]) / ("program_" + name), std::filesystem::path(argv[6]) / ("replay_" + name));
+                if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
+                replays[name] = replay.get(); profiles[name]["replay_status"] = replays.at(name).at("status");
             }
             std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
             if (!stream) throw std::runtime_error("cannot save fold report");
+            bool executed = false;
+            for (const auto& replay : replays) executed |= replay.at("status") == "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_PASS";
+            nlohmann::json verified = {{"status", executed ? "NATIVE_CPP_CHAIN_AUDITED" : "NO_EXECUTABLE_GRAPH"}, {"profiles", replays}, {"ram", warmed.get().report},
+                {"groups", analyzed.get().report.at("groups")}, {"FF_bits", analyzed.get().report.at("FF_bits")},
+                {"HAL_SSE_calls", analyzed.get().report.at("HAL_calls")}, {"RAM_port_proofs", analyzed.get().report.at("RAM_port_proofs")},
+                {"observation_files", trace.metadata.at("files")}, {"manual_semantic_inputs", nlohmann::json::array()},
+                {"scope", "Native HAL grouping/order, conditional guided SSE, observed folding, checked routing/arithmetic, saved C++ expression proofs and original-gate training/withheld coupled replay. Explicit FF cuts, unresolved orders and observed schedules remain limitations; no whole-device equivalence claim."}};
+            std::ofstream receipt(std::filesystem::path(argv[6]) / "native_verified.json"); receipt << verified.dump(2) << '\n';
+            if (!receipt) throw std::runtime_error("cannot save native verification report");
             return 0;
         }
         if (std::string(argv[1]) == "groups")
