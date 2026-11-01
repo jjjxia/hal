@@ -681,3 +681,28 @@ recorded COUNTER/ADDITION. Rebuilt CLI via hal-recover/fast without relinking th
 libraries used by the two live MI runs. Ten CTests pass (diagnostics_ctest.log).
 The extra empty-equality-proposal source guard is not in that tested binary yet;
 it will be built/tested after the live MI runs finish. FOLLOW-UP STILL ACTIVE.
+
+Expanded MI execution/resource checkpoint (2026-11-01)
+----------------------------------------------------
+The all-types/control-3 cases each enumerate 5407 structural candidates. After
+about 31 minutes, read-only inspection of the running Release worker counters
+showed 4729 still pending for controller and 4342 for HMD. These are workload
+counts, not recovered-order counts or exhaustive failure evidence.
+
+Added a controller ablation, --mi-types counter,addition --mi-controls 3, in
+build/controller_groups_arithmetic3 (log of the same name with .log suffix).
+At about 35 minutes of the full runs, three processes approached the machine's
+RAM+swap capacity. Temporarily suspending the full runs retained their memory.
+The controller all-types/control-3 process was therefore terminated by the agent
+at elapsed 35m33s, exit 143, with NO final grouping result. Preserve its log
+build/controller_groups_all3_fixed.log; do not classify it as unsupported,
+counterexample, completed search or unchanged coverage. The HMD full run was
+resumed; the controller ablation continues. Run no more than two heavy analyses
+at once on this host. The readonly GDB sampling script/logs under build/ are
+diagnostics for this exact Release binary, not recovery inputs or production
+dependencies. No shared library was rebuilt while those processes were alive.
+
+The comparison checker additionally rejects an actual-HMD fixture with one
+reversed known order (wiring preserved), and one with a lost known order; each
+returns exit 1 and records precisely one conflict/loss respectively. These
+negative fixtures are isolated under build/ and never feed recovery.
