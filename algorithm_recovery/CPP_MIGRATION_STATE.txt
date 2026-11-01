@@ -898,3 +898,38 @@ Final code regression: all 10 tests PASS, mi_configuration_fix_ctest.log.
 No manual words/roles/orders, legacy-production dependency, or unproved model
 adoption was introduced. Only code/configuration/compact records are committed;
 build artifacts, traces, generated programs, detailed logs and fixtures stay local.
+
+User-authorized higher-budget serial retry (2026-11-01, in progress)
+-----------------------------------------------------------------
+User requested 180 minutes and 16 GB, serial rather than concurrent cases, and
+the highest-level currently recovered output. Commit 982644fc283 supplies
+algorithm_recovery/run_serial_180m_16g.sh. It runs controller, then HMD, each
+under timeout 180m with 30s TERM-to-KILL grace and ulimit -v 16777216 (16 GiB
+per-process virtual address space, NOT an RSS reservation or process-tree cap).
+The 180-minute limit covers grouping, physical preservation comparison against
+the latest validated arithmetic3 result, and fresh downstream analysis together.
+Cases continue sequentially after a failure/timeout; receipts retain exit/stage.
+MI uses all types, controls=3, two workers; DANA uses four threads inside the one
+active case. This case-serial interpretation and internal MI threading were
+explicitly communicated to the user. No proof/query timeout was changed.
+
+Launcher started 2026-11-01T17:03:08Z; output directory:
+  build/expanded_180m_16g_serial
+Launcher log: build/expanded_180m_16g_serial_launcher.log
+Controller MI PID at launch: 484649, timeout parent 484645, batch shell 484638.
+Confirmed /proc/484649/limits address-space soft/hard values 17179869184 bytes;
+MI log confirms two actual workers. At this checkpoint controller is running,
+HMD has not started. Consult receipts/processes for subsequent state; this is
+not a completion result or evidence of new coverage. Do not start another case
+beside this queue or rerun into its output directory.
+
+FIRMWARE_HIGH_LEVEL_VIEW.txt gives a compact readable excerpt and exact artifact
+locations from the ALREADY VALIDATED arithmetic3 baselines. Checked MI operand
+Q/output D arrays against full group wiring for controller candidates 48/101 and
+HMD candidates 40/83. Conditional unknown branches remain UNKNOWN_OPERATION;
+D-input expressions are not asserted to update at every clock. RAM-copy models
+are FIT_PROVED at every displayed phase (controller 48, HMD 16); embedded C++
+bindings confirm 16-bit RAM sources, zero frame delay, and runtime evaluation
+before current-event RAM updates. No extra coordinate permutations are present
+in these examples. This is presentation of existing evidence, not semantic
+input, a new recovery pass, or proof of application-level functionality.

@@ -1,0 +1,120 @@
+Index 手柄 / 头显：目前可读的最高层恢复结果
+更新：2026-11-01；仓库根目录：/home/jiahao/hal
+
+这是对已有恢复产物的人工排版摘录，不是提供给恢复器的新输入。
+表达式、位宽、物理对应和时间绑定均来自 HAL / 原生 C++ 扩展的产物。
+下面使用已完成验证的 COUNTER/ADDITION、controls=3 结果；
+新的 all-types、180 分钟 / 16 GiB 串行重跑还没有最终结果。
+
+1. 手柄：已经能读成什么
+
+  // HAL MI candidate 48；8 位寄存器字，Q 和 D 的完整位序均逐项吻合。
+  DANA_module_0.D = (DANA_module_0.Q + 1) mod 256;
+
+  // HAL MI candidate 101；10 位寄存器字，完整 Q/D 对应吻合。
+  if (net_10493 == 0)
+      DANA_module_7.D = (DANA_module_7.Q + 1) mod 1024;
+  else
+      DANA_module_7.D = UNKNOWN_OPERATION;
+
+  // HAL MI candidate 10；32 位加一组合单元。
+  mi10_output = (mi10_input + 1) mod 4294967296;
+
+  上面的 D 是触发器数据端，Q 是当前输出；真正更新还取决于触发器的
+  时钟、使能和复位。不能把 D = Q + 1 直接解释成“每个时钟必定加一”。
+  UNKNOWN_OPERATION 表示该分支未在此识别结果中恢复，不能替换为保持。
+  mi10_input/output 是显示别名，没有人为赋予“时间戳”等用途：
+    input LSB-first = net_[931,933,935,...,989,991,3389]
+    output LSB-first = net_[3357,3358,...,3388]
+
+  // 扩展的 FIT_PROVED 字级表达式，pattern 配置：
+  // frame 原点为事件 1888，周期 96；p = 0,2,...,94。
+  t = 1888 + 96 * frame + p;
+  DANA_module_119[t] = RAM_g11007.read_latch_before_event(t); // 16 位
+
+  最后一条在 48 个相位都有相同的已证明模型，输出及输入没有额外置换。
+  它读取 RAM 保留的读出寄存器，不是把同一事件的新读结果提前使用。
+  该时间安排受已保存的轨迹控制合同约束，不是无条件整机周期结论。
+
+2. 头显：已经能读成什么
+
+  // HAL MI candidate 40；8 位字，完整 Q/D 对应吻合。
+  DANA_module_3.D = (DANA_module_3.Q + 1) mod 256;
+
+  // HAL MI candidate 83；8 位字，完整 Q/D 对应吻合。
+  if (net_2387 == 0)
+      DANA_module_2.D = (DANA_module_2.Q + 1) mod 256;
+  else
+      DANA_module_2.D = UNKNOWN_OPERATION;
+
+  // 扩展的 FIT_PROVED 字级表达式，one 配置：
+  // frame 原点为事件 1056，周期 32；p = 0,2,...,30。
+  t = 1056 + 32 * frame + p;
+  DANA_module_122[t] = RAM_g11108.read_latch_before_event(t); // 16 位
+
+  最后一条在 16 个相位都有相同的已证明模型，没有额外输入/输出置换。
+  与手柄一样，D/Q 更新条件和轨迹合同仍须保留。
+
+3. RAM 如何进入恢复程序
+
+  当前两个固件中的 mode-0 RAM 按 256 x 16 位状态执行；地址、数据、
+  掩码、使能来自恢复的端口表达式，读写时钟来自实际物理连接。
+  一个事件内，FF 表达式先读旧 read_latch，再执行下面的 RAM 更新：
+
+  if (read_clock_rise && RE && RCLKE)
+      read_latch = memory[RADDR & 255];
+  if (write_clock_rise && WE && WCLKE) {
+      enabled_bits = (~MASK) & 65535;
+      memory[WADDR & 255] =
+          (memory[WADDR & 255] & ~enabled_bits) | (WDATA & enabled_bits);
+  }
+
+  同事件采用先读后写语义。这里展示的是已接入的 RAM 原语语义及数据流，
+  不是已经识别出一个 FIFO、解码器或定位算法的主张。
+
+4. 完整文件入口（以下路径相对于仓库根目录）
+
+  手柄：
+    HAL 字级操作：build/controller_groups_arithmetic3/mi_simple.json
+    分组和位序：  build/controller_groups_arithmetic3/groups.json
+    HAL 网表：    build/controller_groups_arithmetic3/ordered.hal
+    验证总报告：  build/controller_arithmetic3_verified/native_verified.json
+    已证明模型：  build/controller_arithmetic3_verified/lift_PROFILE/arithmetic.json
+    C++ 程序：    build/controller_arithmetic3_verified/program_PROFILE/recovered.cpp
+    执行合同：    build/controller_arithmetic3_verified/replay_PROFILE/contract.json
+    PROFILE 可取 irregular、one、pattern、zero，四份程序均已验证。
+
+  头显：
+    HAL 字级操作：build/hmd_groups_arithmetic3_threads2/mi_simple.json
+    分组和位序：  build/hmd_groups_arithmetic3_threads2/groups.json
+    HAL 网表：    build/hmd_groups_arithmetic3_threads2/ordered.hal
+    验证总报告：  build/hmd_arithmetic3_verified/native_verified.json
+    已证明模型：  build/hmd_arithmetic3_verified/lift_PROFILE/arithmetic.json
+    C++ 程序：    build/hmd_arithmetic3_verified/program_PROFILE/recovered.cpp
+    执行合同：    build/hmd_arithmetic3_verified/replay_PROFILE/contract.json
+    可执行 PROFILE 为 irregular、one、zero。pattern 是 NO_GRAPH。
+
+  新重跑日志和状态：build/expanded_180m_16g_serial/
+    controller.log / controller.receipt.json；随后为 hmd 对应文件。
+    每份固件总计 180 分钟，包含 groups、保留性比较和下游 analyze。
+    16 GiB 是单进程虚拟地址空间上限，不是承诺可用物理内存。
+    两份固件串行；单份 HAL 的 MI 使用 2 个线程，DANA 使用 4 个线程。
+
+5. 当前结果的含义
+
+  已经恢复出了计数/加法数据通路、带条件的字级关系，以及 RAM 数据搬运。
+  完整 C++ 中仍有未提升的位运算、显式边界输入和历史状态。
+  不能把它们称为已恢复的完整“定位/解码/协议处理算法”。
+  已知多位组：手柄 81，头显 79；未决多位组：手柄 97，头显 103。
+  已有 7 份程序通过原门级轨迹回放；头显 pattern 尚无程序。
+  表达式的证明、给定轨迹下的回放和无条件整机等价是不同保证。
+
+摘录来源 SHA256：
+  controller mi_simple.json
+    4e57b362cc6966eb06a26361349ce77fda6a75785a49da39728ec6ab2b717299
+  hmd mi_simple.json
+    30395fc4f3e2b2506257a0979be975145bde634f5ef3be74b01bf85494dd6858
+  controller lift_pattern/arithmetic.json
+    83b83da442ef1b1939e633e426deeecf807392273b13c56f8a4920f94a5bac71
+  hmd lift_one/arithmetic.json
+    fc42e091e7f1431cea8548cbc57d976feb6b5033312953d029cf025ae54bd16b
