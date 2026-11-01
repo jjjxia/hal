@@ -10,10 +10,18 @@ compiled-program replays PASS; all eight CTests PASS. The final audit below
 supersedes historical pending-work notes. This completes the C++ migration,
 not whole-device equivalence, unrestricted recovery, or a new research claim.
 
-FOLLOW-UP ACTIVE (2026-11-01): user requests expanded HAL identification settings
-and longer/configurable traces/windows. Configuration/API changes and regression
-tests are implemented; expanded real-case coverage and long-window results are
-still pending. See the latest follow-up checkpoint at the end of this file.
+FOLLOW-UP RESULTS (2026-11-01): configuration/window controls are implemented and
+the bounded firmware evaluation is complete. COUNTER/ADDITION with control limit
+0 -> 3 improves controller ordered multi-bit groups 71 -> 81 (unresolved 107 -> 97)
+and HMD 67 -> 79 (unresolved 115 -> 103). All 22 added groups / 147 bits are strict
+HAL propagation results; every old known order is preserved. All seven available
+compiled-program replays and all ten current CTests PASS. The 24576-event HMD
+pattern trace with a 17472-event window still has NO_GRAPH: observed joint period
+69888 requires a 279552-event extraction under the current four-period rule.
+All-nine-type trials were incomplete under recorded memory/time budgets, not
+exhaustive failures. No whole-device or unrestricted recovery claim is added.
+The final follow-up checkpoint below supersedes historical pending-work notes;
+no recovery/build processes from this evaluation remain running.
 
 Reference implementation (read-only):
 /tmp/dynamicRE-hal-controller-20261030/harder_netlists/consumer_bitstreams/hal_controller
@@ -684,7 +692,8 @@ it will be built/tested after the live MI runs finish. FOLLOW-UP STILL ACTIVE.
 
 Expanded MI execution/resource checkpoint (2026-11-01)
 ----------------------------------------------------
-The all-types/control-3 cases each enumerate 5407 structural candidates. After
+The all-types/control-3 cases enumerate 5407 structural candidates for controller
+and 5202 for HMD (corrected from the earlier mistaken shared denominator). After
 about 31 minutes, read-only inspection of the running Release worker counters
 showed 4729 still pending for controller and 4342 for HMD. These are workload
 counts, not recovered-order counts or exhaustive failure evidence.
@@ -789,3 +798,103 @@ The old read-only GDB diagnostic needs the preserved binary's symbols if reused;
 do not interpret old-process stack offsets through the newly rebuilt library.
 Next full controller retry: build/controller_groups_all3_threads2_v2, all types,
 controls=3, two actual workers, same explicit 4 GiB address-space ceiling.
+
+Full-type resource outcome and remaining bounded evaluation (2026-11-01)
+---------------------------------------------------------------------
+controller_groups_all3_threads2_v2 confirmed two actual workers, then aborted
+with std::bad_alloc, exit 134, under the explicit 4 GiB address-space ceiling.
+No final grouping result was produced. This is an allocation/resource outcome,
+not a semantic counterexample or evidence that HAL cannot recover more orders.
+
+The original HMD all-types/control-3 trial still had 3871/5202 structural
+candidates pending around 74 minutes (sampled with the PRESERVED old binary's
+symbols). Bound this full-type evaluation to a nominal 90-minute elapsed-time
+budget, checked between progress polls, rather
+than treating the broadest search as an obligation to run without a bound.
+This bound applies to this ordinary engineering trial, not to any native goal.
+Record incomplete full-type coverage honestly if the trial reaches the bound.
+
+Started build/hmd_groups_arithmetic3_threads2 with COUNTER/ADDITION, controls=3,
+two actual workers and the same 4 GiB address-space ceiling, to obtain the HMD
+counterpart of the completed controller control-limit comparison. The intended
+completion is a measured, downstream-validated comparison for both firmwares,
+plus the already completed longer-trace/window evaluation and explicit outcomes
+of the attempted all-type configurations. It is not exhaustion of HAL's search
+space or a promise to recover every previously unresolved group.
+
+Final follow-up validation (2026-11-01)
+-------------------------------------
+HMD control-limit comparison completed, exit 0:
+  hal-recover groups build/native_hmd_import/import.hal
+    build/hmd_groups_arithmetic3_threads2
+    --mi-types counter,addition --mi-controls 3 --mi-threads 2
+The run used two actual workers and remained within its 4 GiB address-space
+ceiling. It had 5202 structural candidates; controller had 5407. Do not reuse
+earlier HMD progress percentages that mistakenly used the controller denominator.
+The full physical comparison requires identical Q/D/gate wiring and group
+membership, not only matching totals:
+  same 363 groups / 3505 FFs; ordered multi-bit groups 67 -> 79;
+  ordered multi-bit bits 835 -> 921; unresolved 115 -> 103 / 2489 -> 2403 bits;
+  12 gained groups / 86 bits, zero old known orders lost or changed;
+  strict 61 -> 73, relaxed remains 6, singletons remain 181.
+All additions are strict HAL_BITORDER_Q:
+  DANA_module_4:8, _7:10, _65:12, _121:16,
+  _131/_132/_133/_134/_135/_136/_137/_138:5 each.
+Verified modules 8 -> 28 (COUNTER 6 -> 23, ADDITION 2 -> 5), gates 221 -> 513.
+Control-count distribution is 0:7, 1:8, 2:5, 3:8. MI numeric seeds 17 -> 61;
+RAM seeds remain 86. No manual semantic inputs were added.
+
+Fresh HMD downstream run build/hmd_arithmetic3_verified exits 0 with
+NATIVE_CPP_CHAIN_AUDITED: 404 conditional SSE checks / 168 RAM-port proofs,
+all three available profiles export/compile/pass original-gate coupled replay.
+Pattern remains NO_GRAPH at window 512 / observed joint period 4368.
+All original per-profile replay counts and observation hashes exactly match:
+  64 training + 16 withheld frames; 2281900 known FF-bit comparisons;
+  1044480 known RAM-read comparisons; 1920 unknown FF output bits and
+  245760 unknown RAM-read bits remain explicit; no known mismatch.
+All 634 emitted C++ functions are re-read and expression-proved.
+Proved arithmetic occurrences increase 2088 -> 2248:
+  irregular 416 -> 448; one 868 -> 932; zero 804 -> 868.
+Unknown-order occurrences decrease 2443 -> 2203. These are occurrences in the
+observed folded graphs, not counts of distinct high-level algorithms.
+
+Across both new case runs: 22 additional ordered groups / 147 bits, with all
+previously known orders retained; 7 available programs pass coupled replay;
+133 training + 33 withheld frames, 5273446 known FF-bit comparisons and 2402304
+known RAM-read comparisons; 4416 unknown FF output bits / 565248 unknown RAM-read
+bits stay explicit. All old replay coverage is retained. The 1496 saved C++
+functions pass expression proofs. Proved arithmetic occurrences 6908 -> 7376.
+The unchanged graph/function inventory does not mean no improvement: the raw
+equations already existed; the added numeric orders enable more word-level fits.
+
+Also reran the long pattern analysis with the NEW HMD grouping:
+  hal-recover analyze build/hmd_groups_arithmetic3_threads2/ordered.hal
+    build/hmd_groups_arithmetic3_threads2/groups.json HMD_RECOVERED_JSON
+    build/hmd_pattern_24576_trace build/hmd_arithmetic3_pattern_window17472
+    --window 17472 --profiles pattern --compare-window 512
+Exit 0, NO_EXECUTABLE_GRAPH. All 404 SSE / 168 RAM checks and all 24576 events of
+RAM replay pass with exactly the earlier long-run known/unknown/read/write
+counts. Both long/short local-period maps and exclusions exactly match the
+preserved-order diagnostic: P=69888 versus P=4368, requiring 279552 versus
+17472 events. Numeric-order recovery does not remove this observed-period
+constraint. No 279552-event extraction or closed whole-device proof was made.
+
+Full-type HMD trial was terminated at elapsed 90m34s, exit 143, after its stated
+90-minute evaluation budget. At the final preserved-binary sample, 3811/5202
+structural candidates remained; no final grouping result exists. Its log and
+budget checkpoint are build/hmd_groups_all3_fixed.log and
+build/hmd_all3_budget_{checkpoint.log,process.txt}. Controller full-type trials
+were likewise incomplete for the recorded crash-fix/resource/configuration
+reasons. Do not substitute these censored trials for an exhausted-capability
+claim, a semantic failure, or the successful COUNTER/ADDITION control-3 results.
+
+Final local artifact identities (SHA256; generated data stay ignored):
+controller groups.json e3859e95d72e4ccdb96a2ba5edb1f2ae9c3b8af56f7980299b54bee33b21625e
+hmd groups.json d436add1a9491b89a55763e22a51cfbba36627becebaa65cf49b37f94b162cde
+controller native_verified.json 732ea66a2983088c5101d79a49386c7a85e55162cc735b1e0b1089b6baf95fbd
+hmd native_verified.json 5cb2a3524c235e1e6a92ea0ce2bbad93954b8584b721807fe16a379c1d7aeb47
+hmd long native_verified.json 58187133c67cbc4e7d0e3cc5960a2a8221b4fef2377b979bbc32c2dea65c15e5
+Final code regression: all 10 tests PASS, mi_configuration_fix_ctest.log.
+No manual words/roles/orders, legacy-production dependency, or unproved model
+adoption was introduced. Only code/configuration/compact records are committed;
+build artifacts, traces, generated programs, detailed logs and fixtures stay local.

@@ -80,6 +80,15 @@ Actual settings and numeric-seed eligibility are saved in the group/MI reports.
 HAL retains its own per-candidate heuristics (for example, its comparison path
 proposes at most one control); the configured maximum is not a completeness claim.
 
+The completed firmware control-expansion comparison uses
+--mi-types counter,addition --mi-controls 3: controller ordered multi-bit groups
+increase 71 -> 81, HMD 67 -> 79, with all old known orders and replay coverage
+preserved. All-nine-type/control-3 trials were incomplete under the recorded
+memory/time budgets; these are not evidence that HAL cannot recover more.
+See algorithm_recovery/CPP_MIGRATION_STATE.txt for exact inputs, commands, checks
+and remaining limitations. MI now honors the requested worker limit; increasing
+workers can increase peak memory as well as processing concurrency.
+
 Configure observation lengths and select named profiles:
 
   hal-recover trace recovered.json recovered.v cells_sim.v build/long_pattern \
