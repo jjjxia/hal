@@ -118,3 +118,16 @@ Preparation checkpoint
    CTests both PASS (10.71 s), including stale identity/internal-force/window
    rejection. Build log: build/external_stimulus_build.log; regression receipt:
    build/external_stimulus_ctest.log. No benchmark success claimed yet.
+
+First execution checkpoint (build/generalization_v1)
+   Both upstream-RTL/anonymous-gate checks and transaction references PASS.
+   FIR: 64 training +64 held-out sample outputs and one initial prefix output.
+   CORDIC: 64 training +64 held-out transactions; both phase-sign branches at
+   every one of 14 observable iterations occur in both sets.
+   FIR recovery initially stops at import: HAL's parser deletes unused global
+   inputs after fixed-coefficient elaboration. Preserve this failure receipt.
+   Generic fix restores only source-proven unconnected, unaliased input nets;
+   all exact cell/pin/parameter/global-IO checks remain. Native import regression,
+   including serialized unused-input preservation, PASS (0.06 s). This is a
+   frontend adaptation, not a change to InvFold/recognition or benchmark data.
+   CORDIC continues its frozen counter/addition MI run. No recovery PASS yet.

@@ -88,7 +88,8 @@ namespace hal::algorithm_recovery
             // Keep the architecture name: MI dispatches using the library name.
             const auto& ports = module.at("ports");
             std::map<u32, std::string> inouts;
-            std::set<u32> all_bits;
+            std::set<u32> all_bits, source_pin_bits;
+            std::map<u32, size_t> port_alias_counts;
             auto collect = [&](const auto& bits) {
                 require(bits.is_array() && !bits.empty(), "empty/non-array connection");
                 for (const auto& bit : bits)
@@ -106,10 +107,15 @@ namespace hal::algorithm_recovery
                 require(p.at("bits").size() == 1 && p.at("bits")[0].is_number_integer(), "only scalar physical pad ports supported");
                 require(p.at("direction") == "input" || p.at("direction") == "output" || p.at("direction") == "inout", "invalid port direction");
                 collect(p.at("bits"));
+                ++port_alias_counts[p.at("bits")[0].get<u32>()];
                 if (p.at("direction") == "inout")
                     require(inouts.emplace(p.at("bits")[0], it.key()).second, "duplicate bidirectional pad alias");
             }
-            for (const auto& cell : module.at("cells")) for (const auto& connection : cell.at("connections")) collect(connection);
+            for (const auto& cell : module.at("cells")) for (const auto& connection : cell.at("connections"))
+            {
+                collect(connection);
+                for (const auto& physical : connection) if (physical.is_number_integer()) source_pin_bits.insert(physical.get<u32>());
+            }
             auto bit = [&](const Ordered& b) -> std::string {
                 if (!b.is_number_integer()) return "1'b" + b.get<std::string>();
                 const u32 id = b;
@@ -205,7 +211,6 @@ namespace hal::algorithm_recovery
                 require(name.size() > 1 && name[0] == 'n' && name.find_first_not_of("0123456789", 1) == std::string::npos, "unmapped physical net " + name);
                 return std::stoul(name.substr(1));
             };
-            for (auto* net : nl->get_nets()) result.physical_bits.emplace(net->get_id(), physical(net));
             std::set<Json> actual_in, actual_out, expected_in, expected_out;
             for (auto* net : nl->get_global_input_nets()) actual_in.insert(physical(net));
             for (auto* net : nl->get_global_output_nets()) actual_out.insert(physical(net));
@@ -214,7 +219,38 @@ namespace hal::algorithm_recovery
                 if (p.at("direction") != "output") expected_in.insert(Json(p.at("bits")[0]));
                 if (p.at("direction") != "input") expected_out.insert(Json(p.at("bits")[0]));
             }
-            require(actual_in == expected_in && actual_out == expected_out, "HAL global I/O alias mismatch");
+            // HAL's parser may discard a declared input with no endpoints.
+            // Restore only that source-proven no-op port; never fabricate a
+            // missing connected pin or change input/output alias semantics.
+            Json restored_unused_inputs = Json::array();
+            for (auto port = ports.begin(); port != ports.end(); ++port)
+            {
+                if (port.value().at("direction") != "input") continue;
+                const auto bit = port.value().at("bits")[0].get<u32>();
+                if (actual_in.count(Json(bit))) continue;
+                require(!source_pin_bits.count(bit) && port_alias_counts.at(bit) == 1,
+                    "cannot restore missing connected/aliased input port " + port.key() + " at physical bit " + std::to_string(bit));
+                Net* retained = nullptr;
+                for (auto* net : nl->get_nets()) if (physical(net) == Json(bit))
+                {
+                    require(retained == nullptr, "multiple retained nets for unused input " + port.key());
+                    retained = net;
+                }
+                const bool recreated = retained == nullptr;
+                if (recreated) retained = nl->create_net("n" + std::to_string(bit));
+                require(retained && retained->get_sources().empty() && retained->get_destinations().empty() && !retained->is_global_output_net(),
+                    "unused input has unexpected imported connectivity: " + port.key());
+                require(nl->mark_global_input_net(retained), "cannot retain unused input port: " + port.key());
+                restored_unused_inputs.push_back({{"port", port.key()}, {"physical_bit", bit}, {"net_id", retained->get_id()},
+                    {"action", recreated ? "RECREATED_EMPTY_INPUT_NET" : "MARKED_RETAINED_EMPTY_NET"}});
+            }
+            actual_in.clear(); actual_out.clear();
+            for (auto* net : nl->get_global_input_nets()) actual_in.insert(physical(net));
+            for (auto* net : nl->get_global_output_nets()) actual_out.insert(physical(net));
+            require(actual_in == expected_in && actual_out == expected_out,
+                "HAL global I/O alias mismatch: actual inputs=" + Json(actual_in).dump() + " expected inputs=" + Json(expected_in).dump() +
+                " actual outputs=" + Json(actual_out).dump() + " expected outputs=" + Json(expected_out).dump());
+            for (auto* net : nl->get_nets()) result.physical_bits.emplace(net->get_id(), physical(net));
             std::map<std::string, unsigned> counts;
             Json graph = Json::object();
             std::set<std::string> seen;
@@ -267,6 +303,7 @@ namespace hal::algorithm_recovery
             result.receipt = {{"status", "IMPORT_CHECKED"}, {"input", std::filesystem::absolute(source).string()}, {"input_sha256", digest(text)},
                 {"library", std::filesystem::absolute(library).string()}, {"library_sha256", digest(library_text)},
                 {"input_cells", input_counts}, {"output_cells", output_counts}, {"counts", counts}, {"ports", Json(ports)},
+                {"restored_unused_input_ports", restored_unused_inputs},
                 {"manual_semantic_inputs", Json::array()}, {"scope", "All pins, parameters, global IO aliases and two-state LUT/carry truth tables; not sequential/RAM behavioral equivalence."}};
             write(out / "prepare.json", result.receipt.dump(2) + '\n');
             write(out / "verify_import.json", result.receipt.dump(2) + '\n');

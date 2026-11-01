@@ -1,8 +1,11 @@
 #include "algorithm_recovery/frontend.h"
 #include "hal_core/netlist/gate.h"
+#include "hal_core/netlist/net.h"
+#include "hal_core/netlist/persistent/netlist_serializer.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 
 using Json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -29,6 +32,29 @@ int main(int argc, char** argv)
         if (result.is_error()) throw std::runtime_error(result.get_error().get());
         check(result.get().receipt.at("counts").at("cells") == 1, "valid import count");
         check(result.get().netlist->get_gates()[0]->get_type()->get_name() == "REC_IO_DFF", "IO DFF type was not preserved");
+        check(result.get().receipt.at("restored_unused_input_ports").empty(), "connected inputs were treated as unused");
+        auto unused = source;
+        unused["modules"]["recovered"]["ports"]["unused_a"] = {{"direction", "input"}, {"bits", {7}}};
+        unused["modules"]["recovered"]["ports"]["unused_b"] = {{"direction", "input"}, {"bits", {8}}};
+        auto unused_result = run("unused_inputs", unused);
+        if (unused_result.is_error()) throw std::runtime_error(unused_result.get_error().get());
+        const auto& imported = unused_result.get();
+        check(imported.netlist->get_global_input_nets().size() == 4 && imported.netlist->get_global_output_nets().size() == 1,
+            "unused physical input pads disappeared during import");
+        auto serialized = hal::netlist_serializer::deserialize_from_file(root / "unused_inputs" / "import.hal");
+        check(bool(serialized) && serialized->get_global_input_nets().size() == 4 && serialized->get_global_output_nets().size() == 1,
+            "unused physical input pads disappeared during serialization");
+        std::set<Json> serialized_inputs;
+        for (const auto* net : serialized->get_global_input_nets())
+        {
+            const auto physical = imported.physical_bits.at(net->get_id()); serialized_inputs.insert(physical);
+            if (physical == 7 || physical == 8)
+                check(net->get_sources().empty() && net->get_destinations().empty(), "unused input gained circuit behavior");
+        }
+        check(serialized_inputs == std::set<Json>{2,3,7,8}, "serialized physical input inventory changed");
+        auto unused_inout = source;
+        unused_inout["modules"]["recovered"]["ports"]["unused_bidirectional"] = {{"direction", "inout"}, {"bits", {9}}};
+        check(run("unused_inout", unused_inout).is_error(), "unused-input repair fabricated bidirectional pad semantics");
         auto modified = source;
         modified["modules"]["recovered"]["cells"]["original_io_ff"]["parameters"]["WIDTH"] = "10";
         check(run("wide", modified).is_error(), "wide IO FF was silently accepted");
@@ -42,7 +68,7 @@ int main(int argc, char** argv)
         modified["modules"]["recovered"]["cells"]["original_io_ff"]["parameters"]["WIDTH"] = "x";
         check(run("unknown_parameter", modified).is_error(), "unknown parameter silently concretized");
         check(hal::algorithm_recovery::import_recovered(root / "valid.json", lib, root / "valid").is_error(), "existing output was overwritten");
-        std::cout << "PASS native frontend valid IO FF, unsupported widths/edges/types/parameters, output preservation\n";
+        std::cout << "PASS native frontend IO FF, serialized unused inputs, unsupported widths/edges/types/parameters, exact IO preservation\n";
     }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }
