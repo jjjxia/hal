@@ -2,8 +2,10 @@ Native algorithm recovery (migration in progress)
 ================================================
 
 This plugin is being ported from algorithm_recovery/invfold and the separately
-preserved firmware adapter. Its current command is RAM extraction, not the
-complete netlist-to-algorithm pipeline. See algorithm_recovery/CPP_MIGRATION_STATE.txt.
+preserved firmware adapter. Its current command is RAM extraction. The C++ API
+also implements observed-period folding and coupled frame execution. The full
+netlist-to-algorithm pipeline is not yet migrated. See
+algorithm_recovery/CPP_MIGRATION_STATE.txt.
 
 Build from the HAL repository root:
 
@@ -11,7 +13,8 @@ Build from the HAL repository root:
     -DPL_SEQUENTIAL_SYMBOLIC_EXECUTION=ON -DPL_Z3_UTILS=ON \
     -DALGORITHM_RECOVERY_TESTS=ON
   cmake --build build --target hal-recover check-recovery-memory \
-    check-recovery-ram-extraction -j 4
+    check-recovery-ram-extraction check-recovery-folding \
+    check-recovery-folding-fixture -j 4
 
 Extract RAM metadata and symbolic port equations from an imported HAL netlist:
 
@@ -59,3 +62,47 @@ both fail the equality check. It also checks rejection of unsupported modes
 and unknown INIT. This is migration equivalence of RAM extraction, not a new
 independent whole-device proof. The .hal inputs were produced by the previous
 Python frontend; raw recovered.json import is still to be migrated.
+
+Native folding API (include/algorithm_recovery/folding.h):
+
+  fold_observed(FoldInput, context) -> FoldGraph
+  initial_memories(FoldGraph, initial_read) -> extracted power-up RAM state
+  run_frame(FoldGraph, history, boundary_inputs, warmed_RAM_state, context)
+
+FoldInput contains HAL-derived groups in physical storage coordinates, effective
+D equations including reset, observed physical write classifications and a
+contiguous extraction window. Primitive bit symbols are packed into words in
+C++ without introducing numeric bit orders. Unknown, mixed, inactive and
+nonperiodic words remain explicit boundary inputs. Period detection checks the
+entire window. Construction requires one real prefix and three repetitions;
+last writes are resolved strictly before the reading event and checked in all
+three repetitions. Too short a common-period window returns available=false.
+This is an observed-period contract, not an unbounded schedule certificate.
+
+RAM read outputs are internal state endpoints. RAM ports retain symbolic data
+and control dependencies resolved through the same graph. Every RAM port is
+evaluated before any memory is updated, and FF nodes sample pre-event reads.
+The raw native executor uses Z3's fixed-width evaluator and accepts words wider
+than machine integers; missing or wrong-width boundary state fails explicitly.
+It does not invoke Python. Power-up RAM state must be warmed to the graph origin
+before real-case replay; initial_memories does not perform that warmup.
+
+check-recovery-folding exercises wide-word recurrence against independent
+integer arithmetic, actual last writes, held/mixed/nonperiodic words, insufficient
+windows and two coupled RAMs. These tests are included in the CTest command above.
+
+Real-case folding migration regression:
+
+  build/bin/hal_plugins/check-recovery-folding-fixture CASE_DIRECTORY recovered.json
+
+Only this test adapter reads the old native_sse.json/native_ram.json artifacts;
+they are converted to the typed production API. The folder does not read an old
+graph or invoke the old InvFold. The test then compares all seven existing graphs
+across the two cases: periods, origins, every FF node's source bindings and
+universally equivalent expression, history entries and every RAM port binding.
+It also checks the HMD pattern's existing NO_GRAPH outcome. This does not yet
+verify a newly migrated trace/SSE frontend or real-case frame replay.
+
+Arithmetic fitting with universal checks, routing-order inference and standalone
+program export remain required migration steps; the raw executor is not a
+replacement for those capabilities.

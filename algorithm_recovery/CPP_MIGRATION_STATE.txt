@@ -35,11 +35,63 @@ hmd ordered.hal 668a5e5ee91c7d567d78ad125bc86b20badc521b44efa94cdce59ed2c220e171
 hmd native_ram.json 1dd079b06191d6d794dd3386b244df39e1a41c538bac01606f3bda1222d1bf01
 Yosys cells_sim.v b5b2bcd86c0d6eea269015aaebff1d5fb66e7ec3f7eded0bde07406e5ac99527
 
+DONE COMPONENT (2026-11-01): native observed-period inverse-folding graph and raw
+coupled frame executor, in folding.h/folding.cpp. Typed inputs are physical bit
+symbols, HAL-derived word boundaries, effective D equations, observed physical
+writes, and symbolic RAM ports. No Python call or old recovered graph is used
+by the production folder. The fixture loader is a separate native test only.
+
+The folder checks the entire observation window, excludes unknown/mixed/held/
+nonperiodic words, takes an actual prefix period, and resolves strictly previous
+writes over three repetitions. RAM read outputs are internal state; every RAM
+port is evaluated against the old states before simultaneous memory updates.
+Unknown numeric word orders stay unknown. The raw executor uses native Z3
+evaluation for arbitrary-width words; it does not replace arithmetic lifting.
+
+Validation on final sources (all processes exited 0):
+- CTest: both algorithm-recovery-memory-yosys and algorithm-recovery-folding PASS.
+  New tests cover 80-bit recurrence with wraparound vs independent cpp_int
+  arithmetic, nonaligned origin, prefix/history, late nonperiodic writes, held
+  expressions, mixed/inactive words, insufficient LCM windows, wrong-width/
+  missing inputs, ambiguous names, and mutually connected RAMs sampling old
+  FF/read state across ten frames. Extracted INIT/read-choice initialization tested.
+- Controller: irregular P16 / 1436 FF nodes / 2688 RAM bindings;
+  one P32 / 2941 / 5376; pattern P96 / 8825 / 16128; zero P32 / 2879 / 5376.
+- HMD: irregular P16 / 1392 / 2688; one P32 / 2901 / 5376;
+  zero P32 / 2807 / 5376; pattern NO_GRAPH (LCM 4368, window 512).
+- All 23181 FF nodes: exact source/time-delay bindings and universally equivalent
+  raw expressions (structural identity or Z3 UNSAT). All 43008 RAM port bindings,
+  histories, origins, periods and exclusion classifications match reference.
+- This is equivalence of graph recovery on existing SSE-stage fixtures, NOT a
+  new end-to-end frontend run or real-case frame replay. Native frame execution
+  currently has the independent synthetic checks above; real trace replay remains.
+- An earlier controller check was deliberately terminated after code/test changes
+  (two profiles had passed); this was not a failure/timeout. Final complete logs:
+  build/controller_folding_equivalence_final.log,
+  build/hmd_folding_equivalence_final.log. No live handles remain.
+
+Additional fixture identities (SHA256):
+controller native_sse.json 4beb38ed67e7ec45b67ebbfa36f723b1b0b7dd2d946ff0e41a79b74cbba940a6
+hmd native_sse.json b78579104ae7e071960bbb51b1af55c09757e975dd67e304d37281369eccffb4
+Reproduce: build check-recovery-folding and check-recovery-folding-fixture;
+ctest --test-dir build/plugins/algorithm_recovery --output-on-failure;
+check-recovery-folding-fixture CASE_DIRECTORY ORIGINAL_RECOVERED_JSON.
+CASE_DIRECTORY is the reference artifacts/native_controller_ram or native_hmd_ram.
+
 Remaining: native frontend, DANA/MI/two-pass bitorder orchestration, trace and
-conditional SSE extraction, period detection/last-write graph, arithmetic fits
-and universal checks, routing inference, coupled RAM frame execution, native
-program export, independent differential checks on both complete real inputs.
+conditional SSE extraction, arithmetic fits and universal checks, routing-order
+inference, standalone native program export, independent real-case coupled
+replay and complete end-to-end checks on both inputs.
 Do not report full migration/recovery while any of these remain.
+
+Next useful entry: port hal_index_hmd/prepare.py (89 lines) and import checks,
+then hal_native_groups.py (103 lines) to native HAL calls. Existing folding API
+can then consume their native equation/word data; its test JSON adapter must not
+become a dependency on the old Python pipeline. Preserve the original input
+contract (already recovered primitive JSON/netlist, not a new bitstream decoder).
+
+Goal-turn audit: preceding RAM turn and this folding turn are progress (source
+changes plus authoritative tests); the full requested C++ migration stays active.
 
 Preserve reference limitations: unresolved word orders, observed-control
 conditioning, iCE40 mode-0/primary-clock restrictions, HMD pattern NO_GRAPH.

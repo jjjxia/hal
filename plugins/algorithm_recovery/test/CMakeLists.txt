@@ -17,3 +17,10 @@ endif()
 
 add_executable(check-recovery-ram-extraction extraction.cpp)
 target_link_libraries(check-recovery-ram-extraction PRIVATE algorithm_recovery)
+
+add_executable(check-recovery-folding-fixture folding_fixture.cpp)
+target_link_libraries(check-recovery-folding-fixture PRIVATE algorithm_recovery)
+
+add_executable(check-recovery-folding folding.cpp)
+target_link_libraries(check-recovery-folding PRIVATE algorithm_recovery)
+add_test(NAME algorithm-recovery-folding COMMAND check-recovery-folding)

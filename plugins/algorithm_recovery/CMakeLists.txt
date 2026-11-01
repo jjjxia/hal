@@ -6,8 +6,8 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
         message(FATAL_ERROR "algorithm_recovery requires PL_SEQUENTIAL_SYMBOLIC_EXECUTION=ON")
     endif()
     hal_add_plugin(algorithm_recovery SHARED
-        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h
-        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp
+        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h include/algorithm_recovery/folding.h
+        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp
         LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json)
 
     add_executable(hal-recover cli/main.cpp)
