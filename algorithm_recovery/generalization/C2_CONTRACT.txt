@@ -1,0 +1,95 @@
+C2 recovery evaluation contract, frozen selection 2026-11-01
+
+Question: given correct word equations, does inverse folding recover logical
+write occurrences, each operand's producer/sample, and delays after storage reuse?
+Word boundaries and numeric order are supplied, explicitly; no section names,
+logical-node labels or producer/delay oracle enter the recovery call.
+
+Scope and split
+  Development: Hilbert, shared-biquad, slowfil_srl, seqcordic, and the controlled
+  generator/scorer fixtures. Preserve earlier successes and failures.
+  Independent held-out modules, selected before recovery execution:
+    ZipCPU/dblclockfft@3378b77d83a98b06184656a5cb9b54e50dfe4485
+    qtrstage: IWIDTH=8 OWIDTH=9 LGWIDTH=3 INVERSE=0 SHIFT=0, i_ce=1.
+    hwbfly: IWIDTH=4 CWIDTH=6 OWIDTH=5 CKPCE=3 SHIFT=0, i_ce every3clocks.
+  qtrstage reuses sum/difference registers for distinct butterflies; hwbfly
+  reuses mpy_pipe_out for three distinct products. These are two modules in one
+  FFT family/repository, not two independent authors or full application designs.
+  Selection requires actual shared result storage, fixed synchronous protocol,
+  retained operation/pipeline boundaries and a source-derived reference.
+  Never define FORMAL in the DUT simulations (it can abstract multiplication).
+  Prepare and validate adapters against unchanged RTL before recovery scoring.
+  If a recovery rule is adjusted after seeing a module's score, that module
+  becomes development and cannot remain a held-out success for the new rule.
+
+Implementation boundary
+  Evaluate the existing paper InvFold equation-to-graph implementation directly;
+  new Python is reproducible evaluation/adapter code, not another recovery
+  algorithm or a prerequisite rewrite of the native HAL pipeline. Do not wait
+  for anonymous word recovery or C++ section recognition to measure RQ2.
+  Frozen recovery hashes:
+    invfold.py a9ace86cd1c1c3cb4a85e1d59e749a3c68b92da46029bc2d1643f41901f64d5e
+    smt2.py    306e201804ec2d7c8c688f5521a370a49daf13b2014b338a16d4a50b42e60a65
+    identify.py bb31a1d076c0db3fea1c2e4bb873c9524874bf40fcc355326e87a69310622b6f
+  Primary result is the raw exact graph; do not adopt fitted replacements from
+  random agreement. Supplied period multiples are representation checks, never
+  labelled automatically discovered periods or certificates.
+
+Scoring and artifact interface
+  Each case writes recovery.json: {equations:[{T,target,smt2}], meta:{window,
+  widths,ports:{in,out},write_enable}} in the existing InvFold input format.
+  Anonymous words are w0,w1,... and inputs x0,x1,... . Histories use real finite
+  prefix writes; periodic_extension is forbidden. Supplied priors are recorded.
+  Separate oracle.json contains {period,origin,events:[{T,target,logical,sample,
+  kind,width,operands:[{path,symbol,producer,width}]}]}.
+  producer is ["op",logical_id,sample_number] or ["input",port,physical_cycle].
+  path is the child-index path in the let-expanded SMT AST, including duplicate
+  operand occurrences. Oracle events include prefix writes and observations.
+  The reference is built from the source graph/operational provenance BEFORE
+  recovery; never generate expected producers by asking InvFold to resolve them.
+  trace.json contains input values and original/reference before/after words,
+  with actual initialization history. Comparison begins only at a declared
+  fully initialized boundary; earlier unknown observations are retained/reported.
+  Recovery sees only recovery.json. Oracle and traces are separate scoring data.
+  Save recovered graphs before scoring; hash inputs, frozen code and output.
+
+Controlled family
+  Known graphs: two coupled registered recurrences; and a noncommutative graph
+  with repeated operands, independently rounded intermediates and overflow.
+  Vary legal fixed slot/register binding, folding factor via idle slots,
+  identity-copy-chain length, all sample origins and period multiples2/3.
+  Supply input/output phases and initial histories. Keep every compute-result
+  boundary; legal cut changes only collapse/expand proved identity moves.
+  Score raw graph separately from move-normalized graph. Copy collapse requires
+  identity and matching history, including cumulative delays, before adoption.
+  Cross-origin edges must obey retiming; multiple periods must obey unfolding.
+  Do not require literal graph equality across these representations.
+  Ping-pong binding, hidden pipelines and across-operation inlining are explicit
+  outside-contract controls, not automatic counterexamples to Theorem6.
+
+Required reports
+  Structural: expected/recovered compute+copy nodes, missing/extra nodes,
+  operand-occurrence producer and sample-delay agreement, observation edges.
+  Semantic: exact bit-vector execution, rounding/overflow and actual history;
+  distinguish finite RTL/reference tests, function SMT checks and full proofs.
+  Robustness: retiming/unfolding/copy-cut relation counts and failures.
+  Negative controls: same-edge new-value read, wrong producer/delay, omitted
+  repeated operand, wrong rounding/signedness and inconsistent copy history.
+  A semantic PASS alone is not a structural PASS. Unsupported/UNKNOWN/timeouts
+  remain separate and all failed receipts are retained.
+
+C3 and Index boundary
+  Keep the existing shared-biquad checked synchronous path,31proved functions,
+  all-cut effective writes/history, saved-model checks and rare-guard rejection.
+  Its subsequent scoped copy-removal/export checks are also existing results.
+  Other paths retain their own adapter/prior/proof/test labels. No general RAM,
+  asynchronous or arbitrary data-dependent scheduling framework is required.
+  Index: show a saved output-connected subgraph from gates/words/guards/history
+  to readable program; distinguish automatic expressions from analyst labels.
+  Additional fresh-stimulus replay, if run, freezes generated code first and is
+  finite testing, not a new whole-runtime equivalence proof.
+
+Execution: bounded user-requested evaluation, no autonomous research loop.
+Recovery cases remain serial, at most180min/16GiB each. Source, generated cases,
+large traces and receipts stay under ignored build/; commit code/contracts and
+compact honest conclusions only. Paper edits stay on main; no automatic push.
