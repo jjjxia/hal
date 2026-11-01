@@ -1,0 +1,134 @@
+两个独立来源 RTL 的泛化实测（2026-11-01）
+所有路径以 /home/jiahao/hal 为根；固定来源、参数、输入合同见 PLAN.txt。
+
+结论
+  两例都自动生成了完整状态 C++，通过训练和留出输入的全部门级观测
+  对照；局部周期程序也通过适用帧回放。但没有自动恢复出可读的完整
+  七抽头 FIR 求和或 CORDIC 移位加减递推。可执行恢复通过，高层算法
+  自动识别仍未通过，不能用 FIT_PROVED 数量代替算法恢复成功。
+  没有提供内部字分组、位序或算法模板。显式外部 pad 驱动协议是输入
+  先验，合法协议本身未证明。原 RTL 名字与参考函数仅用于输入校验和
+  结果审计，不进入恢复。两例均来自 ZipCPU，尚无跨作者覆盖。
+
+执行、失败与修复
+  实际输出根目录：build/generalization_v1/。
+  首次 FIR 因 HAL 删除未使用输入端口而停止；首次 CORDIC 因旧回放器
+  在仅含训练数据的窗口中寻找留出帧而停止。原 receipt.json 和产物保留。
+  修复后复用输入；CORDIC 复用已保存 groups/trace，没有重跑 MI。
+  两例 retry1/analysis_receipt.json 均 exit=0、COMPLETE。
+  恢复任务串行，MI/DANA 各一线程；每个进程地址空间上限 16 GiB。
+  原始运行加重试执行时间：FIR 2+132+59=193 秒；CORDIC 1054+67=1121 秒。
+  重试扣除已用执行时间，仍在每例 180 分钟预算内。上述时间不包括人工
+  排错、准备和通用扩展编译，不能当未经适配工具的性能对照。
+
+输入验证
+  FIR：slowfil_srl，7 taps，8 位输入/系数，19 位输出，系数
+    [3,-5,7,11,-13,17,19]；显式参数实例，不是默认 110 taps。
+    零样本冲刷后每 16 时钟输入一个样本，最后追加 drain。
+    原 RTL/匿名门级/精确参考 PASS：prefix 1 + training 64 + heldout 64
+    次输出，2580 位事务输出。留出只改变样本值，未改变系数/架构/速率。
+    normalized JSON SHA256:
+      94e6a033c98c30fd053567dd62c55cacbcd63501baf5843d4e62f47869e93c8a
+    stimulus JSON SHA256:
+      0346669f2bb9699e6e04294240a79b3f2dabbcf8eb47820d406fd3315db727fb
+  CORDIC：seqcordic 原文件，13 位输入/输出、16 位内部数据、20 位角度。
+    复位后每 17 时钟一次事务；精确参考保留原 RTL 非阻塞赋值时序，
+    输出包含第 1..14 轮旋转，未替换成理想三角函数或另一版 16 轮模型。
+    原 RTL/匿名门级/参考 PASS：training 64 + heldout 64 次事务、3712 位
+    输出；两集合分别覆盖每轮正/负残角分支。原 RTL 与匿名门级全部
+    已知输出观测也一致。参考通过本身仅证明 benchmark 输入准备正确。
+    normalized JSON SHA256:
+      c9ffd9bb2beca8bc77a606e35f902f36f77eafa7d8be77b4fb295623be663ede
+    stimulus JSON SHA256:
+      c358dabc66b5c4e53cc6dca32aad1863ea0905ef93fd934e59e0e36a95517d6d
+
+恢复结果（各计数口径独立）
+                                FIR                  CORDIC
+  FF 位 / 自动组                142 / 26             156 / 24
+  严格多位位序组 / 位           2 / 38               2 / 8
+  宽松多位位序组 / 位           1 / 2                1 / 3
+  单位组                        12                   16
+  未决组 / 位                   11 / 90              5 / 129
+  周期（半周期事件）            32（16 时钟）        34（17 时钟）
+  周期更新节点 / 压缩规则       208 / 32             344 / 47
+  周期排除组 / 位               4 / 13               1 / 50
+  FIT_PROVED 节点出现次数       177                  74
+  不同已提升 canonical hash     12                   7
+  完整状态算术函数次数          26                   6
+  完整状态事件回放              4184 PASS            4360 PASS
+  对照 FF 已知位观测次数        1188256              1360320
+  对照输出数据已知位观测次数    167360               252880
+
+  完整状态程序从事件零、自身 FF 初始化开始连续执行，仅输入外部 pads。
+  未决位序保留物理坐标，全部 FF 和输出观测均覆盖，无缺失输出字段。
+  本配置均没有 RAM，不能据此验证 RAM 恢复。对照次数含数据稳定后和
+  时钟稳定后的两次观测，不是独立随机测试次数。
+  FIR 提取 2048 事件，其余 2136 包含 prefix/drain；CORDIC 提取 2176，
+  其余 2184 包含 8 个复位前缀事件，不能全部称为独立留出样本。
+  局部周期程序：FIR 训练 63 帧、窗口外 65 帧 PASS，各另有 1 帧不适用；
+    CORDIC 训练 48、留出 51 帧 PASS，另有训练 16/留出 13 帧不适用。
+  排除状态成为显式 FF 边界输入；适用帧核对控制、写模式和历史条件。
+  周期回放不代表无边界整机执行，完整状态后端才包含这些被排除的状态。
+
+读出了什么、还缺什么
+  FIR：两个已排序 19 位字对应累加器和输出；八个 8 位延迟字也分别
+    成组，可追踪共同采样使能和依赖链。但样本/乘积位序未决，系数被
+    拆成片段。主乘法、累加装载/求和、样本选择仍是精确位向量函数。
+    177 个周期已提升出现次数为常数 48、复制 73（72 个单位复制）、
+    单位布尔/算术形式 56；完整状态 26 项中，23 项是单位运算、2 项为
+    两位系数片段、1 项为 19 位累加器到输出的复制。
+    未自动生成七项求和式、系数列表。上述“乘积/累加器”等角色对应
+    使用评测侧源码审计，不能计为自动算法标签。
+    周期排除 DANA_module_5/12/13/24，即样本选择值 8 位和系数片段 5 位。
+  CORDIC：恢复四位状态计数器及事务周期，但 xv/yv 被合并为 32 位未知
+    位序组，部分 prex/prey/preph 合为 50 位组，cangle/ph 低位也混组。
+    周期 74 项为常量 54、单位复制 3、单位布尔关系 17，没有核心旋转。
+    排除组 DANA_module_3 的 50 个 FF 都在每个时钟上升沿写入，写入
+    节奏固定。SSE 按物理 bit501（输入角度高三位的 LUT 函数）0/1 得到
+    两个特化方程；象限变化使方程族不周期重复。folding.cpp 同时比较
+    写模式与特化方程的语法等同性，因此报 NO_OBSERVED_PERIOD。
+    这不是 CORDIC 调度本身不周期的证据。完整状态后端保留两种 guard
+    和无条件 fallback，所以本次有限执行能通过。
+
+保证与工程适配范围
+  提取/生成表达式有逐函数 SMT 证明，运行时、事件调度与组合用有限
+  门级回放验证。尚未完成这些新程序的通用整机 e2e certificate，也未
+  证明任意输入协议等价。NetNotary 构造 biquad 的证书不能直接迁移过来。
+  4814f85d627：hash 绑定外部 pad 刺激，训练窗口不包含留出样本。
+  5d2ec943ba9：仅恢复源网表证实无端点、无别名的未使用输入端口。
+  7029fedcac4：外部回放候选覆盖全部绑定事件，提取范围不变；其他提取
+    窗口不能计为留出；覆盖不足保存失败计数；周期回放失败仍单独导出
+    状态程序，最终退出码保留失败。没有加入 FIR/CORDIC 识别规则。
+  针对性回归 PASS：state-machine + trace-options 10.71s，frontend 0.06s，
+    新增 replay/coverage/训练污染防护回归 24.38s；构建均为单线程。
+  外部适配及失败后修复是 development adaptations，不算未经适配首次
+  运行即成功的实验。原失败收据保留，不覆盖或改写成成功。
+
+文件入口（生成物均在 ignored build/，不推送）
+  case = slowfil_srl 或 seqcordic；前缀 build/generalization_v1/case/：
+    input/score.json、reference_equivalence.json：输入与参考校验。
+    retry1/analysis/native_verified.json：阶段结果汇总。
+    retry1/analysis/state_machine/algorithm_view.txt：最高层自动视图。
+    retry1/analysis/state_machine/state_machine.cpp：完整可编译 C++。
+    retry1/analysis/state_machine/arithmetic_kernels.h：已证明的可读运算。
+    retry1/analysis/program_training/recovered_schedule.h：局部周期程序。
+    retry1/analysis/fold_report.json、replay_training/replay.json：周期边界。
+    retry1/analysis/state_replay/replay.json：全部事件回放收据。
+  FIR groups/trace 在 retry1/；CORDIC 复用 case 根目录下 groups/trace。
+  生成物清理后按 README.txt 和固定来源重建；本摘要不能替代逐项证据。
+
+计划推进状态
+  两个新 e2e 试验已完成。独立 InvFold 的 RAM FIR、共享度 FFT、Chen IDCT
+  仅记入计划，尚未启动；分开评分事件拆分、生产者关系、延迟、图执行。
+  如使用真值分组隔离前端，单列带先验条件，不计为匿名端到端恢复。
+  CORDIC 的下一项区分性检查：固定写调度、改变输入象限，比较特化方程
+  与保留数据 guard 的表达，先定位周期检测损失，再考虑方法修改。
+  Index 解释已保存于 ../INDEX_ALGORITHM_INTERPRETATION.txt：条件字分发、
+  三路 RAM 环形缓存、读写指针和空满比较。业务含义和安全 FIFO 未证明。
+
+既有固件扩大配置队列的交接（独立于上述两例）
+  2026-11-01T19:59:26Z 已恢复暂停队列。controller 的原 180 分钟墙钟
+  timeout 随即结束，exit=124、stage=groups；两次串行暂停共 3565.017097
+  秒计入该原期限，不能表述成运行了 180 分钟有效求解。队列随后启动
+  hmd，记录时为 RUNNING。收据位于 build/expanded_180m_16g_serial/。
+  此次 all-types 超时不否定此前已交付的 Index 完整状态程序及回放。

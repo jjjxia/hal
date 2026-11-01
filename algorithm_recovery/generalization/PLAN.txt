@@ -1,4 +1,5 @@
 Two independent-source generalization trials, frozen before execution (2026-11-01)
+Execution update: both trials completed; results and limitations in RESULTS.txt.
 User instruction: choose two benchmarks and actually try them. Ordinary bounded
 engineering/evaluation task; no autonomous research goal or benchmark expansion.
 Recovery baseline: c57137ccbeb. Cases run serially, each at most 180 minutes and

@@ -1,6 +1,8 @@
 Independent-source benchmark preparation and scoring
 ===================================================
 PLAN.txt is the frozen case selection, priors, budgets and follow-up plan.
+RESULTS.txt records both completed trials, original failures, generic repairs,
+finite execution checks and remaining high-level recovery limitations.
 This directory contains evaluation adapters, not new recovery algorithms.
 
 From /home/jiahao/hal:
