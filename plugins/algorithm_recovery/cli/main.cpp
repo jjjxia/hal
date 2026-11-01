@@ -4,6 +4,7 @@
 #include "algorithm_recovery/observations.h"
 #include "algorithm_recovery/guided.h"
 #include "algorithm_recovery/lifting.h"
+#include "algorithm_recovery/certify.h"
 #include "hal_core/netlist/netlist.h"
 #include "hal_core/netlist/persistent/netlist_serializer.h"
 #include "hal_core/plugin_system/plugin_manager.h"
@@ -17,6 +18,8 @@
 #include <limits>
 #include <sstream>
 #include <cctype>
+#include <optional>
+#include <algorithm>
 
 namespace
 {
@@ -69,7 +72,7 @@ namespace
 
 int main(int argc, char** argv)
 {
-    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}, {"replay-state", 5}};
+    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}, {"replay-state", 5}, {"certify", 6}};
     if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
         std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
@@ -80,7 +83,8 @@ int main(int argc, char** argv)
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
                      "                         or --stimulus-json physical_pad_stimulus.json (exclusive with profile/length/seed options)\n"
-                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...] [--compare-window N]\n"
+                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...] [--compare-window N] [--protocol pad_protocol.json]\n"
+                     "       hal-recover certify recovered.json trace_directory pad_protocol.json empty_output_directory [--horizon N]\n"
                      "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
         return 2;
     }
@@ -88,8 +92,8 @@ int main(int argc, char** argv)
     {
         const std::map<std::string, std::set<std::string>> accepted{
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
-            {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window"}},
-            {"state", {"--window", "--profiles"}}};
+            {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window", "--protocol"}},
+            {"state", {"--window", "--profiles", "--protocol"}}, {"certify", {"--horizon"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "replay-state")
@@ -123,6 +127,16 @@ int main(int argc, char** argv)
             std::cout << "TRACED " << trace.get().pre.size() << " events, " << trace.get().positions.size() << " observed nets\n";
             return 0;
         }
+        if (std::string(argv[1]) == "certify")
+        {
+            z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[2], ctx);
+            const auto trace = hal::algorithm_recovery::Observations::load(argv[3]);
+            const auto protocol = hal::algorithm_recovery::PadProtocol::load(argv[4], original);
+            auto cert = hal::algorithm_recovery::certify_schedule(original, trace, protocol, ctx, argv[5], number(options, "--horizon", static_cast<u32>(trace.pre.size() - 1)));
+            if (cert.is_error()) throw std::runtime_error(cert.get_error().get());
+            std::cout << cert.get().report.at("status") << '\n';
+            return cert.get().certified ? 0 : 1;
+        }
         if (std::string(argv[1]) == "import")
         {
             auto imported = hal::algorithm_recovery::import_recovered(argv[2], argv[3], argv[4]);
@@ -142,7 +156,37 @@ int main(int argc, char** argv)
             const auto window = number(options, "--window", 512), comparison_window = number(options, "--compare-window", 0);
             if (options.count("--compare-window") && (!comparison_window || comparison_window > window))
                 throw std::runtime_error("comparison window must be positive and no larger than extraction window");
-            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], window, profiles_to_analyze);
+            std::optional<hal::algorithm_recovery::ScheduleCertificate> certificate;
+            if (options.count("--protocol"))
+            {
+                const auto out = std::filesystem::absolute(argv[6]);
+                if (std::filesystem::exists(out) && !std::filesystem::is_empty(out)) throw std::runtime_error("analysis output directory must be empty");
+                const auto protocol = hal::algorithm_recovery::PadProtocol::load(options.at("--protocol"), original);
+                size_t horizon = 0;
+                for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
+                    if (profiles_to_analyze.empty() || std::find(profiles_to_analyze.begin(), profiles_to_analyze.end(), it.key()) != profiles_to_analyze.end())
+                        horizon = std::max<size_t>(horizon, it.value().back().get<size_t>() + 1);
+                auto cert = hal::algorithm_recovery::certify_schedule(original, trace, protocol, ctx, out / "certificate", horizon);
+                if (cert.is_error()) throw std::runtime_error(cert.get_error().get());
+                certificate = std::move(cert.get());
+                std::cout << "CERTIFICATE " << certificate->report.at("status") << std::endl;
+            }
+            u32 extraction_window = window;
+            if (certificate && certificate->certified)
+            {
+                // Extract only inside the certified periodic region: prefix events
+                // before the schedule origin are B-steps, not periodic phases.
+                for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
+                    if (profiles_to_analyze.empty() || std::find(profiles_to_analyze.begin(), profiles_to_analyze.end(), it.key()) != profiles_to_analyze.end())
+                    {
+                        const auto end = it.value().back().get<u64>() + 1;
+                        if (end <= certificate->origin) throw std::runtime_error("profile window ends before the certified schedule origin");
+                        extraction_window = static_cast<u32>(std::min<u64>(extraction_window, end - certificate->origin));
+                    }
+                if (extraction_window != window) std::cout << "WINDOW clipped to certified region: " << extraction_window << std::endl;
+            }
+            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], extraction_window, profiles_to_analyze,
+                certificate ? &certificate->taint : nullptr);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
             if (std::string(argv[1]) == "state")
             {
@@ -205,6 +249,15 @@ int main(int argc, char** argv)
                 else replays[name] = replay.get();
                 profiles[name]["replay_status"] = replays.at(name).at("status");
             }
+            nlohmann::json certificate_summary;
+            if (certificate)
+            {
+                certificate_summary = {{"status", certificate->report.at("status")}, {"certified", certificate->certified},
+                    {"origin", certificate->origin}, {"period", certificate->period}, {"report", "certificate/certificate.json"},
+                    {"concretization", analyzed.get().report.at("concretization")}, {"complete_update_words", analyzed.get().report.at("complete_update_words")},
+                    {"requested_window", window}, {"extraction_window", extraction_window}};
+                for (auto& [name, row] : profiles.items()) row["certificate"] = certificate_summary;
+            }
             std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
             if (!stream) throw std::runtime_error("cannot save fold report");
             bool executed = false;
@@ -228,6 +281,7 @@ int main(int argc, char** argv)
             verified["state_machine"]["scope"] = "Separate guarded event backend includes all FF/RAM storage, clocks/resets/enable/hold and unconditional fallbacks. No global observed period required. Proof scope and finite replay/X limitations are in its own receipts.";
             verified["status"] = !state_pass ? "PARTIAL_RECOVERY_STATE_STAGE_FAILED" : periodic_replay_failed ? "PARTIAL_RECOVERY_PERIODIC_REPLAY_FAILED"
                 : executed ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "NATIVE_CPP_STATE_CHAIN_AUDITED";
+            if (certificate) verified["certificate"] = certificate_summary;
             std::ofstream receipt(std::filesystem::path(argv[6]) / "native_verified.json"); receipt << verified.dump(2) << '\n';
             if (!receipt) throw std::runtime_error("cannot save native verification report");
             if (!state_pass) std::cerr << verified["state_machine"].dump(2) << '\n';

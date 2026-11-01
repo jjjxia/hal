@@ -27,6 +27,8 @@ namespace hal::algorithm_recovery
         std::set<PhysicalBit> support(PhysicalBit bit) const;
         bool combinational(PhysicalBit bit) const;
         const nlohmann::ordered_json& module() const { return m_module; }
+        const std::map<PhysicalBit, nlohmann::ordered_json>& combinational_cells() const { return m_comb; }
+        const std::set<PhysicalBit>& leaves() const { return m_leaves; }
         std::string module_name;
         std::string source_path, source_sha256;
         std::map<PhysicalBit, OriginalFF> flip_flops;

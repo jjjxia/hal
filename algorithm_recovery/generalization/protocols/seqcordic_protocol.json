@@ -1,0 +1,10 @@
+{
+ "schema": "PAD_PROTOCOL_V1",
+ "source_sha256": "c9ffd9bb2beca8bc77a606e35f902f36f77eafa7d8be77b4fb295623be663ede",
+ "non_data_inputs": [
+  2,
+  3,
+  4
+ ],
+ "description": "seqcordic: i_clk, i_reset, i_stb are protocol inputs (fixed schedule: reset prefix, strobe every 17 clocks); i_xval, i_yval, i_phase, i_aux are free data."
+}

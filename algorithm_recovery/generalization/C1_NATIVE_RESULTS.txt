@@ -1,0 +1,58 @@
+Native protocol-relative concretization and schedule certificate (C1), 2026-11-01
+================================================================================
+Motivation: the native frontend (guided.cpp) fixed every FF enable/reset/set net
+in a D cone to its trace value. On seqcordic, iCE40 synthesis places
+net 501 = f(i_phase[19:17]) on the R pins of two SB_DFFSR cells, so the word
+DANA_module_3 received one equation per input quadrant and folding reported
+NO_OBSERVED_PERIOD. This is the data-carrying-control failure NetNotary C1
+describes for Maggie-style recovery, reproduced inside our own pipeline.
+
+Change (plugins/algorithm_recovery)
+  taint.cpp    Cell-exact gate-level information flow over the recorded run
+               (LUT4/CARRY enumeration, FF next-state enumeration, async control
+               fixpoint, sticky RAM contents rule). Free data pads, X values and
+               unknown power-up/read-latch state are tainted. Every untainted
+               combinational value and FF successor is checked against the trace.
+  certify.cpp  R_t = untainted FF values. Initiation against primitive power-up
+               values, B_t over the prefix, C_j over one period (wrap R_{t0+P}
+               = R_{t0}); every step also discharges each untainted FF control
+               value. Failed consequents are tainted and the run repeats
+               (Houdini-style). Selected step queries are saved with SHA256.
+  guided.cpp   With a protocol, only untainted controls are concretized; a word
+               whose own enable or sync reset/set is tainted at an edge is written
+               as its complete next state ite(E, ite(R, rv, D), Q).
+  cli          analyze/state --protocol PAD_PROTOCOL_V1 JSON; new `certify`.
+               The extraction window is clipped to the certified periodic region.
+  Default behaviour without --protocol is unchanged; all 12 CTests PASS.
+
+Protocols (inputs, protocols/*.json): seqcordic i_clk,i_reset,i_stb non-data;
+slowfil_srl i_clk,i_reset,i_tap_wr,i_ce non-data (coefficients are data).
+Existing groups/traces from build/generalization_v1 were reused; no MI rerun.
+
+Results (build/c1_protocol_v2/, ignored)
+                              seqcordic          slowfil_srl
+  certificate                 CERTIFIED          CERTIFIED
+  origin / period (events)    42 / 34            62 / 32
+  goals proved / queries      4496 / 76          4146 / 94
+  untainted FF per phase      28.4 of 156        16.9 of 142
+  concretized controls/phase  8.0 of 9           7.0 of 7
+  refinement rounds           1                  1
+  excluded words  old -> new  1 -> 0             4 -> 0
+  raw graph nodes old -> new  344 -> 361         208 -> 272
+  periodic replay frames      48+51 -> 63+65     63+65 -> 63+64 (train+withheld)
+  whole-state replay          PASS               PASS
+FIR's four exclusions were window alignment: extraction began before the
+certified periodic region (events 56..61). With extraction inside the region
+the graphs have no cut words, i.e. no trace-fed FF boundary inputs.
+
+Lemma-1 cross-run check (check_taint_crossrun.py): a second trace per design with
+the same non-data pads and independently random data pads at every event.
+  seqcordic   258,648 untainted values compared, 0 disagreements
+  slowfil_srl 152,100 untainted values compared, 0 disagreements
+Negative control: marking every reference value untainted gives 607,115
+disagreements on seqcordic, so the check detects unsound taint.
+
+Not addressed here: DANA word grouping still merges CORDIC xv/yv into one
+unordered 32-bit group and splits FIR products, so readable shift-add / seven-tap
+recurrences are still not recovered. Derived clocks (Index) take edges from
+untainted observations; RAM read latches are left free in certificate queries.

@@ -36,6 +36,7 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
     target_sources(algorithm_recovery PRIVATE src/state_machine.cpp src/state_driver.cpp src/state_driver.h include/algorithm_recovery/state_machine.h)
     target_sources(algorithm_recovery PRIVATE src/state_replay.cpp)
     target_sources(algorithm_recovery PRIVATE src/replay.cpp src/process.cpp src/process.h include/algorithm_recovery/replay.h)
+    target_sources(algorithm_recovery PRIVATE src/taint.cpp include/algorithm_recovery/taint.h src/certify.cpp include/algorithm_recovery/certify.h)
 
     add_executable(hal-recover cli/main.cpp)
     target_link_libraries(hal-recover PRIVATE algorithm_recovery)

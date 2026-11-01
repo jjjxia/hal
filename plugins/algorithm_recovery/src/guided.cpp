@@ -23,7 +23,8 @@ namespace hal::algorithm_recovery
         }
     }
     Result<GuidedAnalysis> analyze_observations(Netlist* nl, const Json& grouped, OriginalCircuit& original,
-        const Observations& trace, z3::context& ctx, const std::filesystem::path& output, u32 window_length, const std::vector<std::string>& profiles)
+        const Observations& trace, z3::context& ctx, const std::filesystem::path& output, u32 window_length, const std::vector<std::string>& profiles,
+        const TaintTrace* taint)
     {
         try
         {
@@ -31,7 +32,9 @@ namespace hal::algorithm_recovery
             require(trace.metadata.at("status") == "ORIGINAL_GATE_TRACE" && grouped.at("status") == "HAL_DANA_BITORDER_EXTRACTED", "unexpected input stage");
             require(trace.metadata.at("files").at(original.source_path) == original.source_sha256, "trace does not bind the original input");
             const auto out = std::filesystem::absolute(output);
-            require(!std::filesystem::exists(out) || std::filesystem::is_empty(out), "SSE output directory must be empty");
+            if (std::filesystem::exists(out))
+                for (const auto& entry : std::filesystem::directory_iterator(out))
+                    require(taint && entry.path().filename() == "certificate", "SSE output directory must be empty");
             std::filesystem::create_directories(out / "proofs");
             GuidedAnalysis result;
             const auto& ports = original.module().at("ports");
@@ -73,6 +76,7 @@ namespace hal::algorithm_recovery
                 std::map<u32, bool> values;
                 for (auto control : controls)
                 {
+                    if (taint && taint->is_tainted(control, t)) continue; // data-dependent: stays symbolic
                     const auto value = trace.value(control, t);
                     if (value >= 0 && native.count(control)) values[native.at(control)] = value != 0;
                 }
@@ -140,11 +144,16 @@ namespace hal::algorithm_recovery
                 }
                 std::vector<PhysicalBit> ordered_controls(all_controls.begin(), all_controls.end());
                 std::sort(ordered_controls.begin(), ordered_controls.end(), [](auto a, auto b) { return std::to_string(a) < std::to_string(b); });
-                row.control_cone = ordered_controls;
                 std::map<std::vector<int>, z3::expr> variants;
+                std::set<PhysicalBit> concretized;
                 for (auto t : times)
                 {
-                    std::vector<int> key; for (auto c : ordered_controls) key.push_back(trace.value(c, t));
+                    std::vector<int> key;
+                    for (auto c : ordered_controls)
+                    {
+                        const auto value = taint && taint->is_tainted(c, t) ? -2 : trace.value(c, t);
+                        key.push_back(value); if (value >= 0) concretized.insert(c);
+                    }
                     if (!variants.count(key))
                     {
                         // Every included gate is combinational; FF/RAM endpoints
@@ -174,9 +183,40 @@ namespace hal::algorithm_recovery
                     else ++cache_hits;
                     row.equations.emplace(t, variants.at(key));
                 }
+                row.control_cone = taint ? std::vector<PhysicalBit>(concretized.begin(), concretized.end()) : ordered_controls;
                 for (size_t t = 0; t < trace.pre.size(); ++t)
                 {
                     std::vector<FFUpdate> updates; for (auto q : row.q) updates.push_back(ff_update(original.flip_flops.at(q), trace, t));
+                    if (taint)
+                    {
+                        // Protocol-relative write decision: a tainted enable or
+                        // synchronous reset/set makes the write data-dependent, so
+                        // the complete next-state (hold included) is written at the edge.
+                        bool symbolic = false, unsupported = false;
+                        for (size_t i = 0; i < row.q.size(); ++i)
+                        {
+                            const auto& ff = original.flip_flops.at(row.q[i]);
+                            const bool has_r = ff.pins.count("R") || ff.pins.count("S");
+                            const auto r = has_r ? ff.pins.at(ff.pins.count("R") ? "R" : "S") : PhysicalBit(-1);
+                            if (taint->is_tainted(ff.pins.at("C"), t)) unsupported = true;
+                            if (has_r && !ff.synchronous_reset && taint->is_tainted(r, t)) unsupported = true;
+                            const int before = trace.value(ff.pins.at("C"), t), after = trace.value(ff.pins.at("C"), t, true);
+                            const bool edge = before >= 0 && after >= 0 && (ff.falling ? (before == 1 && after == 0) : (before == 0 && after == 1));
+                            if (edge && ((ff.pins.count("E") && taint->is_tainted(ff.pins.at("E"), t)) || (has_r && ff.synchronous_reset && taint->is_tainted(r, t)))) symbolic = true;
+                        }
+                        if (unsupported) for (auto& u : updates) u = FFUpdate{};
+                        else if (symbolic)
+                        {
+                            for (size_t i = 0; i < row.q.size(); ++i)
+                            {
+                                const auto& ff = original.flip_flops.at(row.q[i]);
+                                const int before = trace.value(ff.pins.at("C"), t), after = trace.value(ff.pins.at("C"), t, true);
+                                const bool edge = before >= 0 && after >= 0 && (ff.falling ? (before == 1 && after == 0) : (before == 0 && after == 1));
+                                updates[i] = edge ? FFUpdate{Write::full, -1} : FFUpdate{Write::hold, -1};
+                            }
+                            row.complete_update.insert(t);
+                        }
+                    }
                     row.updates.push_back(std::move(updates));
                 }
                 result.words.emplace(word.key(), std::move(row));
@@ -215,11 +255,25 @@ namespace hal::algorithm_recovery
                         const auto hold = std::all_of(updates.begin(), updates.end(), [](const auto& u) { return u.write == Write::hold; });
                         word.writes.push_back(full ? Write::full : hold ? Write::hold : Write::mixed_or_unknown);
                         std::vector<int> reset; for (const auto& u : updates) reset.push_back(u.reset_value);
-                        const auto& raw = row.equations.at(t); const auto key = std::make_pair(raw.id(), reset);
+                        const auto& raw = row.equations.at(t);
+                        const bool complete = row.complete_update.count(t) != 0;
+                        if (complete) { reset.assign(reset.size(), -3); for (const auto q : row.q) reset.push_back(static_cast<int>(q)); }
+                        const auto key = std::make_pair(raw.id(), reset);
                         if (!effective.count(key))
                         {
                             std::vector<z3::expr> bits;
-                            for (unsigned i = 0; i < reset.size(); ++i) bits.push_back(reset[i] >= 0 ? ctx.bv_val(reset[i], 1) : raw.extract(i, i));
+                            for (unsigned i = 0; i < row.q.size(); ++i)
+                            {
+                                if (!complete) { bits.push_back(reset[i] >= 0 ? ctx.bv_val(reset[i], 1) : raw.extract(i, i)); continue; }
+                                const auto& ff = original.flip_flops.at(row.q[i]);
+                                const auto one = ctx.bv_val(1, 1), zero = ctx.bv_val(0, 1);
+                                const auto q = ctx.bv_const(("b" + std::to_string(row.q[i])).c_str(), 1);
+                                auto value = raw.extract(i, i);
+                                if ((ff.pins.count("R") || ff.pins.count("S")) && ff.synchronous_reset)
+                                    value = z3::ite(original.function(ff.pins.at(ff.pins.count("R") ? "R" : "S")), ff.pins.count("S") ? one : zero, value);
+                                if (ff.pins.count("E")) value = z3::ite(original.function(ff.pins.at("E")), value, q);
+                                bits.push_back(value);
+                            }
                             effective.emplace(key, pack(ctx, bits).simplify());
                         }
                         word.equations.push_back(effective.at(key));
@@ -231,6 +285,8 @@ namespace hal::algorithm_recovery
             result.report = {{"status", "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED"}, {"groups", result.words.size()}, {"FF_bits", ff_count},
                 {"HAL_calls", calls}, {"cache_hits", cache_hits}, {"RAM_instances", base.memories.size()}, {"RAM_port_proofs", ram_proofs}, {"windows", windows}, {"proofs", proofs},
                 {"observation_files", trace.metadata.at("files")}, {"window_length", window_length},
+                {"concretization", taint ? "PROTOCOL_TAINT" : "TRACE_VALUES_OF_ALL_FF_CONTROLS"},
+                {"complete_update_words", std::count_if(result.words.begin(), result.words.end(), [](const auto& w) { return !w.second.complete_update.empty(); })},
                 {"manual_semantic_inputs", trace.metadata.value("manual_semantic_inputs", Json::array())}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
             artifacts::write(out / "sse_report.json", result.report.dump(2) + '\n');
             return OK(std::move(result));
