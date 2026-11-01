@@ -131,3 +131,27 @@ First execution checkpoint (build/generalization_v1)
    including serialized unused-input preservation, PASS (0.06 s). This is a
    frontend adaptation, not a change to InvFold/recognition or benchmark data.
    CORDIC continues its frozen counter/addition MI run. No recovery PASS yet.
+
+Interpretation checkpoint
+   Index read-only inspection is saved in ../INDEX_ALGORITHM_INTERPRETATION.txt.
+   Both firmware programs expose conditional 16-bit data distribution, three
+   synchronized 256x16 RAM banks, 9-bit read/write pointers, and empty/full
+   comparisons. Physical bindings and exact generated functions are cited.
+   This is analyst interpretation of automatic recovery, not an automatically
+   emitted application label. RAM writes remain enabled by WR even when full;
+   only the write-pointer advance is gated by !full. Safe FIFO semantics,
+   localization and decoder/protocol identification remain unestablished.
+
+   CORDIC's first extraction finds a 34-event/17-clock graph and 344 update
+   occurrences, but 74 FIT_PROVED occurrences are not 74 recovered CORDIC
+   operations. Initial audit finds constants/Boolean operations, unresolved
+   multi-bit groups and a 50-bit excluded state cut. The x/y shift-add recurrence
+   is not yet recovered as a readable algorithm. Keep this partial outcome in
+   the e2e result; the planned isolated InvFold track must separately test exact
+   equations without counting supplied grouping as anonymous recovery.
+
+   The first CORDIC replay stops because the old replay candidate loop searches
+   only the extraction window. External protocol metadata already specifies
+   training-only windows and full-trace replay. Repair that interface without
+   expanding extraction into held-out data; retain the failed original receipt.
+   Retry FIR after the unused-input fix, reusing its checked benchmark inputs.
