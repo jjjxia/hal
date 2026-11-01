@@ -57,7 +57,7 @@ Controlled family
   Known graphs: two coupled registered recurrences; and a noncommutative graph
   with repeated operands, independently rounded intermediates and overflow.
   Vary legal fixed slot/register binding, folding factor via idle slots,
-  identity-copy-chain length, all sample origins and period multiples2/3.
+  identity-copy-chain length, base-period sample origins and period multiples2/3.
   Supply input/output phases and initial histories. Keep every compute-result
   boundary; legal cut changes only collapse/expand proved identity moves.
   Score raw graph separately from move-normalized graph. Copy collapse requires

@@ -141,3 +141,115 @@ Index 已恢复算法结构：当前证据与人工解释
   回放收据：build/guarded_state_v1/controller/state_full_output_replay/replay.json
             build/guarded_state_v1/hmd/state_replay/replay.json；均为有限回放 PASS，
   明确使用 two-state X completion；未知观测被统计，不算已证明。
+
+5. 一个接到物理输出的手柄局部实例（2026-11-01 追加）
+
+  本节只检查已有产物。S 表示 build/guarded_state_v1/controller/state_machine/，
+  G 表示 build/native_controller_import/hal_input.v。原始门级文件 R 为：
+    /home/jiahao/HardwareRE/dynamicRE/harder_netlists/consumer_bitstreams/
+    artifacts/netlists/indexcontroller_fpga_2_26_fw/recovered.v
+  对应 recovered.json 的 SHA256 为
+    4aadb0dd7a8f66e8d9a08f5889aab22d7f2a44c18030d8c77df21abf60a0060f。
+  下述 physical 数字使用该 JSON 的 bit ID，不是 R 中 nXXXX 的数字后缀。
+
+  原始硬件到自动字的对应
+    写指针 M41 来自 9 个 SB_DFFER：ff_10_31_0..7、ff_10_32_0，
+    导入后为 g982..g990；共同 C=3、E=1928、R=1756。其 D 数据锥
+    （在 FF Q 截断，不含 E/R 控制锥）是 9 个 SB_LUT4 和 8 个 SB_CARRY：
+    lut_10_31_0..7、lut_10_32_0、carry_10_31_0..7。
+    R:5083,10026,12545；自动对应 S/state_schema.json:23321；
+    自动算术 S/arithmetic_kernels.h:478 是 wrap9(M41+1)，实际 guard
+    与复位分支在 S/state_machine.cpp:118,4422。这里是从真实 FF/进位链
+    到已恢复 9 位字的具体对应，不是根据“像计数器”给它换一个名字。
+
+    三个 SB_RAM40_4K 为 ram40_8_19/8_21/8_23，导入后为
+    g11023/g11024/g11025。选中间一路 g11024：READ_MODE=WRITE_MODE=0，
+    WADDR=wp[7:0]、RADDR=rp[7:0]、MASK=0、RCLK=WCLK=physical3，
+    WCLKE=physical8294=WR，WDATA=M15。R:2857；
+    S/state_machine.cpp:5233 完整保留它的先读旧值再写行为。
+
+  从缓存到输出的两种证据粒度
+
+    整字依赖：g11023.read -> M51 -> M110 -> M98 -> c_b90 -> pad48。
+    这一层可直接从 S/state_machine.cpp:1997,392,2298,295 和
+    S/state_schema.json:8599 查到，但不能把相邻整字依赖直接当成一个
+    指定位的连续影响证明。沿 pad48 实际数据位逆向检查后，更具体的
+    门级连接来自另一同址 RAM 分量：
+
+      M15 --WR--> g11024[wp&255]
+                         |
+                  read(rp&255), clk3 rising
+                         v
+      g11024.read[9] --> M51[4] --> M110[6], M110[27]
+      physical7947     2237        2215          2449
+                                      \        /
+                                    LUT g5631
+                                    D=physical450
+                                          |
+                                  IO FF g285, clk3
+                                          v
+                               M98[97]=physical90 --data--+
+                                                        +--> pad48 / io_16_0_1
+                               M98[22]=physical91 --enable+
+
+    箭头表示已核对的组合扇入及寄存器连接，不表示当前已经证明某次执行
+    能让这个 RAM 位穿过所有选择条件、改变 pad48。尤其不能用整字链条
+    声称 g11023 的某一位已被证明影响该输出。本节没有新增位影响、路径
+    可激活性或非干扰证明，也没有确定它承载什么外部协议。
+
+    具体物理对应：M51[4] 是 g1146 / ff_12_25_4，D=2236、Q=2237、
+    E=2154、R=1756；其 D 锥中的 RAM 叶子是 g11024.RDATA[9]=7947。
+    M110[6]/[27] 是 g1135 / ff_12_21_1 与 g1265 / ff_13_25_6，
+    它们的 D 锥均含 M51[4]。G:12661,12672,12791；R:12945,12979,13213。
+    g5631 的输入为 physical3021、2215、2449、3707，输出450；
+    LUT_INIT=16'hA088。G:17157；R:6395。g285 在 clk3 上升沿把450
+    存入90；g286 同样把451存入91；g0 以91为使能，把90接至pad48，
+    不使能时释放为 Z。G:11526,11811；R:1618 显示原 IO 寄存器与三态输出。
+    S/control_kernels.h:79,87 精确提取 M98 的第97/22个保存坐标，
+    S/state_schema.json:8599 将 data=c_b90、enable=c_b91 绑定到 physical48。
+    这些坐标不宣称 M51/M110/M98 已恢复源程序数值位序；三者仍为未决。
+
+  可读局部程序与时间关系
+    以下是完整生成程序的局部投影；其它状态作为显式边界输入保留。
+    F51/F110/F98 指自动生成的 data_DANA_module_51/110/98 函数，
+    不是人工补出的算法。它们分别调用 exact kernel_207/13/251，
+    仍保留全部选择和其它状态参数；见 S/state_machine.cpp:1997,392,2298，
+    S/exact_data_kernels.h:24672,3118,51158。
+
+      reset = c_b1756; clk = c_b3;
+      E51 = control_kernel_163(M173, M250, M43);
+      WR  = M108[6] && M96[8];
+      full = ((wp ^ rp) == 0x100); empty = (wp == rp);
+      each event: next = old;     // 未更新者保持
+      when reset is high: wp_next=rp_next=M51_next=M110_next=0;
+                                 // 异步；不清 RAM，不直接复位 M98
+      on rising(clk), all RHS from old state:
+        read1_next = bank1[old.rp & 255];
+        if WR: bank1[old.wp & 255] = old.M15;
+        if !reset:
+          if WR && !full: wp_next = (old.wp + 1) & 511;
+          if RR && !empty: rp_next = (old.rp + 1) & 511;
+          if E51: M51_next = F51(old); else M51_next = old.M51;
+          M110_next = F110(old);
+        M98_next = F98(old);       // 此组没有复位门控
+      after committing the event:
+        pad48_drive_enable = M98[22];
+        pad48_drive_data   = M98[97];
+        pad48 = drive_enable ? drive_data : Z; // 此器件的驱动贡献
+
+    bank1 是 g11024；RR 定义沿用第1节；其余两路 RAM 同地址同步读写。
+    RAM 写条件仍是 WR，指针前进条件才是 WR && !full，不能改成安全
+    FIFO 的“满时禁止写”。复位有效时的 RAM 写也没有在此自行加门控。
+    E51 在 S/state_machine.cpp:149；M51/M110 的时钟、使能、异步复位
+    在 :4504,:2406；M98 的无复位更新在 :4874。
+
+    因为每个函数读取 old，某沿新产生的 RAM 读锁存值不会在同沿被 M51
+    使用；M51 新值也不会同沿穿过 M110、M98。该路径有 RAM 读锁存与
+    三层 FF 边界，M51 的 E51 可使它停留；内部选择还可屏蔽这条路径。
+    因此这里只给出采样先后关系，不声称固定端到端延迟或必然传播。
+
+  能展示的结果是：真实 RAM/FF 的物理实例，经自动恢复的字、guard 和
+  精确更新函数，连接到已绑定的物理输出。三路缓存与指针可以读成简短
+  递推；后面的函数目前仍是精确位向量程序，尚未自动变成业务算法标签。
+  现有全状态有限回放支持该生成程序在保存刺激上的行为一致性，不把
+  上面的人工显示、静态连通性或有限回放升级为整机端到端认证。

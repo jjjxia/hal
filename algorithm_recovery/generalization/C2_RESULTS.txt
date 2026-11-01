@@ -1,0 +1,157 @@
+C2: supplied equations -> logical write events, operands and sample delays
+2026-11-01. All relative paths are under /home/jiahao/hal.
+
+Outcome
+  The new measurements test recovery structure, not section-name counts or only
+  output agreement. The unchanged paper InvFold separates the three products
+  carried by one hwbfly result register and recovers all scored producer/sample
+  bindings. Ten controlled implementations of TWO reference graphs also pass.
+  This is a bounded pilot: one held-out module, one repaired development module,
+  one upstream author/repository. It is not broad DSP/HLS or anonymous recovery.
+
+Freeze, split and input boundary
+  Selection/contract:4258b48d63f, C2_CONTRACT.txt. Scorer/initial adapters:
+  87f86122d25. Subsequent evaluation helpers/adapter repair:9bd502bb875.
+  Frozen InvFold/smt2/identify hashes in the contract remained unchanged.
+  The scorer was developed only on controlled examples, then frozen at SHA256
+    6e010643ef66ce8fde459a234cc7be2027e80d395218b787fba8eabcc4ce309b
+  before either independent-module recovery call. No recognizer rule changed.
+  Recovery loads only anonymous equations, word widths/order, effective writes
+  and ports. All raw graphs are saved before loading the separate source oracle
+  or trace. Oracle roles and producer/sample labels are used ONLY for scoring.
+  New Python is evaluation/adapter code using the existing paper implementation;
+  the production HAL C++ path was not replaced or given per-design recovery rules.
+
+  Source: ZipCPU/dblclockfft@3378b77d83a98b06184656a5cb9b54e50dfe4485.
+  qtrstage:8-bit inputs,9-bit outputs,LGWIDTH3,INVERSE0,SHIFT0,i_ce=1.
+  hwbfly:IWIDTH4,CWIDTH6,OWIDTH5,CKPCE3,SHIFT0,i_ce every3clocks.
+  Both use unchanged ordinary RTL + convround.v; FORMAL is NOT defined.
+  Source-derived word equations and phase-control information are supplied.
+  They were checked against every known original-RTL word update, not merely
+  final outputs. These are finite checks, not universal equation certificates.
+
+  hwbfly had a pre-recovery packaging correction: full-cycle reference equations
+  were separated from the declared recovery window. Its first recovery scored
+  with the frozen tool passed. Prepared v1/v2 artifacts remain local; scored v3
+  is build/c2/hwbfly_v3. No recovery result was used to adjust its equations/rules.
+  qtrstage first failed before InvFold because its recovery input also contained
+  equations outside its window. Original ERROR retained at
+    build/c2_recovery_v1/heldout/qtrstage/.
+  After repairing the adapter it is DEVELOPMENT, not counted as held-out success.
+  Its source math, oracle and RTL trace did not change. Fresh input is
+    build/c2_recovery_v1/qtrstage_v2/.
+
+Independent module results (base representation; unique graph counts)
+                           hwbfly (held out)       qtrstage (development)
+  Supplied numeric words   43 data/pipeline words   26 words /202FFbits
+  Discovered family P      3 clocks                 8 clocks
+  Computational writes     25                       52
+  Identity-copy writes     32                       140
+  Output observation nodes 9                        24
+  Total raw graph nodes    66                       216
+  Operand occurrences      104/104 correct          224/224 correct
+  Window-expanded checks   624/624                  2688/2688
+  Origin/JP representations 9/9 PASS                24/24 PASS
+  Coordinate comparisons   12/12 PASS               37/37 PASS
+  Raw graph execution      cycles27..194 PASS       cycles20..155 PASS
+  Word observations        3192                     3264
+  Output observations      504                      408
+
+  Each occurrence checks AST position, source width, actual strict-earlier
+  producer, producer logical identity and sample index/delay. Repeated operands
+  count separately. Raw nodes include controls/pipeline stages, not just named
+  arithmetic operators; repeated windows are not independent designs/tests.
+  hwbfly's ce_phase control is independently checked against RTL and its enables
+  supplied; it is not one of the43 recovered numeric datapath words.
+  qtrstage computational blocks repeat every4inputs, while its supplied complete
+  family (including fixed-protocol o_sync) has period8. Do not call it one unique
+  natural algorithm sample rate. All delays use the declared physical-period
+  coordinates; transaction labels require the corresponding pipeline retiming.
+
+Concrete hwbfly storage reuse
+  Source mpy_pipe_out -> anonymous w26 -> THREE recovered write nodes:
+    w26 phase0: source-a=w20 phase2 delay1, source-b=w23 phase2 delay1;
+    w26 phase1: source-a=w20 phase0 delay0, source-b=w23 phase0 delay0;
+    w26 phase2: source-a=w20 phase1 delay0, source-b=w23 phase1 delay0.
+  Independent source scoring identifies these as M2, M3 and M1 respectively:
+    M1=cr*dr, M2=ci*di, M3=(cr+ci)*(dr+di).
+  The phase0 edge crosses a sample boundary; collapsing every physical register
+  into one logical value would lose precisely this distinction. M1/M2/M3 are
+  scoring labels, not recognizer inputs or automatically inferred business names.
+  This is the IMPLEMENTED three-product graph, not a four-product algebraic
+  rewrite. The 13->11-bit slices, intermediate widths and round-to-nearest-even
+  operations remain exact node functions. Identity normalization was not applied
+  to the held-out module; its raw graph is what was scored and executed.
+
+Controlled mechanism tests
+  Two known registered graphs: coupled recurrences and an8-bit noncommutative
+  graph with repeated operands, separate arithmetic shifts and modular overflow.
+  Five implementations each: shared result register; separate result registers;
+  extra idle slots; three-stage copy chains; removal of only identity-copy cuts.
+  Factors4/7/8, all base-period origins, and supplied period multiples1/2/3 give186 graph
+  representations. All186 pass structural and finite exact execution checks;
+  all280 explicit retiming/unfolding coordinate comparisons pass.
+  Supplying2P/3P is a representation test, NOT automatic period discovery or a
+  period certificate. Recovery of original source structure is restricted to
+  registered fixed bindings with retained compute boundaries and operand paths.
+
+  Separately, a literal-copy normalizer reads the saved raw graph, identifies
+  only same-width single-leaf identities, accumulates delays, and checks actual
+  required prefix-history equalities before adopting the transformation.
+  It saves the normalized graph before reading the oracle, then executes that
+  graph using only external inputs and finite prefix history (no later-state
+  injection). This normalization test uses only P and origin0, not all186 raw
+  representations. All10 cases pass; the8 cross-implementation comparisons recover
+  the same two-node core and end-of-sample output for each reference graph.
+  Between0 and6 copies are removed, with0/2/6 required prefix equalities. Copy
+  identities are syntactically checked; no new SMT/Coq proof is claimed. These
+  copy chains remain within one base period; cumulative history beyond one
+  sample is implemented but not exercised by this run.
+  Intermediate physical-cycle outputs need not be equal across different
+  schedules: cross-case comparison explicitly uses the final slot of each sample.
+
+Negative controls and guarantee separation
+  Structural scorer detects an existing but wrong producer, wrong sample delay,
+  same-edge new-value read, and deletion of one repeated operand occurrence.
+  All35 applicable controlled structural mutations are detected;5 duplicate
+  deletion controls are N/A for the non-repeating recurrence expression.
+  On quantized_shared, wrong signed shift and wrong rounding shift retain
+  producer structure but FAIL finite semantics. Corrupting one actual prefix
+  datum also FAILS semantics. These are evaluator controls, not DUT failures.
+  All8 applicable copy-history corruptions are rejected before normalization;
+  the2 already copy-cut cases require no copy-history test.
+  This run adds no universal RTL-equation, runtime or whole-device certificate.
+  Oracle provenance uses independent forward old-state tags, but shares the
+  source-equation leaves and AST occurrence enumerator with the adapter/scorer;
+  it is not an independently extracted RTL AST. Directed extreme inputs in the
+  controlled generator occur in its startup prefix, not an exhaustive scored
+  rounding/overflow boundary suite. Outside-contract rotating/hidden-pipeline/
+  across-operation-inlining cases were not run as negative controls.
+  It preserves the existing shared-biquad all-cut/31-fit/from-reset result and
+  scoped copy/export checks; it does not ask legacy paths to inherit them.
+
+Artifacts and reproduction
+  Scripts: c2_controlled.py, c2_score.py, c2_normalize.py,
+           c2_semantic_controls.py, c2_qtrstage.py, c2_hwbfly.py.
+  Controlled inputs: build/c2_recovery_v1/controlled/.
+  Raw scores: build/c2_recovery_v1/scorer_development/CASE/result.json.
+  Normalized: build/c2_recovery_v1/normalized/CASE/result.json.
+  Independent scores: build/c2_recovery_v1/heldout/hwbfly/result.json;
+    build/c2_recovery_v1/development/qtrstage/result.json.
+  Each p1_o0/graph.json exposes the actual recovered operand bindings; score.json
+  gives the matched source roles. p2/p3 and origin suffixes are separate artifacts.
+  The full original-RTL reference receipts live beside each adapter's inputs.
+  Commands and dependencies are in README.txt. Build outputs stay ignored;
+  only code, contracts and this compact report are committed.
+
+Index / remaining scope
+  ../INDEX_ALGORITHM_INTERPRETATION.txt section5 now shows actual gates/FF/RAM,
+  words, guards, old-state timing and the concrete path toward pad48. The precise
+  bit-level path uses g11024.read[9], not the earlier whole-word g11023 adjacency.
+  This is structural connectivity and an interpreted readable projection, not
+  a sensitizable-path proof, safe FIFO proof, tracking label or runtime theorem.
+  No new Index stimulus was run in this task. If added later, freeze the existing
+  emitted program first and report fresh continuous replay as testing.
+  This pilot does not cover arbitrary rotating bindings, hidden operation
+  pipelines or across-operation inlining, and does not replace a larger
+  independently sourced folded-DSP/HLS test suite.
