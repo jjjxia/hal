@@ -33,7 +33,7 @@ namespace hal::algorithm_recovery
             std::filesystem::create_directories(out / "proofs");
             Json schema{{"execution_kind", "GUARDED_EVENT_TRANSITIONS"}, {"words", Json::object()}, {"memories", Json::object()},
                 {"pads", Json::object()}, {"outputs", Json::object()}, {"bindings", Json::object()}, {"proofs", Json::array()},
-                {"source_json", original.source_path}, {"source_sha256", original.source_sha256}, {"manual_semantic_inputs", Json::array()}};
+                {"source_json", original.source_path}, {"source_sha256", original.source_sha256}, {"manual_semantic_inputs", guided.report.value("manual_semantic_inputs", Json::array())}};
             schema["extraction_windows"] = guided.report.at("windows");
             schema["extraction_observation_files"] = guided.report.at("observation_files");
             std::map<PhysicalBit, u32> native;

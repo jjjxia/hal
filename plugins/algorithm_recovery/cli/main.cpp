@@ -79,6 +79,7 @@ int main(int argc, char** argv)
                      "       hal-recover import recovered.json library.hgl empty_output_directory\n"
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
+                     "                         or --stimulus-json physical_pad_stimulus.json (exclusive with profile/length/seed options)\n"
                      "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...] [--compare-window N]\n"
                      "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
         return 2;
@@ -87,7 +88,7 @@ int main(int argc, char** argv)
     {
         const std::map<std::string, std::set<std::string>> accepted{
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
-            {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles", "--compare-window"}},
+            {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window"}},
             {"state", {"--window", "--profiles"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
@@ -110,9 +111,14 @@ int main(int argc, char** argv)
         if (std::string(argv[1]) == "trace")
         {
             z3::context ctx;
+            if (options.count("--stimulus-json") && (options.count("--profiles") || options.count("--profile-length") || options.count("--seed")))
+                throw std::runtime_error("--stimulus-json cannot be combined with --profiles, --profile-length, or --seed");
+            if (options.count("--stimulus-json") && options.at("--stimulus-json").empty())
+                throw std::runtime_error("--stimulus-json requires a nonempty path");
             const auto profiles = options.count("--profiles") ? list(options.at("--profiles")) : std::vector<std::string>{"zero", "one", "pattern", "irregular"};
             auto trace = hal::algorithm_recovery::generate_observations(argv[2], argv[3], argv[4], argv[5], ctx,
-                number(options, "--seed", 20261031), number(options, "--profile-length", 768), profiles);
+                number(options, "--seed", 20261031), number(options, "--profile-length", 768), profiles,
+                options.count("--stimulus-json") ? std::filesystem::path(options.at("--stimulus-json")) : std::filesystem::path{});
             if (trace.is_error()) throw std::runtime_error(trace.get_error().get());
             std::cout << "TRACED " << trace.get().pre.size() << " events, " << trace.get().positions.size() << " observed nets\n";
             return 0;
@@ -199,7 +205,7 @@ int main(int argc, char** argv)
             nlohmann::json verified = {{"status", executed ? "NATIVE_CPP_CHAIN_AUDITED" : "NO_EXECUTABLE_GRAPH"}, {"profiles", replays}, {"ram", warmed.get().report},
                 {"groups", analyzed.get().report.at("groups")}, {"FF_bits", analyzed.get().report.at("FF_bits")},
                 {"HAL_SSE_calls", analyzed.get().report.at("HAL_calls")}, {"RAM_port_proofs", analyzed.get().report.at("RAM_port_proofs")},
-                {"observation_files", trace.metadata.at("files")}, {"manual_semantic_inputs", nlohmann::json::array()},
+                {"observation_files", trace.metadata.at("files")}, {"manual_semantic_inputs", trace.metadata.value("manual_semantic_inputs", nlohmann::json::array())},
                 {"scope", "Native HAL grouping/order, conditional guided SSE, observed folding, checked routing/arithmetic, saved C++ expression proofs and original-gate training/withheld coupled replay. Explicit FF cuts, unresolved orders and observed schedules remain limitations; no whole-device equivalence claim."}};
             const auto state_path = std::filesystem::path(argv[6]) / "state_machine";
             auto state_program = hal::algorithm_recovery::export_state_machine(nl.get(), groups, original, analyzed.get(), state_path, ctx);

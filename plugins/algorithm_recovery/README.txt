@@ -96,6 +96,23 @@ Configure observation lengths and select named profiles:
   hal-recover analyze ordered.hal groups.json recovered.json build/long_pattern \
     build/long_analysis --profiles pattern --window 17472
 
+For a benchmark with an external reset/start/sample protocol, supply physical
+pad events without internal-state or word hints:
+
+  hal-recover trace recovered.json recovered.v cells_sim.v build/protocol_trace \
+    --stimulus-json protocol.json
+
+The PHYSICAL_PAD_STIMULUS_V1 JSON has source_sha256, input_bits (each physical
+input including clocks exactly once), events (rows of integer 0/1 values),
+windows (named contiguous non-overlapping extraction-event arrays), and a
+description. Its source identity, input inventory and window bounds are checked.
+No automatic reset or clock stimulus overrides these rows. The native testbench
+settles data pads before applying clock pads for each event. This option is
+exclusive with --profiles/--profile-length/--seed. The stimulus file and explicit
+protocol prior are recorded in trace and downstream reports. Protocol legality
+is not proved by accepting the file. Extraction windows never exclude other
+events from full-state replay; all known observations are compared from zero.
+
 Defaults remain all four trace profiles, 768 events each, and a 512-event
 extraction window. Profile selection on trace creates a new simulation starting
 from INIT/reset, in the specified profile order; it does not retain the state

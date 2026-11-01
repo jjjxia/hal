@@ -110,3 +110,11 @@ User follow-up (2026-11-01): separate InvFold evaluation and Index interpretatio
    recovered objects, analyst interpretation and unresolved roles. Map every
    claimed algorithm to its exact-function, finite-replay or full-certificate
    guarantee; do not import the constructed biquad certificate by analogy.
+
+Preparation checkpoint
+   Added generic native --stimulus-json support; recovery itself still receives
+   no source word/control/algorithm hints. Exact protocol prior propagates into
+   analysis and state manifests. Existing whole-state and extended trace-option
+   CTests both PASS (10.71 s), including stale identity/internal-force/window
+   rejection. Build log: build/external_stimulus_build.log; regression receipt:
+   build/external_stimulus_ctest.log. No benchmark success claimed yet.

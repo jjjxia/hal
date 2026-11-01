@@ -231,7 +231,7 @@ namespace hal::algorithm_recovery
             result.report = {{"status", "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED"}, {"groups", result.words.size()}, {"FF_bits", ff_count},
                 {"HAL_calls", calls}, {"cache_hits", cache_hits}, {"RAM_instances", base.memories.size()}, {"RAM_port_proofs", ram_proofs}, {"windows", windows}, {"proofs", proofs},
                 {"observation_files", trace.metadata.at("files")}, {"window_length", window_length},
-                {"manual_semantic_inputs", Json::array()}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
+                {"manual_semantic_inputs", trace.metadata.value("manual_semantic_inputs", Json::array())}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
             artifacts::write(out / "sse_report.json", result.report.dump(2) + '\n');
             return OK(std::move(result));
         }

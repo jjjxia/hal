@@ -249,16 +249,70 @@ namespace hal::algorithm_recovery
 
     Result<Observations> generate_observations(const std::filesystem::path& source, const std::filesystem::path& verilog,
         const std::filesystem::path& primitive_model, const std::filesystem::path& output, z3::context& ctx, u32 seed, u32 length,
-        const std::vector<std::string>& profiles)
+        const std::vector<std::string>& profiles, const std::filesystem::path& stimulus_json)
     {
         try
         {
-            require(length > 128 && length <= (1u << 20), "invalid stimulus length");
-            require(!profiles.empty(), "no stimulus profiles selected"); std::set<std::string> seen_profiles;
-            for (const auto& profile : profiles)
-                require((profile == "zero" || profile == "one" || profile == "pattern" || profile == "irregular") && seen_profiles.insert(profile).second,
-                    "unknown or duplicate stimulus profile: " + profile);
+            const bool external = !stimulus_json.empty();
+            if (!external)
+            {
+                require(length > 128 && length <= (1u << 20), "invalid stimulus length");
+                require(!profiles.empty(), "no stimulus profiles selected"); std::set<std::string> seen_profiles;
+                for (const auto& profile : profiles)
+                    require((profile == "zero" || profile == "one" || profile == "pattern" || profile == "irregular") && seen_profiles.insert(profile).second,
+                        "unknown or duplicate stimulus profile: " + profile);
+            }
             OriginalCircuit circuit(source, ctx); const auto& original = circuit.module();
+            Json external_input;
+            std::string external_text;
+            std::map<PhysicalBit, size_t> external_positions;
+            if (external)
+            {
+                external_text = artifacts::read(stimulus_json);
+                external_input = Json::parse(external_text);
+                require(external_input.is_object() && external_input.at("schema") == "PHYSICAL_PAD_STIMULUS_V1", "unsupported external stimulus schema");
+                require(external_input.at("source_sha256") == circuit.source_sha256, "external stimulus source identity mismatch");
+                require(external_input.at("description").is_string(), "external stimulus description must be a string");
+                const auto& bits = external_input.at("input_bits");
+                require(bits.is_array() && bits.size() == circuit.inputs.size(), "external stimulus must enumerate every physical input exactly once");
+                for (size_t i = 0; i < bits.size(); ++i)
+                {
+                    require(bits[i].is_number_integer(), "external stimulus input is not a physical bit ID");
+                    const auto bit = physical_bit(bits[i]);
+                    require(circuit.inputs.count(bit) && external_positions.emplace(bit, i).second,
+                        "external stimulus contains an internal, unknown, or duplicate input bit");
+                }
+                std::set<PhysicalBit> port_inputs;
+                for (const auto& port : original.at("ports")) if (port.at("direction") != "output")
+                    for (const auto& bit : port.at("bits"))
+                        require(port_inputs.insert(physical_bit(bit)).second, "external stimulus does not accept aliased input ports");
+                const auto& events = external_input.at("events");
+                require(events.is_array() && !events.empty() && events.size() <= (1u << 20), "invalid external stimulus event count");
+                for (const auto& row : events)
+                {
+                    require(row.is_array() && row.size() == bits.size(), "external stimulus row width mismatch");
+                    for (const auto& value : row)
+                        require(value.is_number_integer() && (value == 0 || value == 1), "external stimulus values must be integer 0 or 1");
+                }
+                const auto& windows = external_input.at("windows");
+                require(windows.is_object() && !windows.empty(), "external stimulus requires nonempty training windows");
+                std::set<size_t> selected_events;
+                for (auto window = windows.begin(); window != windows.end(); ++window)
+                {
+                    identifier(window.key());
+                    require(window.value().is_array() && !window.value().empty(), "external stimulus window is empty or not an array");
+                    size_t prior = 0;
+                    for (size_t i = 0; i < window.value().size(); ++i)
+                    {
+                        const auto& event = window.value()[i];
+                        require(event.is_number_integer() && event >= 0 && event < events.size(), "external stimulus window index out of bounds");
+                        const auto index = event.get<size_t>();
+                        require((i == 0 || index == prior + 1) && selected_events.insert(index).second,
+                            "external stimulus windows must be contiguous and cannot duplicate events");
+                        prior = index;
+                    }
+                }
+            }
             std::map<PhysicalBit, unsigned> clock_counts;
             std::set<PhysicalBit> resets;
             for (const auto& [q, ff] : circuit.flip_flops)
@@ -276,21 +330,24 @@ namespace hal::algorithm_recovery
             std::vector<PhysicalBit> direct, reset_order(resets.begin(), resets.end());
             std::sort(reset_order.begin(), reset_order.end(), [](auto a, auto b) { return std::to_string(a) < std::to_string(b); });
             std::set<PhysicalBit> reset_pads;
-            for (auto reset : reset_order)
+            for (auto reset : reset_order) if (!external)
             {
                 const auto support = circuit.support(reset);
                 if (!support.empty() && std::includes(pad_set.begin(), pad_set.end(), support.begin(), support.end()))
                 { direct.push_back(reset); reset_pads.insert(support.begin(), support.end()); }
             }
             std::map<PhysicalBit, unsigned> release, asserted;
-            z3::solver inactive(ctx), active(ctx); inactive.set("timeout", 60000u); active.set("timeout", 60000u);
-            for (auto reset : direct) { inactive.add(!circuit.function(reset)); active.add(circuit.function(reset)); }
-            require(inactive.check() == z3::sat, "cannot establish inactive pad-controlled resets");
-            for (auto pad : reset_pads) release[pad] = inactive.get_model().eval(circuit.function(pad), true).is_true();
-            if (!direct.empty())
+            if (!external)
             {
-                const auto status = active.check(); require(status != z3::unknown, "reset assertion query UNKNOWN");
-                if (status == z3::sat) for (auto pad : reset_pads) asserted[pad] = active.get_model().eval(circuit.function(pad), true).is_true();
+                z3::solver inactive(ctx), active(ctx); inactive.set("timeout", 60000u); active.set("timeout", 60000u);
+                for (auto reset : direct) { inactive.add(!circuit.function(reset)); active.add(circuit.function(reset)); }
+                require(inactive.check() == z3::sat, "cannot establish inactive pad-controlled resets");
+                for (auto pad : reset_pads) release[pad] = inactive.get_model().eval(circuit.function(pad), true).is_true();
+                if (!direct.empty())
+                {
+                    const auto status = active.check(); require(status != z3::unknown, "reset assertion query UNKNOWN");
+                    if (status == z3::sat) for (auto pad : reset_pads) asserted[pad] = active.get_model().eval(circuit.function(pad), true).is_true();
+                }
             }
             std::map<PhysicalBit, std::string> lookup;
             for (auto it = original.at("netnames").begin(); it != original.at("netnames").end(); ++it)
@@ -320,7 +377,23 @@ namespace hal::algorithm_recovery
             std::vector<PhysicalBit> observed(required.begin(), required.end());
             IntegerSeed state{seed}; std::mt19937 random(state);
             std::ostringstream stimulus; Json windows = Json::object();
-            for (unsigned profile = 0; profile < profiles.size(); ++profile)
+            std::vector<std::string> actual_profiles = profiles;
+            const size_t event_count = external ? external_input.at("events").size() : profiles.size() * length;
+            if (external)
+            {
+                windows = external_input.at("windows"); actual_profiles.clear();
+                for (auto window = windows.begin(); window != windows.end(); ++window) actual_profiles.push_back(window.key());
+                for (const auto& row : external_input.at("events"))
+                {
+                    boost::multiprecision::cpp_int packed = 0;
+                    for (size_t i = 0; i < pads.size(); ++i)
+                        if (row[external_positions.at(pads[i])] == 1) packed |= boost::multiprecision::cpp_int(1) << i;
+                    for (size_t i = 0; i < clocks.size(); ++i)
+                        if (row[external_positions.at(clocks[i])] == 1) packed |= boost::multiprecision::cpp_int(1) << (pads.size() + i);
+                    stimulus << std::hex << packed << '\n';
+                }
+            }
+            else for (unsigned profile = 0; profile < profiles.size(); ++profile)
             {
                 windows[profiles[profile]] = Json::array();
                 for (unsigned t = 0; t < length; ++t)
@@ -343,7 +416,7 @@ namespace hal::algorithm_recovery
             std::filesystem::create_directories(out); identifier(circuit.module_name);
             const auto stim = out / "native_stimulus.hex", tb_path = out / "native_trace_tb.v", trace = out / "native_trace.txt", final_ram = out / "native_ram_final.txt";
             artifacts::write(stim, stimulus.str()); std::ostringstream tb;
-            tb << "`timescale 1ns/1ps\nmodule test;\nreg [" << pads.size() + clocks.size() - 1 << ":0] stimulus[0:" << profiles.size() * length - 1 << "];\ninteger i,fd;\n";
+            tb << "`timescale 1ns/1ps\nmodule test;\nreg [" << pads.size() + clocks.size() - 1 << ":0] stimulus[0:" << event_count - 1 << "];\ninteger i,fd;\n";
             for (auto bit : circuit.inputs) tb << "reg drive_" << bit << "=0;\n";
             std::string connections;
             for (auto port = original.at("ports").begin(); port != original.at("ports").end(); ++port)
@@ -363,7 +436,7 @@ namespace hal::algorithm_recovery
             }
             tb << circuit.module_name << " dut(" << connections << ");\nwire [" << observed.size() - 1 << ":0] observed={";
             for (auto it = observed.rbegin(); it != observed.rend(); ++it) { if (it != observed.rbegin()) tb << ','; tb << "dut." << lookup.at(*it); }
-            tb << "};\ninitial begin\n$readmemh(" << quote(stim.string()) << ",stimulus);\nfd=$fopen(" << quote(trace.string()) << ",\"w\");\nfor(i=0;i<" << profiles.size() * length << ";i=i+1) begin\n";
+            tb << "};\ninitial begin\n$readmemh(" << quote(stim.string()) << ",stimulus);\nfd=$fopen(" << quote(trace.string()) << ",\"w\");\nfor(i=0;i<" << event_count << ";i=i+1) begin\n";
             for (unsigned i = 0; i < pads.size(); ++i) tb << "drive_" << pads[i] << "=stimulus[i][" << i << "];\n";
             tb << "#2;\n$fwrite(fd,\"%b \",observed);\n";
             for (unsigned i = 0; i < clocks.size(); ++i) tb << "drive_" << clocks[i] << "=stimulus[i][" << pads.size() + i << "];\n";
@@ -379,10 +452,24 @@ namespace hal::algorithm_recovery
             for (auto [bit, value] : release) release_json[std::to_string(bit)] = value;
             for (auto [bit, value] : asserted) asserted_json[std::to_string(bit)] = value;
             for (const auto& file : {std::filesystem::absolute(source), std::filesystem::absolute(verilog), std::filesystem::absolute(primitive_model), tb_path, stim, trace, final_ram}) files[file.string()] = artifacts::file_hash(file);
-            Json metadata{{"status", "ORIGINAL_GATE_TRACE"}, {"frames", profiles.size() * length}, {"observed", observed}, {"clocks", clocks}, {"controls", controls}, {"windows", windows},
-                {"profile_length", length}, {"profiles", profiles}, {"initial_discard", 128},
+            if (external)
+            {
+                require(artifacts::file_hash(stimulus_json) == artifacts::sha256(external_text), "external stimulus changed during simulation");
+                files[std::filesystem::absolute(stimulus_json).string()] = artifacts::sha256(external_text);
+            }
+            Json metadata{{"status", "ORIGINAL_GATE_TRACE"}, {"frames", event_count}, {"observed", observed}, {"clocks", clocks}, {"controls", controls}, {"windows", windows},
+                {"profile_length", external ? Json(nullptr) : Json(length)}, {"profiles", actual_profiles}, {"initial_discard", external ? 0 : 128},
                 {"release_pad_assignment", release_json}, {"initial_reset_pad_assignment", asserted_json}, {"seed", seed}, {"files", files}, {"manual_semantic_inputs", Json::array()},
                 {"scope", "Original-gate simulation; generic physical pad stimuli, discovered primary clocks/resets, X/Z retained; no internal force or protocol model."}};
+            if (external)
+            {
+                metadata["seed"] = nullptr;
+                metadata["stimulus_kind"] = "PHYSICAL_PAD_STIMULUS_V1";
+                metadata["stimulus_json"] = std::filesystem::absolute(stimulus_json).string();
+                metadata["stimulus_description"] = external_input.at("description");
+                metadata["manual_semantic_inputs"] = {"externally specified physical-pad protocol and training windows; no internal state or word hints"};
+                metadata["scope"] = "Original-gate simulation under a finite externally specified physical-pad protocol; clocks and resets driven exactly as supplied, with data-pad then clock-pad event ordering. X/Z retained, no internal force. Protocol legality is not proved; windows select training only and do not exclude events from replay.";
+            }
             artifacts::write(out / "native_trace.json", metadata.dump(2) + '\n');
             return OK(Observations::load(out));
         }
