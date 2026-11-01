@@ -4,6 +4,32 @@ Current user priority: C2 recovery ability under supplied correct equations;
 see C2_CONTRACT.txt. This supersedes frontend-first expansion as the next task.
 C2 pilot executed: see C2_RESULTS.txt. One frozen held-out module and one repaired
 development module; two controlled graphs / ten implementations /186 representations.
+
+Active continuation (2026-11-01, native goal: 按计划继续推进)
+   Preserve the completed pilot and frozen InvFold/scorer. Continue the user's
+   C2-first evaluation scope, not the archived open-ended FSM/novelty search.
+   S3 implementation/evidence: extend controlled tests to legal copy histories
+   beyond one sample and all saved origin/period representations; exercise
+   rounding/overflow boundaries inside the scored interval. Keep the same
+   structural, semantic and coordinate metrics and explicit old-state semantics.
+   Independently qualify another upstream source with genuine storage reuse,
+   preferably a different author/tool family. Freeze selection before recovery;
+   adapter/recovery changes after observing results make it development data.
+   Do not replace this with another list of design names or an output-only test.
+   Freeze the existing Index controller program and run fresh external-pad
+   stimuli continuously against original gates; no trace-fed state or changed
+   observation domain. Report this as finite testing, preserve failed attempts.
+   S4: cross-audit source/oracle separation, actual saved graphs and histories.
+   S5: update compact results and paper on main; selective commits, no push.
+   These are scoped evaluations of the existing mechanism, not a new novelty
+   PROMOTE; global research STATE belongs to an archived/different objective.
+   Completion requires executed evidence (or a precise unsupported/failed result)
+   for the above checks, audited records, and a passing manuscript build. A new
+   successful toy or bookkeeping update alone does not finish the continuation.
+   Cases remain serial, at most180min/16GiB. On resume 2026-11-01T22:54UTC the
+   previous HMD groups process and launcher handles are absent, with no final
+   exit receipt; classify interruption/unknown, do not silently restart or claim
+   completion from the stale RUNNING file. Previous controller run timed out.
 User instruction: choose two benchmarks and actually try them. Ordinary bounded
 engineering/evaluation task; no autonomous research goal or benchmark expansion.
 Recovery baseline: c57137ccbeb. Cases run serially, each at most 180 minutes and
