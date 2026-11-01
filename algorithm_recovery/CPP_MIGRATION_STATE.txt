@@ -346,3 +346,89 @@ HAL specialization conditions when adding applicability checks for held-out fram
 Goal-turn audit: this turn is progress with a validated native routing component
 and real integration evidence. Complete migration remains active. No research
 loop or shared dynamicRE STATE changes; no automatic push.
+
+DONE COMPONENT: STANDALONE C++ EXPORT (2026-11-01)
+Supersedes the standalone-program TODO above. Native program.h/program.cpp and
+cpp_function.cpp now emit recovered.cpp with shared per-expression functions,
+embedded graph/source bindings, histories, period/origin and complete RAM INIT/
+clock models. The exported support headers implement fixed-width arbitrary-
+precision operations and coupled FF/RAM execution. No Python, HAL or Z3 runtime
+is required by the generated executable; it uses Boost headers at compilation
+and includes the existing vendored nlohmann JSON header with its license.
+HAL itself continues to have its existing Python-linked plugin infrastructure.
+
+The exporter re-reads saved C++ function bytes, parses every statement of the
+restricted emitted subset, including return indices, and universally checks
+them against the original expression. It does not substitute proof of an IR for
+proof of the emitted function text. Reuse requires both generated code and the
+original canonical expression, not just identical output code. Saved bindings,
+function spans/hashes, runtime/source identities and UNSAT query identities are
+recorded and checked by check_program_artifacts. Unsupported statements and
+non-UNSAT results fail export. Runtime operation meanings, frame execution, the
+C++ compiler and Boost remain trusted/tested code: this is not a general C++
+verification or whole-device/schedule theorem. Original observed-control and
+unresolved-order limitations remain in force.
+
+analyze now runs SSE -> folding -> routing -> arithmetic -> export. The generated
+program accepts JSON lines for metadata, initial RAM, individual kernels and
+complete frames. Frame operands/results use unsigned decimal strings; RAM state
+is 256 halfwords plus a held read value per instance. All port functions use old
+RAM read states before any instance changes. Inputs include physical boundary
+cuts and explicit clock edges. Accepted numeric permutations remain separate
+annotations; executable equations retain raw physical coordinates.
+
+Validation on final production sources (all processes exited 0):
+- Seven CTests PASS, build/program_ctest_final.log (also the earlier verified
+  run). The new test compiles and
+  executes the actual generated files, checking 12544 evaluations (48 operators
+  plus a 160-bit result) against Z3, and 256 four-event frames with an 80-bit
+  recurrence, two-delay history and mutually feeding RAMs. It exercises masked
+  writes, independent edges/enables, held reads, collisions and address masking.
+  A changed emitted return is refuted; extra statements, changed runtime identity,
+  missing ports, malformed operands and nonempty output overwrite are rejected.
+- Fresh native analyze on both cases PASS: build/native_controller_program and
+  build/native_hmd_program; logs build/{controller,hmd}_native_program.log.
+  All seven available profiles exported 23181 FF nodes and 43008 RAM-port nodes,
+  covered by 1496 saved-function proofs (counted across self-contained programs).
+  Controller kernels: irregular 209, one 214, pattern 222, zero 217.
+  HMD kernels: irregular 206, one 214, zero 214. HMD pattern remains NO_GRAPH,
+  period LCM 4368, with no fabricated C++ program.
+- All seven exported programs compiled with c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1),
+  -std=c++17 -O0. Every kernel was exercised on eight boundary/random assignments,
+  plus RAM initialization and one complete arbitrary-state frame per profile.
+  All 11982 compiled responses match independent Z3 evaluation/graph execution,
+  including every FF output, history, full RAM storage and before/after reads.
+  This is export/engine validation, NOT original-gate trace replay.
+  Test inputs/expected/actual/prepared receipts: build/{controller,hmd}_program_checks/PROFILE.
+  Logs: build/{controller,hmd}_program_PROFILE_{prepare,compile,verify}.log.
+  Original-gate held-out replay remains explicitly unimplemented below.
+- Routing integration preserved all 445 old active decisions. Arithmetic
+  integration preserved all 5551 original Python-proved occurrences. Individual
+  FIT_PROVED ID-set differences against the previous native routing outputs are
+  empty for every profile, retaining all 6908 native-proved occurrences. The
+  existing controller fit timeouts remain explicit raw expressions.
+  Logs/receipts: build/{controller,hmd}_program_{routing,arithmetic}_integration.
+- ldd on a real generated executable lists only standard system C/C++ libraries,
+  with no HAL, Z3 or Python library. The copied runtime exactly matches the
+  embedded source template (SHA256 a11d8c9b73b9767f912332ea946ee78b80f75787ec50c0f948ad20ac13b257df).
+  Source identities remain those from the preceding stages. Existing build/
+  ignore rules cover all generated sources, copied dependency headers, queries,
+  executables and logs. No generated outputs belong in this commit; no ignore
+  change is necessary. No live processes/session handles remain.
+
+Remaining for the full goal: original-gate coupled replay of the SAVED native
+programs, with INIT warmup, final simulator RAM dumps, all specialization/hold/
+reset applicability checks, explicit unknown counts and training/withheld frames;
+then the final full-pipeline completion audit. Do not mark full migration done.
+Next implementation can invoke the new JSON-line executable from native C++ and
+use GuidedAnalysis.physical_nets to translate HAL clock/port IDs to observed
+physical IDs. Preserve control-cone/specialization data in GuidedWord when adding
+applicability checks (it is currently transient in guided.cpp). Original helpers
+to port: hal_native_verify.py replay_memories and applicable, then the per-profile
+generated-program replay. Neither legacy artifacts nor Python may become runtime
+dependencies. Reproduction/API details: plugins/algorithm_recovery/README.txt.
+
+Goal-turn audit: previous routing turn was progress (0ef96558e27); this turn also
+changes authoritative native implementation and verifies actual saved compiled
+programs on both firmware cases. Goal remains active; no research-loop restart,
+shared dynamicRE STATE edit or automatic push.

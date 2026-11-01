@@ -23,6 +23,9 @@ namespace hal::algorithm_recovery
         unsigned width() const { return m_steps.back().width; } // 0 means Boolean
         Integer evaluate(const std::vector<Integer>& inputs) const;
         Integer evaluate(const std::map<std::string, Integer>& inputs) const;
+        // Restricted, readable C++ statement sequence. Its saved text is parsed
+        // independently and universally checked before program export succeeds.
+        std::string cpp_function(const std::string& identifier) const;
     private:
         struct Step
         {

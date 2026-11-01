@@ -21,6 +21,15 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
         LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json dataflow module_identification bitorder_propagation PRIVATE ${RECOVERY_SODIUM_LIBRARY})
     target_include_directories(algorithm_recovery PRIVATE ${RECOVERY_SODIUM_INCLUDE})
     target_sources(algorithm_recovery PRIVATE src/routing.cpp include/algorithm_recovery/routing.h)
+    # Embed the exact standalone support sources so installed HAL can export
+    # programs without depending on this checkout at runtime.
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS standalone/recovery_bits.h standalone/recovery_runtime.h)
+    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/standalone/recovery_bits.h RECOVERY_BITS)
+    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/standalone/recovery_runtime.h RECOVERY_RUNTIME)
+    file(READ ${CMAKE_SOURCE_DIR}/deps/nlohmann_json/nlohmann/json.hpp RECOVERY_JSON)
+    configure_file(src/program_resources.h.in ${CMAKE_CURRENT_BINARY_DIR}/program_resources.h @ONLY)
+    target_include_directories(algorithm_recovery PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    target_sources(algorithm_recovery PRIVATE src/cpp_function.cpp src/program.cpp include/algorithm_recovery/program.h)
 
     add_executable(hal-recover cli/main.cpp)
     target_link_libraries(hal-recover PRIVATE algorithm_recovery)

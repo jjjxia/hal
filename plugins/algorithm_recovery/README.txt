@@ -3,7 +3,8 @@ Native algorithm recovery (migration in progress)
 
 This plugin is being ported from algorithm_recovery/invfold and the separately
 preserved firmware adapter. Its commands cover import, native grouping/ordering,
-original-gate trace generation, guided SSE, folding, checked routing orders and arithmetic lifting
+original-gate trace generation, guided SSE, folding, checked routing orders,
+arithmetic lifting and standalone C++ program export
 and RAM extraction. The C++ API
 also implements coupled frame execution. The full
 netlist-to-algorithm pipeline is not yet migrated. See
@@ -21,7 +22,8 @@ Build from the HAL repository root:
     check-recovery-folding-fixture check-recovery-frontend \
     check-recovery-frontend-fixture check-recovery-observations \
     check-recovery-arithmetic check-recovery-arithmetic-fixture \
-    check-recovery-routing check-recovery-routing-fixture -j 4
+    check-recovery-routing check-recovery-routing-fixture \
+    check-recovery-program check-recovery-program-fixture -j 4
 
 The native importer uses libsodium's SHA256 (development headers/library required)
 to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
@@ -183,7 +185,7 @@ Original-cone unknown constants, unsupported endpoints and feedback fail explici
 The last 512 events of each profile feed the typed C++ folder directly. The
 analysis directory contains proof queries/hashes, sse_report.json and a compact
 fold_report.json, plus lift_PROFILE/arithmetic.json and arithmetic proof queries.
-This is not yet a standalone recovered-program export.
+The raw graph also feeds the standalone C++ exporter described below.
 
 FF event classification follows the actual primitive: SR/SS are synchronous,
 R/S asynchronous, E has the priority specified by Yosys, and N uses the falling
@@ -325,5 +327,71 @@ unknown-order preservation, and save complete comparison results.
 Production analyze obtains its equations from the new
 native SSE/folder; the reference graphs are never a production dependency.
 
-Standalone program export and real-case coupled replay remain required migration
-steps; routing and arithmetic annotations do not replace them.
+Standalone C++ program export (program.h):
+
+  export_program(graph, empty_directory, options) -> source/proof manifest
+  check_program_artifacts(directory) -> verified saved model and bindings
+
+analyze exports each available profile under program_PROFILE. It writes
+recovered.cpp, recovery_bits.h, recovery_runtime.h and a bundled json.hpp
+(including its upstream license). All learned bindings, periods, histories,
+RAM INIT and clock identities are embedded in recovered.cpp. Identical generated
+functions share one kernel; proof reuse additionally requires the same original
+expression under the recorded positional variable renaming. A broken emitter
+cannot reuse a proof solely because different originals produced identical code.
+NO_GRAPH profiles have a manifest but no invented executable.
+
+Each generated function is a straight-line sequence of fixed-width operations
+on arbitrary-precision integers. The exporter reads the actual saved C++ bytes
+back, parses every statement of this restricted subset (including its return
+index), and proves equality with the original folded expression. Only UNSAT
+succeeds; SAT/UNKNOWN/unsupported statements fail export. The manifest records
+every function span/hash, source binding, source/runtime hash and proof query.
+check_program_artifacts checks these identities before a saved program is used.
+This is not a general C++ verifier: runtime operation semantics, frame execution,
+the C++ compiler and Boost are trusted implementation components covered by
+separate compiled-program tests. No new whole-device/schedule claim follows.
+
+Compile the saved program with a C++17 compiler and Boost headers installed:
+
+  c++ -std=c++17 -O0 build/case_analysis/program_zero/recovered.cpp \
+    -o build/case_analysis/program_zero/recovered
+
+The executable needs no HAL, Z3, Python interpreter or original graph file.
+It accepts JSON lines on stdin and emits one JSON response per line:
+  {"command":"metadata"} returns learned nodes, bindings, widths and histories.
+  {"command":"initial","initial_read":0} returns RAM INIT and the explicitly
+    chosen uninitialized read-register value; this is not the warmed graph state.
+  {"command":"kernel","kernel":0,"inputs":["0"]} evaluates a kernel;
+    the input count/widths are given by metadata, not inferred from this example.
+  {"command":"run","inputs":[["name",0,"123"]],
+    "history":[["word",0,1,"456"]],"memories":{...}} runs one full frame.
+    Supply every used boundary/clock event, declared history and RAM instance.
+
+Bit-vector inputs/results are unsigned decimal strings to preserve all bits.
+Memory storage is an array of 256 numeric halfwords plus a held read halfword.
+run returns every node value, shifted history, complete memory state and each
+event's before/after RAM reads. All RAM port functions see old read registers
+before any instance changes state. The executable preserves raw coordinates;
+proved numeric routing/arithmetic annotations remain in their separate reports.
+
+The compiled-program CTest checks 12544 operator/160-bit evaluations against Z3,
+256 four-event frames with an 80-bit recurrence and mutually feeding RAMs,
+independent clock edges/enables, partial masks, address truncation, collisions,
+held reads and two-frame history. It also detects a changed return, unsupported
+statement, changed runtime identity, malformed inputs and missing RAM ports.
+
+Exercise every saved real-case kernel and one complete coupled frame:
+
+  build/bin/hal_plugins/check-recovery-program-fixture \
+    build/case_analysis/program_zero build/case_program_check
+  build/case_analysis/program_zero/recovered \
+    < build/case_program_check/requests.jsonl > build/case_program_check/actual.jsonl
+  build/bin/hal_plugins/check-recovery-program verify \
+    build/case_program_check/expected.jsonl build/case_program_check/actual.jsonl
+
+This compares compiled code with independent Z3 execution of the proved saved
+expressions. It checks all kernel dispatch entries and a full frame's outputs,
+history, RAM state and read transitions on arbitrary inputs. It does not replace
+original-gate trace replay with INIT warmup and held-out applicable frames, which
+remains the next required migration step.

@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
+#include "algorithm_recovery/program.h"
 
 int main(int argc, char** argv)
 {
@@ -69,6 +70,9 @@ int main(int argc, char** argv)
                 profiles[name]["arithmetic_counts"] = lifted.get().at("counts");
                 profiles[name]["fit_calls"] = lifted.get().at("fit_calls");
                 std::cout << "LIFTED " << name << ' ' << lifted.get().at("counts").dump() << std::endl;
+                auto program = hal::algorithm_recovery::export_program(graph, std::filesystem::path(argv[6]) / ("program_" + name));
+                if (program.is_error()) throw std::runtime_error(program.get_error().get());
+                profiles[name]["program_status"] = program.get().at("status");
             }
             std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
             if (!stream) throw std::runtime_error("cannot save fold report");
