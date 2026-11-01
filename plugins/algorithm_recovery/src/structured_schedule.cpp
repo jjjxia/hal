@@ -180,9 +180,11 @@ namespace hal::algorithm_recovery
         const unsigned period = model.at("period"); require(period > 0, "empty structured schedule");
         const auto words = recover(model.at("nodes"), period), ports = recover(model.at("ram_nodes"), period);
         std::ostringstream cpp;
-        cpp << "// Recovered repeated state updates. Phase is the observed execution schedule,\n"
-               "// not an inferred original FSM encoding. See schedule.json and the inherited control contract.\n"
-               "void execute_recovered_schedule(Frame& state, const InputValues& inputs, const HistoryValues& history)\n{\n"
+        if (model.value("execution_kind", std::string("OBSERVED_PERIODIC")) == "COMBINATIONAL_FUNCTIONS")
+            cpp << "// Proved combinational function library. The one evaluation step asserts no observed period or FSM schedule.\n";
+        else cpp << "// Recovered repeated state updates. Phase is the observed execution schedule,\n"
+                    "// not an inferred original FSM encoding. See schedule.json and the inherited control contract.\n";
+        cpp << "void execute_recovered_schedule(Frame& state, const InputValues& inputs, const HistoryValues& history)\n{\n"
             << "    for (unsigned phase = 0; phase < " << period << "; ++phase) {\n";
         emit(cpp, words, period);
         cpp << "        std::map<std::string, std::map<std::string, unsigned>> ports;\n";

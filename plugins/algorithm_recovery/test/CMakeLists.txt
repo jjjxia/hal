@@ -8,6 +8,14 @@ find_program(RECOVERY_IVERILOG iverilog)
 find_program(RECOVERY_VVP vvp)
 find_file(RECOVERY_ICE40_MODEL cells_sim.v PATHS /usr/share/yosys/ice40)
 if(RECOVERY_IVERILOG AND RECOVERY_VVP AND RECOVERY_ICE40_MODEL)
+    add_executable(check-recovery-state-machine state_machine.cpp)
+    target_link_libraries(check-recovery-state-machine PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
+    target_include_directories(check-recovery-state-machine PRIVATE ${RECOVERY_SODIUM_INCLUDE})
+    add_test(NAME algorithm-recovery-state-machine COMMAND ${CMAKE_COMMAND}
+        -DGENERATOR=$<TARGET_FILE:check-recovery-state-machine> -DCXX=${CMAKE_CXX_COMPILER}
+        -DLIBRARY=${CMAKE_SOURCE_DIR}/plugins/gate_libraries/definitions/ice40ultra_hal.hgl
+        -DIVERILOG=${RECOVERY_IVERILOG} -DVVP=${RECOVERY_VVP} -DMODEL=${RECOVERY_ICE40_MODEL}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/state_machine -P ${CMAKE_CURRENT_SOURCE_DIR}/state_machine.cmake)
     add_executable(check-recovery-trace-options trace_options.cpp)
     target_link_libraries(check-recovery-trace-options PRIVATE algorithm_recovery ${RECOVERY_SODIUM_LIBRARY})
     target_include_directories(check-recovery-trace-options PRIVATE ${RECOVERY_SODIUM_INCLUDE})

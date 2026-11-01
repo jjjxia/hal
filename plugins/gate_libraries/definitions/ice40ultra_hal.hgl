@@ -2838,7 +2838,7 @@
                 "neg_state": "IQN",
                 "data_category": "generic",
                 "data_identifier": "INIT",
-                "next_state": "(((! R) & (E & D)) | ((! R) & ((! E) & IQ)))",
+                "next_state": "((E & (D & (! R))) | ((! E) & IQ))",
                 "clocked_on": "C"
             },
             "pin_groups": [
@@ -3025,7 +3025,7 @@
                 "neg_state": "IQN",
                 "data_category": "generic",
                 "data_identifier": "INIT",
-                "next_state": "((E & D) | (((! E) & IQ) | S))",
+                "next_state": "((E & (D | S)) | ((! E) & IQ))",
                 "clocked_on": "C"
             },
             "pin_groups": [
@@ -3667,7 +3667,7 @@
                 "neg_state": "IQN",
                 "data_category": "generic",
                 "data_identifier": "INIT",
-                "next_state": "(((! R) & (E & D)) | ((! R) & ((! E) & IQ)))",
+                "next_state": "((E & (D & (! R))) | ((! E) & IQ))",
                 "clocked_on": "(! C)"
             },
             "pin_groups": [
@@ -3683,6 +3683,21 @@
                             "name": "C",
                             "direction": "input",
                             "type": "clock"
+                        }
+                    ]
+                },
+                {
+                    "name": "E",
+                    "direction": "input",
+                    "type": "enable",
+                    "ascending": false,
+                    "start_index": 0,
+                    "ordered": false,
+                    "pins": [
+                        {
+                            "name": "E",
+                            "direction": "input",
+                            "type": "enable"
                         }
                     ]
                 },
@@ -3839,7 +3854,7 @@
                 "neg_state": "IQN",
                 "data_category": "generic",
                 "data_identifier": "INIT",
-                "next_state": "((E & D) | (((! E) & IQ) | S))",
+                "next_state": "((E & (D | S)) | ((! E) & IQ))",
                 "clocked_on": "(! C)"
             },
             "pin_groups": [

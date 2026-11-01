@@ -39,8 +39,18 @@ namespace hal::algorithm_recovery
     Result<nlohmann::json> export_program(const FoldGraph& graph, const std::filesystem::path& output,
                                           const ProgramOptions& options, const Json& arithmetic)
     {
+        return export_program(graph, output, options, arithmetic, "OBSERVED_PERIODIC");
+    }
+
+    Result<nlohmann::json> export_program(const FoldGraph& graph, const std::filesystem::path& output,
+                                          const ProgramOptions& options, const Json& arithmetic, const std::string& execution_kind)
+    {
         try
         {
+            require(execution_kind == "OBSERVED_PERIODIC" || execution_kind == "COMBINATIONAL_FUNCTIONS", "invalid executable semantics");
+            if (execution_kind == "COMBINATIONAL_FUNCTIONS")
+                require(graph.available && graph.period == 1 && graph.histories.empty() && graph.memories.empty() && graph.ram_nodes.empty(),
+                        "combinational function library contains state or schedule assumptions");
             const auto out = std::filesystem::absolute(output);
             require(!std::filesystem::exists(out) || std::filesystem::is_empty(out), "program output directory must be empty");
             std::filesystem::create_directories(out);
@@ -68,6 +78,7 @@ namespace hal::algorithm_recovery
                 require(annotations.size() == graph.nodes.size(), "arithmetic/graph inventory mismatch");
             }
             Json model = {{"period", graph.period}, {"origin", graph.origin}, {"nodes", Json::array()}, {"ram_nodes", Json::array()},
+                {"execution_kind", execution_kind},
                 {"kernels", Json::array()}, {"memories", Json::object()}, {"histories", Json::array()}, {"excluded", graph.excluded},
                 {"coordinates", "raw physical storage; adopted arithmetic executes with explicit signedness and proved coordinate conversions"}};
             const auto compile = [&](const z3::expr& equation, const Json* lifted) -> const Compiled& {
@@ -242,6 +253,7 @@ namespace hal::algorithm_recovery
             for (const auto* name : {"recovered.cpp", "recovery_bits.h", "recovery_runtime.h", "json.hpp", "recovered_schedule.h", "schedule.json"})
                 files[name] = artifacts::file_hash(out / name);
             Json report = {{"status", "SAVED_CPP_EXPRESSIONS_PROVED"}, {"period", graph.period}, {"origin", graph.origin}, {"nodes", graph.nodes.size()},
+                {"execution_kind", execution_kind},
                 {"arithmetic_nodes", arithmetic_nodes},
                 {"structured_schedule", {{"status", schedule.at("status")}, {"ff_update_rules", schedule.at("ff_update_rules")},
                     {"ram_update_rules", schedule.at("ram_update_rules")}}},

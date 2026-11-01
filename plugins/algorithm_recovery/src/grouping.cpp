@@ -154,6 +154,7 @@ namespace hal::algorithm_recovery
                 auto* module = nl->create_module("native_macro_" + std::to_string(ram->get_id()), nl->get_top_module(), {ram});
                 for (const auto* group : ram->get_type()->get_pin_groups())
                 {
+                    if (group->size() < 2) continue;
                     std::vector<std::pair<Net*, u32>> order;
                     for (const auto* pin : group->get_pins())
                     {
@@ -163,6 +164,13 @@ namespace hal::algorithm_recovery
                         order.emplace_back(net, std::stoul(match[1]));
                     }
                     std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+                    // Different macro ports may use the same physical nets.
+                    // HAL permits a module pin in only one pin group: creating
+                    // a second overlapping group would move pins and delete the
+                    // first group, leaving dangling BitOrder seed pointers.
+                    // Nested views preserve the same single RAM instance while
+                    // giving each library port its own stable boundary pins.
+                    module = nl->create_module("native_macro_" + std::to_string(ram->get_id()) + '_' + group->get_name(), module, {ram});
                     seed(module, group->get_name(), std::move(order), group->get_direction(), "primitive_library_pin_index");
                 }
             }
@@ -174,7 +182,13 @@ namespace hal::algorithm_recovery
             for (const auto& order : strict.get_bit_orders())
             {
                 const auto* after = orders.get(order.get_module(), order.get_pin_group());
-                require(after && after->get_order() == order.get_order(), "relaxed propagation changed established strict order");
+                if (!after || after->get_order() != order.get_order())
+                {
+                    Json before_json = Json::array(), after_json = Json::array();
+                    for (const auto& [net, index] : order.get_order()) before_json.push_back({net->get_id(), index});
+                    if (after) for (const auto& [net, index] : after->get_order()) after_json.push_back({net->get_id(), index});
+                    throw std::runtime_error("relaxed propagation changed established strict order: " + order.get_module()->get_name() + "/" + order.get_pin_group()->get_name() + " " + before_json.dump() + " -> " + after_json.dump());
+                }
             }
             result.groups = {{"status", "HAL_DANA_BITORDER_EXTRACTED"}, {"words", Json::object()}, {"seeds", seed_rows},
                 {"orders", Json::array()},

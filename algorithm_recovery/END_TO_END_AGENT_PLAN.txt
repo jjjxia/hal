@@ -70,18 +70,19 @@ Resource and execution discipline
   and separate/preserved output inodes as needed. Never overwrite validated
   artifacts or change a proof contract merely to obtain a passing result.
 
-Current state
-  Milestone 1 code and regression validation complete; native synthesize command
-  available, and the first real controller one artifact has 956 executable
-  arithmetic occurrences with 217 saved-source proofs. Further firmware compile/
-  replay and delivery remain. Milestone 2 code/regression validation complete;
-  actual controller one has 316 FF / 223 RAM update rules in compiled C++.
-  Its v3 automatic compiled differential replay is running; consult receipts.
-  Milestone 3 is the next implementation task, not completed by schedule folding.
-  All-type serial retry is independently in its controller stage; its larger
-  resource budget alone does not implement these synthesis milestones.
+Current state (2026-11-01 M3 checkpoint)
+  M1/M2 committed and regression-tested; actual controller one v3 compiled
+  differential replay PASS for 8 complete frames. M3 implemented and all 12
+  CTests pass, including actual Yosys/Icarus whole-state continuous execution,
+  derived clocks, unseen guarded branch, RAM and wrong-edge fault rejection.
+  Both state and analyze invoke automatic compilation/replay. Actual controller
+  full-state export has 3469 FF bits / 21 RAMs and 289 proved word functions;
+  its original-gate replay is in progress, not yet counted as passed here.
+  M4 remains active: finish both firmware receipts and deliver readable sources.
+  All-type queue temporarily suspended to keep firmware jobs serial; suspension
+  counts inside its existing 180-minute wall deadline and is recorded in receipt.
 
-Milestone 3 implementation decision (2026-11-01, not implemented yet)
+Milestone 3 implemented architecture (2026-11-01)
   Use a distinct guarded event-transition representation, not a fabricated
   observed period=1. Reuse the proved expression/schedule emitter as a one-event
   execution backend only with an explicit execution-kind contract. Include all

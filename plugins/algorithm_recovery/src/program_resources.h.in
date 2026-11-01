@@ -3,5 +3,6 @@ namespace hal::algorithm_recovery::resources
 {
     inline const char bits[] = R"HAL_RESOURCE(@RECOVERY_BITS@)HAL_RESOURCE";
     inline const char runtime[] = R"HAL_RESOURCE(@RECOVERY_RUNTIME@)HAL_RESOURCE";
+    inline const char state_runtime[] = R"HAL_RESOURCE(@RECOVERY_STATE_RUNTIME@)HAL_RESOURCE";
     inline const char json[] = R"HAL_RESOURCE(@RECOVERY_JSON@)HAL_RESOURCE";
 }

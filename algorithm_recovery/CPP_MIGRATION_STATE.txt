@@ -1012,3 +1012,69 @@ Guarded FSM/event recovery (milestone 3) remains unimplemented at this checkpoin
 Detailed implementation decisions are in END_TO_END_AGENT_PLAN.txt. Preserve the
 existing all-type serial queue and do not relink over a library inode mapped by
 the v3 synthesizer if it is still running.
+
+Guarded event/state C++ implemented and regression-validated (2026-11-01)
+----------------------------------------------------------------------
+M1/M2 controller v3 completed: automatic compiled differential replay PASS for
+8 consecutive frames, including every FF/history/RAM response. Receipt:
+build/synthesized_v3/controller_one/replay/replay.json.
+
+M3 now emits state_machine.cpp, arithmetic_kernels.h, exact_data_kernels.h,
+control_kernels.h and a standalone event runtime. All physical DANA FF storage
+is retained, including unresolved numeric order and groups excluded from a
+periodic graph. Native HAL unconditionally extracts D/control/output cones;
+independent original-JSON equations check them universally. Observed guarded
+specializations are checked against full D and paired with exact fallbacks.
+Explicit FF branches implement edge/enable/async/sync reset/set/hold; mixed words
+use masks. RAM has own persistent state, INIT and read-before-write semantics.
+Derived clocks and reset chains settle through bounded delta events, with an
+explicit nonquiescence error. This is GUARDed_EVENT_TRANSITIONS, never a fabricated
+observed period=1. The reused expression backend is COMBINATIONAL_FUNCTIONS.
+
+Native state command compiles then continuously replays from primitive initial
+state and explicit unknown completions using ONLY external pad stimuli. It never
+copies FF/RAM values from traces. Its optional drive API matches the native
+reference testbench's external-release rule for inouts; step accepts externally
+resolved physical pad inputs. Hash checks bind saved source, copied proved
+kernel bytes, expression manifests, original input and source proof queries.
+Unknown initial IO FF/RAM read state is not represented as known hardware state.
+Finite replay and trusted event composition are distinct from universal cone
+proofs; no four-state/timing/universal whole-device equivalence claim.
+
+The analyze pipeline now also runs this backend even when a profile has NO_GRAPH.
+It preserves periodic results and records an explicit partial/failure status if
+the state stage fails. Generic recover_to_cpp.sh orchestrates existing native
+import/groups/trace/analyze commands with serial stages, 180 min and 16 GiB;
+default counter/addition is a generic fast preset, all is selectable. Its input
+is the existing bitstream frontend's recovered.json/recovered.v directory, not
+a new C++ bitstream parser. Shell syntax/help checked; complete fresh wrapper
+execution is not claimed at this checkpoint.
+
+Regression: all 12 CTests PASS, 62.61s, build/state_full_ctest.log. New native
+fixture imports and HAL-groups 33 FF bits, all 20 FF variants, an 8-bit counter,
+derived clock/reset, IO FF, guarded unseen branch, shared-port RAM and inout
+feedback. Actual compiled C++ continuously matches Yosys/Icarus for 384 events:
+16896 known FF, 8192 RAM-read, 4096 resolved-pad and 4096 final RAM bits compared,
+max 3 delta events. Training guards exclude one enable value exercised later;
+exact fallback covers it. Mutated source/trace identities and a re-hashed driver
+with reversed clock edges are rejected. The latter fails actual gate replay.
+
+Generic defects exposed and corrected by that fixture:
+- HGL SB_DFFNESR lacked E; ES(R/S) and NES(R/S) next-state expressions put sync
+  reset/set outside enable. Fixed pins/priority; exhaustive HAL-function checks
+  and the actual 20-primitive Yosys run exercise the corrected semantics.
+- HAL parses short concrete 0/1 parameters as bit_value. After identity checking,
+  normalize their tag to bit_vector for existing LUT/RAM consumers.
+- RAM address/data ports can share nets. Reusing one module's pins across seed
+  groups deleted prior groups, leaving dangling seed pointers. Nested views of
+  the SAME RAM give each library port stable pins; no duplicated hardware or
+  hand-provided word order. Strict-to-relaxed preservation remains checked.
+
+Real controller export completed (replay still running at this checkpoint):
+build/guarded_state_v1/controller/state_machine. All 3469 FF bits in 364 groups,
+21 RAMs, 82 output pads, 621 data/294 control functions, 89 guarded variants;
+289 proved arithmetic functions, 97 unresolved-order groups retained, 213
+initially unknown IO FF bits. Do not infer firmware replay PASS from export.
+The all-type queue was temporarily SIGSTOPed for strict serial firmware
+validation; controller receipt records suspension. Its original 180-minute wall
+deadline includes suspension. Restore both process groups after state validation.

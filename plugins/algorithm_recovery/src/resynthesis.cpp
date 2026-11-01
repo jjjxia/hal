@@ -84,7 +84,7 @@ namespace hal::algorithm_recovery
                 require(history.size() == 3, "invalid saved history tuple");
                 require(graph.histories.insert({SourceKind::signal, history[0], history[1], history[2]}).second, "duplicate saved history");
             }
-            const auto exported = export_program(graph, output, options, arithmetic);
+            const auto exported = export_program(graph, output, options, arithmetic, model.value("execution_kind", std::string("OBSERVED_PERIODIC")));
             if (exported.is_error()) return ERR(exported.get_error().get());
             Json ancestry{{"status", "SAVED_PROGRAM_RESYNTHESIZED"}, {"source_program", std::filesystem::absolute(directory).string()},
                 {"source_manifest_sha256", artifacts::sha256(manifest_text)}, {"source_arithmetic", std::filesystem::absolute(arithmetic_path).string()},

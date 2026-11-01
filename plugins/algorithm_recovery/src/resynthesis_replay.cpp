@@ -21,6 +21,8 @@ namespace hal::algorithm_recovery
             auto before = check_program_artifacts(original), after = check_program_artifacts(synthesized);
             if (before.is_error()) return ERR(before.get_error().get()); if (after.is_error()) return ERR(after.get_error().get());
             const auto& reference = before.get(); const auto& candidate = after.get();
+            require(reference.value("execution_kind", std::string("OBSERVED_PERIODIC")) == candidate.value("execution_kind", std::string("OBSERVED_PERIODIC")),
+                    "resynthesis changed execution semantics");
             for (const auto* field : {"period", "origin", "memories", "inputs", "histories", "excluded"})
                 require(reference.at(field) == candidate.at(field), std::string("resynthesis changed ") + field);
             for (const auto* collection : {"nodes", "ram_nodes"})

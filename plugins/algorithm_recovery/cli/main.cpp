@@ -12,6 +12,7 @@
 #include <iostream>
 #include "algorithm_recovery/program.h"
 #include "algorithm_recovery/replay.h"
+#include "algorithm_recovery/state_machine.h"
 #include "hal_core/utilities/enums.h"
 #include <limits>
 #include <sstream>
@@ -68,11 +69,12 @@ namespace
 
 int main(int argc, char** argv)
 {
-    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}};
+    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}};
     if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
         std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
                      "       hal-recover synthesize proved_program_directory arithmetic.json empty_output_directory\n"
+                     "       hal-recover state ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...]\n"
                      "       hal-recover import recovered.json library.hgl empty_output_directory\n"
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
@@ -84,7 +86,8 @@ int main(int argc, char** argv)
     {
         const std::map<std::string, std::set<std::string>> accepted{
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
-            {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles", "--compare-window"}}};
+            {"trace", {"--profile-length", "--profiles", "--seed"}}, {"analyze", {"--window", "--profiles", "--compare-window"}},
+            {"state", {"--window", "--profiles"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "synthesize")
@@ -116,7 +119,7 @@ int main(int argc, char** argv)
         if (!hal::plugin_manager::load("hgl_parser") || !hal::plugin_manager::load("algorithm_recovery"))
             throw std::runtime_error("cannot load hgl_parser or algorithm_recovery");
         auto nl = hal::netlist_serializer::deserialize_from_file(argv[2]);
-        if (std::string(argv[1]) == "analyze")
+        if (std::string(argv[1]) == "analyze" || std::string(argv[1]) == "state")
         {
             nlohmann::json groups; std::ifstream(argv[3]) >> groups;
             z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[4], ctx);
@@ -127,6 +130,14 @@ int main(int argc, char** argv)
                 throw std::runtime_error("comparison window must be positive and no larger than extraction window");
             auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], window, profiles_to_analyze);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
+            if (std::string(argv[1]) == "state")
+            {
+                auto result = hal::algorithm_recovery::export_state_machine(nl.get(), groups, original, analyzed.get(), std::filesystem::path(argv[6]) / "state_machine", ctx);
+                if (result.is_error()) throw std::runtime_error(result.get_error().get());
+                auto replay = hal::algorithm_recovery::replay_state_machine(std::filesystem::path(argv[6]) / "state_machine", trace, argv[5], std::filesystem::path(argv[6]) / "state_replay");
+                if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
+                std::cout << replay.get().dump(2) << '\n'; return 0;
+            }
             auto warmed = hal::algorithm_recovery::replay_memories(analyzed.get(), original, trace,
                 std::filesystem::path(argv[5]) / "native_ram_final.txt", std::filesystem::path(argv[6]) / "memory_replay");
             if (warmed.is_error()) throw std::runtime_error(warmed.get_error().get());
@@ -182,9 +193,23 @@ int main(int argc, char** argv)
                 {"HAL_SSE_calls", analyzed.get().report.at("HAL_calls")}, {"RAM_port_proofs", analyzed.get().report.at("RAM_port_proofs")},
                 {"observation_files", trace.metadata.at("files")}, {"manual_semantic_inputs", nlohmann::json::array()},
                 {"scope", "Native HAL grouping/order, conditional guided SSE, observed folding, checked routing/arithmetic, saved C++ expression proofs and original-gate training/withheld coupled replay. Explicit FF cuts, unresolved orders and observed schedules remain limitations; no whole-device equivalence claim."}};
+            const auto state_path = std::filesystem::path(argv[6]) / "state_machine";
+            auto state_program = hal::algorithm_recovery::export_state_machine(nl.get(), groups, original, analyzed.get(), state_path, ctx);
+            bool state_pass = false;
+            if (state_program.is_error()) verified["state_machine"] = {{"status", "STATE_EXPORT_FAILED"}, {"reason", state_program.get_error().get()}};
+            else
+            {
+                verified["state_machine"]["program"] = state_program.get();
+                auto state_replay = hal::algorithm_recovery::replay_state_machine(state_path, trace, argv[5], std::filesystem::path(argv[6]) / "state_replay");
+                if (state_replay.is_error()) verified["state_machine"]["replay"] = {{"status", "STATE_REPLAY_FAILED"}, {"reason", state_replay.get_error().get()}};
+                else { state_pass = true; verified["state_machine"]["replay"] = state_replay.get(); }
+            }
+            verified["state_machine"]["scope"] = "Separate guarded event backend includes all FF/RAM storage, clocks/resets/enable/hold and unconditional fallbacks. No global observed period required. Proof scope and finite replay/X limitations are in its own receipts.";
+            verified["status"] = state_pass ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "PARTIAL_RECOVERY_STATE_STAGE_FAILED";
             std::ofstream receipt(std::filesystem::path(argv[6]) / "native_verified.json"); receipt << verified.dump(2) << '\n';
             if (!receipt) throw std::runtime_error("cannot save native verification report");
-            return 0;
+            if (!state_pass) std::cerr << verified["state_machine"].dump(2) << '\n';
+            return state_pass ? 0 : 1;
         }
         if (std::string(argv[1]) == "groups")
         {

@@ -1,0 +1,5 @@
+file(REMOVE_RECURSE "${WORK}")
+execute_process(COMMAND "${GENERATOR}" "${WORK}" "${LIBRARY}" "${IVERILOG}" "${VVP}" "${MODEL}" "${CXX}" RESULT_VARIABLE result)
+if(NOT result EQUAL 0)
+    message(FATAL_ERROR "state machine regression failed: ${result}")
+endif()

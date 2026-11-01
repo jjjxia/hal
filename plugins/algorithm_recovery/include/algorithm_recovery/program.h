@@ -20,6 +20,8 @@ namespace hal::algorithm_recovery
                                           const ProgramOptions& options = {});
     Result<nlohmann::json> export_program(const FoldGraph& graph, const std::filesystem::path& output,
                                           const ProgramOptions& options, const nlohmann::json& arithmetic);
+    Result<nlohmann::json> export_program(const FoldGraph& graph, const std::filesystem::path& output,
+        const ProgramOptions& options, const nlohmann::json& arithmetic, const std::string& execution_kind);
     // Verify saved source/runtime/proof identities before compiling/replaying.
     Result<nlohmann::json> check_program_artifacts(const std::filesystem::path& directory);
     // Re-synthesize an existing proved program without re-running grouping/SSE.

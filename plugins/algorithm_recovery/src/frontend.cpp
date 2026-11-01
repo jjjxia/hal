@@ -218,7 +218,7 @@ namespace hal::algorithm_recovery
             std::map<std::string, unsigned> counts;
             Json graph = Json::object();
             std::set<std::string> seen;
-            for (const auto* gate : nl->get_gates())
+            for (auto* gate : nl->get_gates())
             {
                 const auto name = gate->get_name();
                 if (!mapping.contains(name))
@@ -234,7 +234,12 @@ namespace hal::algorithm_recovery
                 if (expected_parameters.contains(name)) for (auto p = expected_parameters.at(name).begin(); p != expected_parameters.at(name).end(); ++p)
                 {
                     const auto [dtype, value] = gate->get_data("generic", p.key());
-                    require(dtype == "bit_vector" && normalize_hex(value) == p.value(), "imported parameter mismatch: " + name + '/' + p.key());
+                    require((dtype == "bit_vector" || (dtype == "bit_value" && (value == "0" || value == "1"))) && normalize_hex(value) == p.value(), "imported parameter mismatch: " + name + '/' + p.key());
+                    // HAL tags short 0/1 literals as bit_value irrespective of
+                    // their declared width. Keep the already-checked value and
+                    // normalize its tag for LUT/RAM consumers.
+                    if (dtype == "bit_value")
+                    { gate->set_data("generic", p.key(), "bit_vector", value); ++counts["normalized_scalar_parameter_tags"]; }
                     ++counts["parameters"];
                 }
                 Json functions = Json::object();
