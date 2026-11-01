@@ -1,0 +1,66 @@
+Two independent-source generalization trials, frozen before execution (2026-11-01)
+User instruction: choose two benchmarks and actually try them. Ordinary bounded
+engineering/evaluation task; no autonomous research goal or benchmark expansion.
+Recovery baseline: c57137ccbeb. Cases run serially, each at most 180 minutes and
+16 GiB per-process virtual address space, MI/DANA one thread. No automatic push.
+
+1. ZipCPU/dspfilters slowfil_srl
+   Upstream 16d7dc3b23af167759693da9caff7c7111805873, rtl/slowfil_srl.v.
+   LGPL-3.0-or-later RTL. Parameterized instance: LGNTAPS=3, NTAPS=7,
+   IW=8, TW=8, OW=19, FIXED_TAPS=1. Seven signed taps 3,-5,7,11,-13,17,19;
+   unused eighth coefficient zero. This is an explicitly configured upstream
+   design, not the original 110-tap default or a new hand-built FIR.
+   Coefficients become hardware ROM contents at synthesis, never recovery hints.
+   Reset does not clear sample storage. Preserve a documented zero-sample flush
+   prefix, then one sample every 16 clocks. Exact 7-tap signed integer sum is the
+   evaluation reference; validate its alignment against upstream RTL first.
+   Test: shared multiply/accumulate and delayed sample dependencies. A passing
+   whole-state replay alone does not count as recognizing a FIR algorithm.
+
+2. ZipCPU/cordic seqcordic
+   Upstream 8ede08a1865d87a357a3a2c188206e843dd9bde6, rtl/seqcordic.v.
+   LGPL-3.0-or-later RTL, unchanged checked-in widths IW/OW=13, WW=16, PW=20.
+   Reset four rising edges, then start one transaction every 17 edges.
+   Vary all octants, boundaries, signed inputs, auxiliary bit, then seeded random
+   held-out tuples. Actual RTL outputs include rotations 1..14; preserve its
+   NBA timing rather than substituting ideal trig or the pipelined architecture.
+   Test: fixed iteration schedule with data-dependent sign/add/subtract guards,
+   shared x/y/phase state, shift position and rounding. No new recognizer rule or
+   hand-supplied CORDIC name/recurrence goes into recovery.
+
+Input boundary and checks
+   Yosys synth_ice40 with LUT/carry/FF only (-nobram; no DSP inference).
+   Generic normalization retains every primitive/connection/parameter while
+   replacing internal cell/net names and splitting top buses into scalar pads.
+   This is a frontend accommodation, not supplied word grouping or bit order.
+   Original RTL, mapped anonymous gate, and evaluation-only bit-vector reference
+   must agree on known transaction outputs before recovery claims are scored.
+   Observations come from Icarus/Yosys primitive execution, not reference-model
+   internal states. Supply external pad-only stimulus through a generic native
+   CLI option with source hash and exact physical input inventory.
+   Prefix and output validity are explicit. Holdout events are excluded from
+   extraction but still compared continuously from the beginning in replay.
+
+Frozen recovery settings and reporting
+   Start with existing HAL counter/addition, controls=3; no benchmark-specific
+   word/control seeds, no RTL names or reference functions as recovery inputs.
+   New generic frontend/stimulus support may be fixed with separate regression
+   checks. Any change to recovery/recognition after looking at results is a
+   development adaptation, reported separately from frozen holdout performance.
+   Report import, automatic groups/order, exact functions, readable arithmetic,
+   periodic event graph/structured program, guarded whole-state C++, original
+   gate replay, functional scoring, and full certification as separate stages.
+   Independent-source tests contain only two algorithms, both from ZipCPU; do
+   not claim broad author/tool/algorithm coverage or count vectors as designs.
+   NetNotary's memory-free constructed-example certificate does not automatically
+   certify these emitted programs. Proof timeout/unsupported frontend is not an
+   algorithm counterexample. Do not silently shrink/reset/change observed output.
+
+Source search disposition
+   HACE a8d16f766191e1abb9b6d5bb421be1185a8baf91 provides paired LegUp/Vivado
+   RTL and C references, but mvt elaboration fails on missing multiplier module
+   definitions in both versions. External RAM contracts also need instantiation.
+   It remains a valuable later cross-tool candidate, not a ready netlist benchmark.
+   Bambu/Vitis HLS were absent from PATH. CHStone ChenIDct and MachSuite stencil2d
+   are later source candidates; no HLS installation or additional trials now.
+   Hilbert and constructed shared biquad remain development cases.
