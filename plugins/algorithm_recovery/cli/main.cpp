@@ -157,6 +157,7 @@ int main(int argc, char** argv)
             if (warmed.is_error()) throw std::runtime_error(warmed.get_error().get());
             nlohmann::json profiles = nlohmann::json::object();
             nlohmann::json replays = nlohmann::json::object();
+            bool periodic_replay_failed = false;
             hal::algorithm_recovery::ArithmeticRecovery arithmetic;
             for (const auto& [name, input] : analyzed.get().windows)
             {
@@ -195,8 +196,14 @@ int main(int argc, char** argv)
                 profiles[name]["program_status"] = program.get().at("status");
                 auto replay = hal::algorithm_recovery::replay_program(name, graph, analyzed.get(), trace, warmed.get(),
                     std::filesystem::path(argv[6]) / ("program_" + name), std::filesystem::path(argv[6]) / ("replay_" + name));
-                if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
-                replays[name] = replay.get(); profiles[name]["replay_status"] = replays.at(name).at("status");
+                if (replay.is_error())
+                {
+                    periodic_replay_failed = true;
+                    replays[name] = {{"status", "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_FAILED"}, {"reason", replay.get_error().get()}};
+                    std::cerr << "REPLAY_FAILED " << name << ' ' << replay.get_error().get() << '\n';
+                }
+                else replays[name] = replay.get();
+                profiles[name]["replay_status"] = replays.at(name).at("status");
             }
             std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
             if (!stream) throw std::runtime_error("cannot save fold report");
@@ -219,11 +226,12 @@ int main(int argc, char** argv)
                 else { state_pass = true; verified["state_machine"]["replay"] = state_replay.get(); }
             }
             verified["state_machine"]["scope"] = "Separate guarded event backend includes all FF/RAM storage, clocks/resets/enable/hold and unconditional fallbacks. No global observed period required. Proof scope and finite replay/X limitations are in its own receipts.";
-            verified["status"] = state_pass ? (executed ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "NATIVE_CPP_STATE_CHAIN_AUDITED") : "PARTIAL_RECOVERY_STATE_STAGE_FAILED";
+            verified["status"] = !state_pass ? "PARTIAL_RECOVERY_STATE_STAGE_FAILED" : periodic_replay_failed ? "PARTIAL_RECOVERY_PERIODIC_REPLAY_FAILED"
+                : executed ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "NATIVE_CPP_STATE_CHAIN_AUDITED";
             std::ofstream receipt(std::filesystem::path(argv[6]) / "native_verified.json"); receipt << verified.dump(2) << '\n';
             if (!receipt) throw std::runtime_error("cannot save native verification report");
             if (!state_pass) std::cerr << verified["state_machine"].dump(2) << '\n';
-            return state_pass ? 0 : 1;
+            return state_pass && !periodic_replay_failed ? 0 : 1;
         }
         if (std::string(argv[1]) == "groups")
         {

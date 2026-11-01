@@ -281,10 +281,24 @@ namespace hal::algorithm_recovery
             require(executable.request({{"command", "metadata"}}) == model, "compiled program metadata/dispatch contract differs");
             require(executable.request({{"command", "initial"}}).at("memories") == memory_json(warm.states.front()), "compiled RAM INIT differs");
             const auto& window = trace.metadata.at("windows").at(profile);
-            require(!window.empty(), "empty replay profile"); const size_t first = window.front(), last = window.back();
+            require(!window.empty(), "empty replay profile"); size_t first = window.front(), last = window.back();
             require(window.size() == last - first + 1 && last < trace.pre.size(), "invalid profile range");
             for (size_t i = 0; i < window.size(); ++i) require(window[i] == first + i, "noncontiguous replay profile");
-            Counts counts; std::optional<size_t> previous; Json history = Json::array(), ram_state;
+            // External protocol windows select extraction only. The remaining
+            // bound events are validation candidates, subject to the identical
+            // schedule/control/history checks below. Native profiles retain
+            // their original boundaries so one profile cannot validate another.
+            const bool external = trace.metadata.value("stimulus_kind", std::string()) == "PHYSICAL_PAD_STIMULUS_V1";
+            if (external) { first = 0; last = trace.pre.size() - 1; }
+            Json other_extractions = Json::object();
+            for (const auto& [name, other] : analysis.windows)
+            {
+                require(other.length > 0 && other.start < trace.pre.size() && other.length <= trace.pre.size() - other.start,
+                    "extraction window outside replay observations");
+                if (name != profile) other_extractions[name] = {{"start", other.start}, {"length", other.length}};
+            }
+            Counts counts{{"training_frames", 0}, {"withheld_frames", 0}};
+            std::optional<size_t> previous; Json history = Json::array(), ram_state;
             std::ofstream frames(out / "frames.jsonl"); require(bool(frames), "cannot write replay frame receipts");
             for (size_t start = first; start + graph.period <= last + 1; ++start)
             {
@@ -293,6 +307,11 @@ namespace hal::algorithm_recovery
                 if (start >= input.start && start + graph.period <= input.start + input.length) kind = "training";
                 else if (start + graph.period <= input.start || start >= input.start + input.length) kind = "withheld";
                 else { ++counts["partial_training_overlap_frames"]; previous.reset(); continue; }
+                if (kind == "withheld" && std::any_of(analysis.windows.begin(), analysis.windows.end(), [&](const auto& entry) {
+                    const auto& other = entry.second;
+                    return entry.first != profile && start < size_t(other.start) + other.length && start + graph.period > other.start;
+                }))
+                { ++counts["overlap_other_training_frames"]; previous.reset(); continue; }
                 if (!applicable(start)) { ++counts[kind + "_outside_contract"]; previous.reset(); continue; }
                 if (!previous || *previous + graph.period != start)
                 {
@@ -373,15 +392,21 @@ namespace hal::algorithm_recovery
                     std::cout << "REPLAY " << profile << ' ' << counts["training_frames"] << " training, " << counts["withheld_frames"] << " withheld" << std::endl;
             }
             executable.finish(); frames.close(); require(bool(frames), "frame receipt write failed");
-            require(counts["training_frames"] >= options.minimum_training_frames && counts["withheld_frames"] >= options.minimum_withheld_frames, "insufficient applicable training/withheld replay coverage");
-            Json report = {{"status", "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_PASS"}, {"counts", counts}, {"period", graph.period}, {"nodes", graph.nodes.size()},
+            const bool covered = counts["training_frames"] >= options.minimum_training_frames && counts["withheld_frames"] >= options.minimum_withheld_frames;
+            Json report = {{"status", covered ? "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_PASS" : "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_INSUFFICIENT_COVERAGE"},
+                {"counts", counts}, {"period", graph.period}, {"nodes", graph.nodes.size()},
                 {"minimum_training_frames", options.minimum_training_frames}, {"minimum_withheld_frames", options.minimum_withheld_frames},
+                {"candidate_source", external ? "ALL_BOUND_EXTERNAL_EVENTS" : "PROFILE_WINDOW"},
+                {"candidate_events", {{"start", first}, {"length", last - first + 1}}},
+                {"extraction_events", {{"start", input.start}, {"length", input.length}}}, {"other_extraction_windows", other_extractions},
                 {"mismatching_known_bits", 0}, {"generated_RAM_initialization_checked", true}, {"RAM_read_inputs", 0},
                 {"compiler_command", command}, {"compiler_version_sha256", artifacts::file_hash(out / "compiler_version.txt")},
                 {"executable_sha256", artifacts::file_hash(out / "recovered")}, {"program_manifest_sha256", artifacts::file_hash(program / "program.json")},
                 {"contract_sha256", artifacts::file_hash(out / "contract.json")}, {"frames_sha256", artifacts::file_hash(out / "frames.jsonl")},
-                {"scope", "Saved compiled program replay on applicable original-gate training/withheld observations. RAM from INIT and symbolic ports; explicit FF boundaries/history and unknown-bit counts. No unconditional period or whole-device equivalence claim."}};
+                {"scope", "Saved compiled program replay on applicable original-gate observations. External protocol windows select extraction only; all bound external events are validation candidates. Withheld frames are disjoint from every extraction window, but need not be independent stimulus samples. RAM from INIT and symbolic ports; explicit FF boundaries/history and unknown-bit counts. Coverage status and counts describe only the compared finite frames; no protocol-legality, unconditional-period or whole-device equivalence claim."}};
+            if (!covered) report["failure"] = "insufficient applicable training/withheld replay coverage";
             artifacts::write(out / "replay.json", report.dump(2) + '\n');
+            require(covered, "insufficient applicable training/withheld replay coverage");
             std::cout << "REPLAY_PASS " << profile << ' ' << Json(counts).dump() << std::endl;
             return OK(std::move(report));
         }

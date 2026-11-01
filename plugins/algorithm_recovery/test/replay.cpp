@@ -99,6 +99,39 @@ int main(int argc, char** argv)
         const auto report = unwrap(replay_program("case", graph, analysis, trace, warm, root / "program", root / "baseline", options));
         require(report.at("counts").at("training_frames") == 24 && report.at("counts").at("withheld_frames") == 13 &&
             report.at("counts").at("withheld_outside_contract") == 3, "control/hold/reset mismatches were accepted or good frames dropped");
+        require(report.at("candidate_source") == "PROFILE_WINDOW" && report.at("candidate_events") == Json({{"start", 16}, {"length", 80}}),
+            "native replay escaped its profile boundary");
+
+        // The same bound observations can describe an external protocol whose
+        // declared window contains training only. Reuse the already extracted
+        // graph: earlier rows must be validated, never added to its equations.
+        auto external = trace;
+        external.metadata["stimulus_kind"] = "PHYSICAL_PAD_STIMULUS_V1";
+        external.metadata["windows"]["case"] = Json::array();
+        for (unsigned t = input.start; t < input.start + input.length; ++t) external.metadata["windows"]["case"].push_back(t);
+        const auto saved_program_hash = artifacts::file_hash(root / "program" / "program.json");
+        const auto external_report = unwrap(replay_program("case", graph, analysis, external, warm, root / "program", root / "external", options));
+        require(external_report.at("counts").at("training_frames") == 24 && external_report.at("counts").at("withheld_frames") == 20 &&
+            external_report.at("counts").at("withheld_outside_contract") == 4, "external heldout rows were lost or contract checks bypassed");
+        require(external_report.at("candidate_source") == "ALL_BOUND_EXTERNAL_EVENTS" &&
+            external_report.at("candidate_events") == Json({{"start", 0}, {"length", 96}}) &&
+            external_report.at("extraction_events") == Json({{"start", 48}, {"length", 48}}) &&
+            artifacts::file_hash(root / "program" / "program.json") == saved_program_hash &&
+            analysis.windows.at("case").words.at("main").equations.size() == 48,
+            "heldout replay changed or expanded training extraction");
+        auto several = analysis; auto other = input; other.start = 32; other.length = 8;
+        other.words.at("main").equations.erase(other.words.at("main").equations.begin() + other.length, other.words.at("main").equations.end());
+        other.words.at("main").writes.resize(other.length);
+        several.windows.emplace("other", std::move(other));
+        auto several_trace = external; several_trace.metadata["windows"]["other"] = {32,33,34,35,36,37,38,39};
+        const auto several_report = unwrap(replay_program("case", graph, several, several_trace, warm, root / "program", root / "external_several", options));
+        require(several_report.at("counts").at("training_frames") == 24 && several_report.at("counts").at("withheld_frames") == 16 &&
+            several_report.at("counts").at("overlap_other_training_frames") == 4,
+            "another profile's extraction events counted as withheld evidence");
+        auto external_wrong = external;
+        external_wrong.post[2][external_wrong.post[2].size() - 1 - external_wrong.positions.at(7)] = '1';
+        rejects([&] { unwrap(replay_program("case", graph, analysis, external_wrong, warm, root / "program", root / "external_wrong", options)); },
+            "known-bit replay mismatch");
         // In-memory fault injection deliberately leaves on-disk input receipts
         // unchanged; production loads and checks those files before this API.
         auto wrong = trace; wrong.post[34][wrong.post[34].size() - 1 - wrong.positions.at(7)] = '1';
@@ -106,9 +139,14 @@ int main(int argc, char** argv)
         auto no_withheld = trace;
         for (unsigned t = 16; t < 48; ++t) no_withheld.pre[t][no_withheld.pre[t].size() - 1 - no_withheld.positions.at(5)] = '1';
         rejects([&] { unwrap(replay_program("case", graph, analysis, no_withheld, warm, root / "program", root / "no_withheld", options)); }, "insufficient applicable");
+        const auto insufficient = Json::parse(artifacts::read(root / "no_withheld" / "replay.json"));
+        require(insufficient.at("status") == "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_INSUFFICIENT_COVERAGE" &&
+            insufficient.at("counts").at("training_frames") == 24 && insufficient.at("counts").at("withheld_frames") == 0 &&
+            insufficient.at("counts").at("withheld_outside_contract") == 16,
+            "insufficient coverage lost its actual replay counts or reported success");
         artifacts::write(query, proof.to_smt2() + "; changed\n");
         rejects([&] { unwrap(replay_program("case", graph, analysis, trace, warm, root / "program", root / "changed_proof", options)); }, "guided proof identity changed");
-        std::cout << "PASS actual Yosys trace, compiled replay 24 training/13 withheld, 3 independently excluded control/hold/reset frames; output/coverage/proof mutants and process failures rejected\n";
+        std::cout << "PASS compiled replay preserves native profile boundaries, external training-only extraction has heldout replay, other training windows excluded, coverage failure counts retained; output/proof mutants and process failures rejected\n";
     }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }
