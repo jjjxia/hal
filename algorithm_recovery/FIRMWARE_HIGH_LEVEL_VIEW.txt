@@ -1,120 +1,129 @@
-Index 手柄 / 头显：目前可读的最高层恢复结果
+Index 手柄 / 头显：可读的原生 C++ 恢复结果
 更新：2026-11-01；仓库根目录：/home/jiahao/hal
 
-这是对已有恢复产物的人工排版摘录，不是提供给恢复器的新输入。
-表达式、位宽、物理对应和时间绑定均来自 HAL / 原生 C++ 扩展的产物。
-下面使用已完成验证的 COUNTER/ADDITION、controls=3 结果；
-新的 all-types、180 分钟 / 16 GiB 串行重跑还没有最终结果。
+当前交付
+  两份固件都已生成、编译并执行完整物理状态的 C++ 程序。数据、控制、
+  时钟/复位和 RAM 均由 HAL 与原生 C++ 扩展提取，不需要人工提供模块用途、
+  位序或 RAM 地址规则。未提升成算术的表达式保留精确位运算实现。
+  本文是结果入口；各程序的 algorithm_view.txt 是恢复器自动生成的视图。
+  这里的“完整物理状态”指保留输入网表全部 FF/RAM，不表示已识别全部
+  业务算法，也不表示已经得到原网表到最终程序的全域整机等价证书。
 
-1. 手柄：已经能读成什么
+1. 直接打开这些文件（相对于仓库根目录）
 
-  // HAL MI candidate 48；8 位寄存器字，Q 和 D 的完整位序均逐项吻合。
-  DANA_module_0.D = (DANA_module_0.Q + 1) mod 256;
+  手柄：build/guarded_state_v1/controller/state_machine/
+  头显：build/guarded_state_v1/hmd/state_machine/
 
-  // HAL MI candidate 101；10 位寄存器字，完整 Q/D 对应吻合。
-  if (net_10493 == 0)
-      DANA_module_7.D = (DANA_module_7.Q + 1) mod 1024;
-  else
-      DANA_module_7.D = UNKNOWN_OPERATION;
+  两个目录中都有：
+    algorithm_view.txt       自动生成的算术分类与表达式，先看这个
+    state_machine.cpp        实际可执行的状态、条件、时钟/复位控制流
+    arithmetic_kernels.h     已证明的直接整数算术，含符号、舍入和截断
+    exact_data_kernels.h     未提升为算术的精确数据函数
+    control_kernels.h        控制和外部输出函数
+    state_schema.json        FF/RAM/端口与物理网表对应
+    state_program.json       源文件、证明与输入身份清单
 
-  // HAL MI candidate 10；32 位加一组合单元。
-  mi10_output = (mi10_input + 1) mod 4294967296;
+  本轮两份结果总入口：build/guarded_state_v1/delivery.json
+  手柄最终回放：build/guarded_state_v1/controller/state_full_output_replay/replay.json
+  头显最终回放：build/guarded_state_v1/hmd/state_replay/replay.json
 
-  上面的 D 是触发器数据端，Q 是当前输出；真正更新还取决于触发器的
-  时钟、使能和复位。不能把 D = Q + 1 直接解释成“每个时钟必定加一”。
-  UNKNOWN_OPERATION 表示该分支未在此识别结果中恢复，不能替换为保持。
-  mi10_input/output 是显示别名，没有人为赋予“时间戳”等用途：
-    input LSB-first = net_[931,933,935,...,989,991,3389]
-    output LSB-first = net_[3357,3358,...,3388]
+2. 实际恢复出来的行为
 
-  // 扩展的 FIT_PROVED 字级表达式，pattern 配置：
-  // frame 原点为事件 1888，周期 96；p = 0,2,...,94。
-  t = 1888 + 96 * frame + p;
-  DANA_module_119[t] = RAM_g11007.read_latch_before_event(t); // 16 位
+  手柄 DANA_module_0 的 8 位状态可读成下面的等价排版：
+    if (c_b1756)                         // 异步复位
+        DANA_module_0 = 0;
+    else if (rising(c_b3) && c_b4847)     // 真实时钟与使能
+        DANA_module_0 = (DANA_module_0 + 1) mod 256;
+    else
+        hold;
 
-  最后一条在 48 个相位都有相同的已证明模型，输出及输入没有额外置换。
-  它读取 RAM 保留的读出寄存器，不是把同一事件的新读结果提前使用。
-  该时间安排受已保存的轨迹控制合同约束，不是无条件整机周期结论。
+  头显 DANA_module_3 同样恢复为 8 位加一，实际条件为：
+    异步复位 c_b1777；时钟 c_b3 上升沿；使能 c_b4356。
+  c_b 名称保留物理网标识；对应的布尔函数在 control_kernels.h 中。
+  这些计数器的业务用途尚未恢复，不能直接称为时间戳或定位控制。
 
-2. 头显：已经能读成什么
+  例如手柄 DANA_module_119 的完整数据表达式为 RAM g11007 的旧读锁存值；
+  头显 DANA_module_122 对应 g11108。程序自行维护 RAM 数据和读锁存器，
+  不从原始轨迹注入内部状态。两个固件各 21 个 RAM，均按 mode 0 的
+  256 x 16、INIT、时钟、使能、位掩码和同事件先读后写语义执行。
+  派生时钟/异步复位经过 delta 事件稳定化，超过 128 次显式报错。
 
-  // HAL MI candidate 40；8 位字，完整 Q/D 对应吻合。
-  DANA_module_3.D = (DANA_module_3.Q + 1) mod 256;
+  有条件的轨迹方程仍保留实际 guard；遇到未观察的分支，使用从原网表
+  经 HAL SSE 提取并验证的无条件完整表达式，不能把未知分支猜成保持。
+  未决位序组按物理位执行，没有因此删去状态。
 
-  // HAL MI candidate 83；8 位字，完整 Q/D 对应吻合。
-  if (net_2387 == 0)
-      DANA_module_2.D = (DANA_module_2.Q + 1) mod 256;
-  else
-      DANA_module_2.D = UNKNOWN_OPERATION;
+3. 覆盖量（数据函数数量不等于算法数量）
 
-  // 扩展的 FIT_PROVED 字级表达式，one 配置：
-  // frame 原点为事件 1056，周期 32；p = 0,2,...,30。
-  t = 1056 + 32 * frame + p;
-  DANA_module_122[t] = RAM_g11108.read_latch_before_event(t); // 16 位
+                            手柄          头显
+  FF 位                     3469          3505
+  状态字/组                  364           363
+  RAM 实例                    21            21
+  数据函数                   621           618
+  控制/可观察函数             294           306
+  有 guard 的特化              89            87
+  已证明算术数据函数          289           285
+  保留的未决位序组             97           103
+  输出 pad                    82            86
 
-  最后一条在 16 个相位都有相同的已证明模型，没有额外输入/输出置换。
-  与手柄一样，D/Q 更新条件和轨迹合同仍须保留。
+  算术分类（包含常量和复制，且可包含同一状态的多个分支）：
+    手柄：加一 6，仿射 10，量化仿射 44，常量 98，复制 131。
+    头显：加一 7，仿射 9，量化仿射 43，常量 96，复制 130。
+  这是可执行的字级行为和控制结构；尚无自动识别的完整定位/解码算法。
 
-3. RAM 如何进入恢复程序
+4. 周期图也已进一步生成结构化执行代码
 
-  当前两个固件中的 mode-0 RAM 按 256 x 16 位状态执行；地址、数据、
-  掩码、使能来自恢复的端口表达式，读写时钟来自实际物理连接。
-  一个事件内，FF 表达式先读旧 read_latch，再执行下面的 RAM 更新：
+  手柄：build/synthesized_v3/controller_one/
+  头显：build/synthesized_v3/hmd_one/
+  先看 recovered_schedule.h（实际执行器），再看 arithmetic_kernels.h。
+  两份 one 配置的周期均为 32 个事件；手柄 2941 次 FF 更新合并成 316 条
+  规则，头显 2901 次合并成 327 条；各自 5376 次 RAM 端口操作合并成
+  223 条规则。所有原始节点、源、相位与执行顺序经过完整展开检查。
+  两份编译结果均与原保存程序连续 8 帧差分回放一致，保留 FF/历史/RAM。
+  此项是保存程序间的验证，继承旧周期合同，不是新的整机形式证明。
 
-  if (read_clock_rise && RE && RCLKE)
-      read_latch = memory[RADDR & 255];
-  if (write_clock_rise && WE && WCLKE) {
-      enabled_bits = (~MASK) & 65535;
-      memory[WADDR & 255] =
-          (memory[WADDR & 255] & ~enabled_bits) | (WDATA & enabled_bits);
-  }
+  新的完整状态程序不要求整机联合周期，所以头显 pattern 现在也有可执行
+  状态程序并参与全轨迹回放。旧周期恢复器的 pattern NO_GRAPH 仍保留为
+  该阶段的结果，不能把它改写成已发现周期或已恢复单速率业务算法图。
 
-  同事件采用先读后写语义。这里展示的是已接入的 RAM 原语语义及数据流，
-  不是已经识别出一个 FIFO、解码器或定位算法的主张。
+5. 验证范围
 
-4. 完整文件入口（以下路径相对于仓库根目录）
+  两份完整状态程序均从事件 0 连续执行全部 3072 个原门级事件，只有外部
+  pad 刺激作为驱动，没有逐帧重置或轨迹内部状态回填。所有已知 FF、RAM
+  读值、外部解析值、输出数据/使能/纯输出驱动及最终 RAM 内容均一致；
+  最终回执中的 unobserved_output_fields 都为空。
+  手柄比较 21299913 个已知 FF 位观察，头显 21521073 个；两份各比较
+  1670896 个已知 RAM 读位观察和 86016 个最终 RAM 位。
+  头显回执确认 2048 个提取事件与 1024 个未用于提取的事件全部通过。
+  手柄导出早于提取窗口元数据功能，扩展观察后的回执不作该分类。
 
-  手柄：
-    HAL 字级操作：build/controller_groups_arithmetic3/mi_simple.json
-    分组和位序：  build/controller_groups_arithmetic3/groups.json
-    HAL 网表：    build/controller_groups_arithmetic3/ordered.hal
-    验证总报告：  build/controller_arithmetic3_verified/native_verified.json
-    已证明模型：  build/controller_arithmetic3_verified/lift_PROFILE/arithmetic.json
-    C++ 程序：    build/controller_arithmetic3_verified/program_PROFILE/recovered.cpp
-    执行合同：    build/controller_arithmetic3_verified/replay_PROFILE/contract.json
-    PROFILE 可取 irregular、one、pattern、zero，四份程序均已验证。
+  原轨迹 X 单独计数；运行时明确选择初始未知 IO FF/RAM 读位的二态值，
+  未知观察不作为已证明一致的位。新增输出观察严格保留全部旧观察和刺激。
+  普遍成立的表达式证明 + 有限连续整机回放，是这里实际获得的保证。
+  事件组合、运行时、C++ 编译器与前端语义仍属于信任/测试边界；尚无
+  四态、模拟时序或无条件全域整机等价证明。论文构造案例的完整证书
+  不会自动覆盖这些固件，也不能只凭 Coq 核心定理宣布集成已证明。
 
-  头显：
-    HAL 字级操作：build/hmd_groups_arithmetic3_threads2/mi_simple.json
-    分组和位序：  build/hmd_groups_arithmetic3_threads2/groups.json
-    HAL 网表：    build/hmd_groups_arithmetic3_threads2/ordered.hal
-    验证总报告：  build/hmd_arithmetic3_verified/native_verified.json
-    已证明模型：  build/hmd_arithmetic3_verified/lift_PROFILE/arithmetic.json
-    C++ 程序：    build/hmd_arithmetic3_verified/program_PROFILE/recovered.cpp
-    执行合同：    build/hmd_arithmetic3_verified/replay_PROFILE/contract.json
-    可执行 PROFILE 为 irregular、one、zero。pattern 是 NO_GRAPH。
+6. 自动入口与资源
 
-  新重跑日志和状态：build/expanded_180m_16g_serial/
-    controller.log / controller.receipt.json；随后为 hmd 对应文件。
-    每份固件总计 180 分钟，包含 groups、保留性比较和下游 analyze。
-    16 GiB 是单进程虚拟地址空间上限，不是承诺可用物理内存。
-    两份固件串行；单份 HAL 的 MI 使用 2 个线程，DANA 使用 4 个线程。
+  algorithm_recovery/recover_to_cpp.sh RECOVERED_NETLIST_DIR NEW_OUTPUT [MI_TYPES]
+  输入目录包含现有 bitstream 前端产出的 recovered.json 和 recovered.v。
+  wrapper 依次调用原生 import、HAL groups、原门级 trace、analyze；后者
+  包含算术/周期代码生成及完整状态代码生成、编译、回放。Bash 仅作编排。
+  现有 bitstream 解码前端不在本轮 C++ 迁移边界内。
+  默认 counter,addition 是通用快速配置，MI_TYPES=all 可启用全类型。
+  wrapper 已通过完整的小型 FF + 组合输出回归；两份大固件的此次交付
+  复用已有 HAL 分组，没有声称这次从新目录重跑过整个 wrapper。
 
-5. 当前结果的含义
+  资源默认：每份总计 180 分钟、单进程虚拟地址上限 16 GiB，阶段串行。
+  之前的 all-types 扩展队列在本次文档保存时仍运行，入口为
+  build/expanded_180m_16g_serial/；顺序是手柄再头显，MI 2 线程、DANA 4
+  线程。队列为固件验证暂停过 1539.05 秒，现已恢复；原 180 分钟墙钟
+  期限包含暂停。此交付使用已验证的 counter/addition、controls=3 分组，
+  没有把尚未完成的 all-types 结果算进去。
 
-  已经恢复出了计数/加法数据通路、带条件的字级关系，以及 RAM 数据搬运。
-  完整 C++ 中仍有未提升的位运算、显式边界输入和历史状态。
-  不能把它们称为已恢复的完整“定位/解码/协议处理算法”。
-  已知多位组：手柄 81，头显 79；未决多位组：手柄 97，头显 103。
-  已有 7 份程序通过原门级轨迹回放；头显 pattern 尚无程序。
-  表达式的证明、给定轨迹下的回放和无条件整机等价是不同保证。
-
-摘录来源 SHA256：
-  controller mi_simple.json
-    4e57b362cc6966eb06a26361349ce77fda6a75785a49da39728ec6ab2b717299
-  hmd mi_simple.json
-    30395fc4f3e2b2506257a0979be975145bde634f5ef3be74b01bf85494dd6858
-  controller lift_pattern/arithmetic.json
-    83b83da442ef1b1939e633e426deeecf807392273b13c56f8a4920f94a5bac71
-  hmd lift_one/arithmetic.json
-    fc42e091e7f1431cea8548cbc57d976feb6b5033312953d029cf025ae54bd16b
+输入 recovered.json SHA256：
+  手柄 4aadb0dd7a8f66e8d9a08f5889aab22d7f2a44c18030d8c77df21abf60a0060f
+  头显 3d105d705516a67669b56a34b40766f80de280e8b79d02a9cf9741099d9d12a4
+state_program.json SHA256：
+  手柄 2a782772ceff74995f15b8880b77d04f653e5eff1b1cfef558abc3d03d4c9922
+  头显 d74c56d969d521208c0e179c1e8349cb9c0a57012f62c9d9fe9131838a811590

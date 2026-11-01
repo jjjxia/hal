@@ -70,17 +70,24 @@ Resource and execution discipline
   and separate/preserved output inodes as needed. Never overwrite validated
   artifacts or change a proof contract merely to obtain a passing result.
 
-Current state (2026-11-01 M3 checkpoint)
-  M1/M2 committed and regression-tested; actual controller one v3 compiled
-  differential replay PASS for 8 complete frames. M3 implemented and all 12
-  CTests pass, including actual Yosys/Icarus whole-state continuous execution,
-  derived clocks, unseen guarded branch, RAM and wrong-edge fault rejection.
-  Both state and analyze invoke automatic compilation/replay. Actual controller
-  full-state export has 3469 FF bits / 21 RAMs and 289 proved word functions;
-  its original-gate replay is in progress, not yet counted as passed here.
-  M4 remains active: finish both firmware receipts and deliver readable sources.
-  All-type queue temporarily suspended to keep firmware jobs serial; suspension
-  counts inside its existing 180-minute wall deadline and is recorded in receipt.
+Current state (2026-11-01 delivery)
+  M1-M4 implemented, validated and delivered. Controller and HMD now each have
+  actual compiled guarded state C++, covering all physical FF/RAM and observed
+  output fields. Both continuously match the original gate trace for all 3072
+  events starting at event zero; no trace-fed internal state or periodic-LCM
+  requirement. HMD receipt distinguishes 2048 extraction and 1024 withheld
+  events; controller's older export does not bind this classification.
+  Controller/HMD one-profile structured periodic programs also both pass eight
+  complete compiled differential frames against their original saved programs.
+  All 12 CTests pass; subsequent state/trace changes pass their relevant tests.
+  Generic import -> groups -> trace -> analyze wrapper passes a complete smoke
+  test; firmware delivery reuses existing HAL groups, without new manual hints.
+  Universal expression proofs and finite whole-state replay do not establish
+  universal whole-device equivalence or complete application-algorithm recovery.
+  FIRMWARE_HIGH_LEVEL_VIEW.txt gives paths, examples, coverage and limitations.
+  Expanded all-type queue has resumed (controller then HMD); recorded pause of
+  1539.05 seconds remains inside its original 180-minute wall deadline. It is
+  separate unfinished evaluation, not evidence counted in this delivery.
 
 Milestone 3 implemented architecture (2026-11-01)
   Use a distinct guarded event-transition representation, not a fabricated

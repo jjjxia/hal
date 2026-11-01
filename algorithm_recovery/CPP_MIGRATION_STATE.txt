@@ -1,16 +1,26 @@
+LATEST DELIVERY (2026-11-01): executable arithmetic, structured periodic C++
+and guarded whole-state C++ are complete for both firmware cases. Both whole-
+state programs pass original-gate replay from event zero with all output fields
+observed; both one-profile structured programs pass compiled differential
+replay. See the final delivery entry below and FIRMWARE_HIGH_LEVEL_VIEW.txt.
+The expanded all-type serial queue is resumed and still running at this save;
+its result is not counted here. Older pending/no-process statements below are
+historical checkpoints, not current status. This delivery is not a universal
+whole-device certificate or a claim to have named the application algorithms.
+
 Native C++ migration, 2026-10-31
 Branch: algorithm-recovery (user's existing branch); initial HEAD 3f8cfd29de8.
 Objective: migrate the tested HAL + InvFold firmware pipeline into HAL C++, not
 a C++ launcher for Python. No manual semantic grouping/order/address inputs.
 
-CURRENT STATUS (2026-11-01): COMPLETE for migration of the tested firmware
+HISTORICAL MIGRATION CHECKPOINT (2026-11-01): COMPLETE for migration of the tested firmware
 recovery chain into HAL C++. Final implementation: 982f4ca6ab1 plus the final
 usage/documentation audit. Both native case analyses and all seven available
 compiled-program replays PASS; all eight CTests PASS. The final audit below
 supersedes historical pending-work notes. This completes the C++ migration,
 not whole-device equivalence, unrestricted recovery, or a new research claim.
 
-FOLLOW-UP RESULTS (2026-11-01): configuration/window controls are implemented and
+HISTORICAL CONFIGURATION CHECKPOINT (2026-11-01): configuration/window controls are implemented and
 the bounded firmware evaluation is complete. COUNTER/ADDITION with control limit
 0 -> 3 improves controller ordered multi-bit groups 71 -> 81 (unresolved 107 -> 97)
 and HMD 67 -> 79 (unresolved 115 -> 103). All 22 added groups / 147 bits are strict
@@ -1115,3 +1125,82 @@ periodic arithmetic/schedule compile/replays -> full-state compile/replay.
 The generic source fixture is the trace-options FF plus output-inversion example,
 with canonical empty parameter objects. No per-design recovery hints supplied.
 See build/e2e_smoke_native/pipeline.json and analysis/native_verified.json.
+
+Final native C++ firmware delivery (2026-11-01)
+---------------------------------------------
+Implementation commits: 468d9958984 (arithmetic), 934b76353ce (schedule),
+d24b76426c2 (whole state), 8630ab11c4c (all outputs, event-zero replay).
+No build products or raw solver logs are committed. build/ remains ignored.
+
+Controller: build/guarded_state_v1/controller/state_machine
+  3469 FF bits, 364 words, 21 RAMs, 82 output pads; 621 data/294 control
+  functions, 89 guarded variants, 289 proved arithmetic functions (including
+  constants/copies), 97 unresolved-order groups retained as physical bits.
+  Final receipt: controller/state_full_output_replay/replay.json below the
+  same guarded_state_v1 root. All 3072 events PASS from event zero, max 3 delta
+  events; 21299913 known FF observations, 1670896 RAM-read observations,
+  86016 final RAM bits. Unknown FF/RAM-read observations: 13623/393488.
+  Output data/enable/drive known counts: 503703/503744/49121; unknown:
+  105/64/31. No missing output fields. No training/withheld classification
+  assigned to this older export after the trace observation identity changed.
+
+HMD: build/guarded_state_v1/hmd/state_machine
+  3505 FF bits, 363 words, 21 RAMs, 86 output pads; 618 data/306 control
+  functions, 87 guarded variants, 285 proved arithmetic functions (including
+  constants/copies), 103 unresolved-order groups retained as physical bits.
+  Final receipt: hmd/state_replay/replay.json below guarded_state_v1. All
+  3072 events PASS from event zero; extraction 2048 and withheld 1024, bound
+  to actual observation/extraction identities. 21521073 known FF observations,
+  1670896 RAM-read observations, 86016 final RAM bits. Unknown FF/RAM-read:
+  13647/393488. Output data/enable/drive known counts: 528275/528320/49121;
+  unknown: 109/64/31. No missing output fields.
+
+The two new full-output traces add four physical nets each. Read-only identity
+comparison checks that every old observed net (7524 controller, 7600 HMD),
+all 3072 stimulus events, and all X/Z values remain exactly unchanged.
+Receipts: build/state_full_output_{controller,hmd}_trace/observation_extension.json.
+Complete local delivery identity/coverage: build/guarded_state_v1/delivery.json.
+Source JSON and state-program hashes are retained in FIRMWARE_HIGH_LEVEL_VIEW.txt.
+
+Actual native commands (paths relative to /home/jiahao/hal):
+  build/bin/hal_plugins/hal-recover state ORDERED_HAL GROUPS_JSON ORIGINAL_JSON TRACE_DIR NEW_OUT
+  build/bin/hal_plugins/hal-recover replay-state STATE_PROGRAM_DIR TRACE_DIR NEW_OUT
+For these runs, existing groups are build/controller_groups_arithmetic3 and
+build/hmd_groups_arithmetic3_threads2; original JSONs are the existing
+indexcontroller_fpga_2_26_fw and ice40cm_corelv_20181219v2_26_fw netlists under
+/home/jiahao/HardwareRE/dynamicRE/harder_netlists/consumer_bitstreams/artifacts/netlists.
+Defaults use a 512-event extraction window per profile. No semantic annotations
+or changes to firmware/netlist/RAM contents were supplied for these runs.
+
+Both actual structured periodic examples completed:
+  build/synthesized_v3/controller_one: 2941 FF occurrences -> 316 rules;
+  build/synthesized_v3/hmd_one: 2901 FF occurrences -> 327 rules.
+  Each: 5376 RAM-port occurrences -> 223 rules, period 32, exact schedule
+  expansion checked; eight compiled consecutive differential frames PASS.
+  Controller/HMD arithmetic occurrences: 956/932. This is saved-program
+  differential validation under inherited contracts, not a universal certificate.
+
+The full-state backend does not depend on an observed global period. It covers
+all four original profiles including HMD pattern while retaining the periodic
+stage's original NO_GRAPH finding. State/guard recovery is not equivalent to
+identifying a compact application-level single-rate algorithm for that profile.
+
+Final relevant state/trace regression PASS (11.02s) follows the full 12-test
+suite PASS (62.61s); no new code changed after these checks. Whole wrapper smoke
+PASS at build/e2e_smoke_native: native import/groups/trace/analyze, all four
+periodic outputs and whole-state compile/replay. Large firmware outputs reuse
+existing HAL grouping; no fresh large-wrapper timing claim is made.
+
+All-type controller queue resumed after serial controller/HMD validation;
+recorded pause 1539.052824s counts inside unchanged 180-minute wall deadline.
+PID 484649 remained active at this record; controller then HMD, 16 GiB
+per-process virtual-address limit, MI 2/DANA 4 threads. Do not start a duplicate
+or count unfinished all-type searches as failure/success. Generated source,
+proof receipts, executables and logs remain local ignored artifacts.
+
+Trust boundary: universal per-expression checks, saved-source arithmetic checks
+and exact schedule expansion; finite original-gate full-state validation.
+Event composition/runtime, C++ compiler and frontend/model fidelity remain
+trusted/tested. Unknown initial values are explicit two-state choices. This
+extends automatic executable recovery; it does not automatically instantiate
+NetNotary's full end-to-end theorem for these memory/multi-clock firmware cases.
