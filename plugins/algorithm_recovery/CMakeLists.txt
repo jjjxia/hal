@@ -2,13 +2,24 @@ option(PL_ALGORITHM_RECOVERY "Build native algorithm recovery" OFF)
 option(ALGORITHM_RECOVERY_TESTS "Build algorithm recovery regression checks" OFF)
 
 if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
+    find_path(RECOVERY_SODIUM_INCLUDE sodium.h)
+    find_library(RECOVERY_SODIUM_LIBRARY sodium)
+    if(NOT RECOVERY_SODIUM_INCLUDE OR NOT RECOVERY_SODIUM_LIBRARY)
+        message(FATAL_ERROR "algorithm_recovery requires libsodium for artifact SHA256 identities")
+    endif()
     if(NOT (PL_SEQUENTIAL_SYMBOLIC_EXECUTION OR BUILD_ALL_PLUGINS))
         message(FATAL_ERROR "algorithm_recovery requires PL_SEQUENTIAL_SYMBOLIC_EXECUTION=ON")
     endif()
+    foreach(dependency PL_DATAFLOW PL_MODULE_IDENTIFICATION PL_BITORDER_PROPAGATION PL_BOOLEAN_INFLUENCE)
+        if(NOT (${dependency} OR BUILD_ALL_PLUGINS))
+            message(FATAL_ERROR "algorithm_recovery requires ${dependency}=ON")
+        endif()
+    endforeach()
     hal_add_plugin(algorithm_recovery SHARED
-        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h include/algorithm_recovery/folding.h
-        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp
-        LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json)
+        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h include/algorithm_recovery/folding.h include/algorithm_recovery/frontend.h include/algorithm_recovery/grouping.h
+        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp src/frontend.cpp src/grouping.cpp
+        LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json dataflow module_identification bitorder_propagation PRIVATE ${RECOVERY_SODIUM_LIBRARY})
+    target_include_directories(algorithm_recovery PRIVATE ${RECOVERY_SODIUM_INCLUDE})
 
     add_executable(hal-recover cli/main.cpp)
     target_link_libraries(hal-recover PRIVATE algorithm_recovery)

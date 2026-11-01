@@ -39,14 +39,15 @@ namespace hal
         namespace utils
         {
             template<typename R>
-            void parallel_for_each(u32 begin, u32 end, R func)
+            void parallel_for_each(u32 begin, u32 end, R func, u32 max_thread_count = 0)
             {
                 if (end - begin == 0)
                 {
                     return;
                 }
 
-                u32 num_threads      = std::min(end - begin, std::thread::hardware_concurrency());
+                u32 num_threads      = std::min(end - begin, std::max(1u, std::thread::hardware_concurrency()));
+                if (max_thread_count) num_threads = std::min(num_threads, max_thread_count);
                 u32 steps_per_thread = std::ceil((float)(end - begin) / num_threads);
 
                 std::vector<std::thread> threads;

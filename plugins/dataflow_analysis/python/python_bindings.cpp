@@ -70,6 +70,8 @@ namespace hal
             :param hal_py.Netlist nl: The netlist.
         )");
 
+        py_dataflow_configuration.def_readwrite("max_thread_count", &dataflow::Configuration::max_thread_count,
+                                               "Maximum DANA worker count; 0 selects hardware concurrency.");
         py_dataflow_configuration.def_readwrite("min_group_size", &dataflow::Configuration::min_group_size, R"(
             Minimum size of a group. Smaller groups will be penalized during analysis. Defaults to 8.
 

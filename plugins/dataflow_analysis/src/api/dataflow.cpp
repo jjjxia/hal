@@ -37,7 +37,9 @@ namespace hal
 
             dataflow::processing::Configuration proc_config;
             proc_config.pass_layers              = 2;
-            proc_config.num_threads              = std::thread::hardware_concurrency();
+            proc_config.num_threads              = std::max(1u, std::thread::hardware_concurrency());
+            if (config.max_thread_count)
+                proc_config.num_threads = std::min(proc_config.num_threads, config.max_thread_count);
             proc_config.enforce_type_consistency = config.enforce_type_consistency;
             proc_config.has_known_groups         = !config.known_net_groups.empty();
 
@@ -46,6 +48,7 @@ namespace hal
             dataflow::evaluation::Configuration eval_config;
             eval_config.prioritized_sizes = config.expected_sizes;
             eval_config.min_group_size    = config.min_group_size;
+            eval_config.max_thread_count  = proc_config.num_threads;
 
             if (!eval_config.prioritized_sizes.empty())
             {

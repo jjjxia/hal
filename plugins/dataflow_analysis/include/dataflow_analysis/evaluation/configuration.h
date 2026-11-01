@@ -43,6 +43,9 @@ namespace hal
 
                 /** The minimum number of gates that a group must contain to be part of the result. */
                 u32 min_group_size;
+
+                /** Maximum worker count, 0 selects hardware concurrency. */
+                u32 max_thread_count = 0;
             };
 
         }    // namespace evaluation

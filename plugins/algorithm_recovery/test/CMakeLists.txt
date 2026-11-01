@@ -24,3 +24,10 @@ target_link_libraries(check-recovery-folding-fixture PRIVATE algorithm_recovery)
 add_executable(check-recovery-folding folding.cpp)
 target_link_libraries(check-recovery-folding PRIVATE algorithm_recovery)
 add_test(NAME algorithm-recovery-folding COMMAND check-recovery-folding)
+
+add_executable(check-recovery-frontend-fixture frontend_fixture.cpp)
+target_link_libraries(check-recovery-frontend-fixture PRIVATE algorithm_recovery)
+add_executable(check-recovery-frontend frontend.cpp)
+target_link_libraries(check-recovery-frontend PRIVATE algorithm_recovery)
+add_test(NAME algorithm-recovery-frontend COMMAND check-recovery-frontend
+    ${CMAKE_SOURCE_DIR}/plugins/gate_libraries/definitions/ice40ultra_hal.hgl ${CMAKE_CURRENT_BINARY_DIR}/frontend)

@@ -78,20 +78,72 @@ ctest --test-dir build/plugins/algorithm_recovery --output-on-failure;
 check-recovery-folding-fixture CASE_DIRECTORY ORIGINAL_RECOVERED_JSON.
 CASE_DIRECTORY is the reference artifacts/native_controller_ram or native_hmd_ram.
 
-Remaining: native frontend, DANA/MI/two-pass bitorder orchestration, trace and
-conditional SSE extraction, arithmetic fits and universal checks, routing-order
+DONE COMPONENT (2026-11-01): native import/translation checks and HAL DANA/MI/
+two-pass bitorder orchestration, frontend.h/frontend.cpp and grouping.h/grouping.cpp.
+hal-recover now has import, groups, extract-ram commands. Production code calls
+HAL directly; no Python, pre-existing grouping table or LD_PRELOAD shim is used.
+The importer preserves original cell insertion order and physical IO aliases,
+checks every pin/parameter and exhaustive two-state LUT/carry truth tables, and
+records SHA256 using libsodium. It retains the upstream gate-library name for
+MI dispatch. Unsupported inputs and existing nonempty output directories fail.
+
+DANA Configuration::max_thread_count is now a proper public C++ field (also
+exposed to its Python binding), applied to processing/evaluation workers; 0
+retains automatic selection with minimum 1. Recovery uses 4 DANA workers and
+1 MI worker. DANA receives only physical RAM structures and min_group_size=8;
+MI receives DANA's inferred groups, counter/add/sub, max_controls=0. The engine's
+existing missing subtraction generator remains visible, not counted as failure
+of subtraction recovery or hidden behind a claimed complete MI implementation.
+
+Validation on final sources (all processes exited 0):
+- Three CTests PASS: primitive RAM, inverse-fold/frame semantics, native frontend
+  IO-FF import plus rejection of unsupported widths/edges/types/unknown parameters
+  and preservation of an existing output directory.
+- Controller: 11027 source cells / 53252 pins / 7229 parameters / 109616 LUT
+  assignments / 4888 carry assignments checked. DANA 364 groups / 3469 FF bits;
+  strict Q 66, relaxed Q 5, single 186, unresolved 107 groups.
+- HMD: 11118 cells / 53679 pins / 7280 parameters / 110432 LUT assignments /
+  4888 carry assignments. DANA 363 / 3505; strict Q 61, relaxed Q 6, single 181,
+  unresolved 115 groups.
+- Both: actual HAL MI returned 113 candidate records; 103 verified-MI/library
+  order seeds match the old pipeline exactly. Primitive graph/source mapping,
+  input hashes, DANA membership, ordered Q/D lists, unknown-order membership,
+  FF wiring and coverage all match. Grouping leaves primitive gate data intact.
+- Fresh native ordered.hal -> native RAM extraction -> previous verified RAM
+  equations: PASS each 21 RAMs / 168 universal equivalences, exact INIT/pins/
+  clocks. This exercises the native frontend/grouping/RAM prefix end to end.
+- Commands and flags: plugins/algorithm_recovery/README.txt. Final local outputs:
+  build/native_controller_import, build/native_controller_groups_final,
+  build/native_hmd_import, build/native_hmd_groups. Final logs:
+  build/controller_frontend_equivalence.log, build/hmd_frontend_equivalence.log,
+  build/controller_native_prefix_ram.log, build/hmd_native_prefix_ram.log.
+  All generated files are ignored under build/. No live processes/handles remain.
+
+Fresh native artifact identities (SHA256; paths above, distinct from old fixtures):
+controller import.hal 5943eeeff54d76cfa211afee1b9033ce64cf167f032a8e7aab6891af04bc3ead
+controller ordered.hal a3d28cb0adfa389f6fc66a4ce15bdd4ad89351d203d289508e69c63b579e594f
+hmd import.hal b2658608e3e63fad8204a827fcf5f7865f59ac735079f8e3fcb098ee1f37d02a
+hmd ordered.hal 2db48ef5b239ee59b8a09f7dcf801fceb1bf21ecdf1fc49a2135750e8a20f8a9
+
+Remaining: native trace generation and conditional SSE extraction/original-LUT
+checks, arithmetic fits and universal checks, routing-order
 inference, standalone native program export, independent real-case coupled
 replay and complete end-to-end checks on both inputs.
 Do not report full migration/recovery while any of these remain.
 
-Next useful entry: port hal_index_hmd/prepare.py (89 lines) and import checks,
-then hal_native_groups.py (103 lines) to native HAL calls. Existing folding API
-can then consume their native equation/word data; its test JSON adapter must not
-become a dependency on the old Python pipeline. Preserve the original input
+Next useful entry: port hal_native_trace.py and hal_native_sse.py plus the
+independent original-primitive evaluator in reference.py. Discover primary
+clocks/reset assignments, preserve X/Z and pre/post sampling, emit original-gate
+Icarus traces without internal force; use actual native HAL SSE with recorded
+control assumptions and nonvacuous equivalence checks. Inspect primitive
+clock/reset semantics from local cells_sim.v/HAL components. Connect resulting
+typed windows directly to folding.h, retaining the 512-event/full-window contract.
+The existing fixture adapter must not become a dependency on the old Python
+pipeline. Preserve the original input
 contract (already recovered primitive JSON/netlist, not a new bitstream decoder).
 
-Goal-turn audit: preceding RAM turn and this folding turn are progress (source
-changes plus authoritative tests); the full requested C++ migration stays active.
+Goal-turn audit: preceding folding turn and this frontend/grouping turn are
+progress (source changes plus authoritative tests); full C++ migration stays active.
 
 Preserve reference limitations: unresolved word orders, observed-control
 conditioning, iCE40 mode-0/primary-clock restrictions, HMD pattern NO_GRAPH.

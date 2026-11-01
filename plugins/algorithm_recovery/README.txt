@@ -2,7 +2,8 @@ Native algorithm recovery (migration in progress)
 ================================================
 
 This plugin is being ported from algorithm_recovery/invfold and the separately
-preserved firmware adapter. Its current command is RAM extraction. The C++ API
+preserved firmware adapter. Its commands cover import, native grouping/ordering
+and RAM extraction. The C++ API
 also implements observed-period folding and coupled frame execution. The full
 netlist-to-algorithm pipeline is not yet migrated. See
 algorithm_recovery/CPP_MIGRATION_STATE.txt.
@@ -11,10 +12,56 @@ Build from the HAL repository root:
 
   cmake -S . -B build -DPL_ALGORITHM_RECOVERY=ON \
     -DPL_SEQUENTIAL_SYMBOLIC_EXECUTION=ON -DPL_Z3_UTILS=ON \
+    -DPL_DATAFLOW=ON -DPL_MODULE_IDENTIFICATION=ON \
+    -DPL_BITORDER_PROPAGATION=ON -DPL_BOOLEAN_INFLUENCE=ON \
     -DALGORITHM_RECOVERY_TESTS=ON
   cmake --build build --target hal-recover check-recovery-memory \
     check-recovery-ram-extraction check-recovery-folding \
-    check-recovery-folding-fixture -j 4
+    check-recovery-folding-fixture check-recovery-frontend \
+    check-recovery-frontend-fixture -j 4
+
+The native importer uses libsodium's SHA256 (development headers/library required)
+to record exact input identities. It calls HAL's hgl_parser/verilog_parser plugins,
+which must be available in the HAL plugin directory.
+
+Import a raw recovered primitive JSON and recover groups/orders without Python:
+
+  export HAL_BASE_PATH="$PWD/build" LD_LIBRARY_PATH="$PWD/build/lib"
+  build/bin/hal_plugins/hal-recover import recovered.json \
+    plugins/gate_libraries/definitions/ice40ultra_hal.hgl build/case_import
+  build/bin/hal_plugins/hal-recover groups build/case_import/import.hal build/case_groups
+  build/bin/hal_plugins/hal-recover extract-ram build/case_groups/ordered.hal build/case_ram.json
+
+Output directories for import/groups must be absent or empty. The importer
+accepts one flat module with scalar pads. It preserves original cell insertion
+order and primitive parameters, lowers scalar positive-edge IO $dff and the
+specific tri-state $mux form, and checks all imported pins/parameters/global IO
+aliases plus exhaustive two-state LUT/carry truth tables. Unknown/unsupported
+cases fail explicitly. Generated IO simulation models leave FF initialization
+unconstrained. Import checks do not prove sequential or silicon equivalence.
+
+Group recovery calls native HAL DANA with minimum group size 8 and only physical
+RAM pin-group structures. Its inferred groups feed actual MI (counter/add/sub,
+max_controls=0), followed by strict bitorder propagation and relaxed propagation
+only on unresolved targets. Strict results are checked unchanged. Only verified
+MI operands/results and library RAM bus indices seed orders. Unresolved order
+remains a storage coordinate. The current MI engine reports no subtraction
+candidate generator; this existing limitation remains visible in its log.
+
+DANA now has Configuration::max_thread_count (also exposed to its Python binding),
+covering processing and evaluation workers; zero keeps automatic selection.
+The recovery path uses 4 DANA workers and 1 MI worker without LD_PRELOAD or a
+compiled thread-cap shim. No manual known-register list is provided to DANA.
+
+Real-case frontend/grouping regression:
+
+  build/bin/hal_plugins/check-recovery-frontend-fixture \
+    build/case_import build/case_groups PREVIOUS_REFERENCE_CASE_DIRECTORY
+
+This checks exact imported primitive graphs, source mapping and identity hashes,
+DANA membership and full FF coverage, all MI/library order seeds, exact recovered
+numeric orders, unresolved storage membership and Q/D wiring. Module IDs are not
+assumed semantically significant. Grouping must leave primitive gates unchanged.
 
 Extract RAM metadata and symbolic port equations from an imported HAL netlist:
 
@@ -61,7 +108,8 @@ the previously validated Python adapter's expression with Z3. SAT and UNKNOWN
 both fail the equality check. It also checks rejection of unsupported modes
 and unknown INIT. This is migration equivalence of RAM extraction, not a new
 independent whole-device proof. The .hal inputs were produced by the previous
-Python frontend; raw recovered.json import is still to be migrated.
+Python frontend. The same regression can instead take a freshly generated
+native ordered.hal; the import/groups commands above now provide that path.
 
 Native folding API (include/algorithm_recovery/folding.h):
 

@@ -76,6 +76,9 @@ namespace hal
              */
             u32 min_group_size = 8;
 
+            /** Maximum worker count; 0 selects hardware concurrency (at least 1). */
+            u32 max_thread_count = 0;
+
             /**
              * @brief Expected group sizes. Groups of these sizes will be prioritized. Defaults to an empty vector.
              */

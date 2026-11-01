@@ -222,7 +222,7 @@ namespace hal
                             // ##############################################
 
                             badness_score_of_group[scanned_group_idx] = score;
-                        });
+                        }, config.max_thread_count);
 
                         // log_info("dataflow", "scanned {}/{} groups in this iteration", num_scanned_groups, sorted_results.size());
 
