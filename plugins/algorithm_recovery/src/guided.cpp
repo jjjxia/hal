@@ -174,10 +174,26 @@ namespace hal::algorithm_recovery
                         z3::solver proof(ctx); proof.set("timeout", 60000u);
                         proof.add(condition); proof.add(!z3::mk_and(obligations));
                         const auto file = out / "proofs" / ("sse_" + std::to_string(calls) + ".smt2"); artifacts::write(file, proof.to_smt2());
-                        require(proof.check() == z3::unsat, "conditional original-LUT equivalence not proven: " + word.key());
+                        const auto status = proof.check();
+                        require(status != z3::sat, "conditional original-LUT equivalence refuted: " + word.key());
                         z3::solver sanity(ctx); sanity.set("timeout", 60000u); sanity.add(condition);
                         require(sanity.check() == z3::sat, "vacuous or UNKNOWN control assumptions");
-                        proofs.push_back({{"word", word.key()}, {"time", t}, {"conditions", conditions}, {"query", file.string()}, {"sha256", artifacts::file_hash(file)}, {"result", "UNSAT"}, {"condition_satisfiable", true}});
+                        if (status == z3::unsat)
+                            proofs.push_back({{"word", word.key()}, {"time", t}, {"conditions", conditions}, {"query", file.string()}, {"sha256", artifacts::file_hash(file)}, {"result", "UNSAT"}, {"condition_satisfiable", true}});
+                        else
+                        {
+                            // Whole-word query UNKNOWN: discharge each output bit separately.
+                            std::filesystem::remove(file);
+                            for (unsigned i = 0; i < row.d.size(); ++i)
+                            {
+                                z3::solver bit(ctx); bit.set("timeout", 120000u); bit.add(condition); bit.add(!obligations[i]);
+                                const auto bit_file = out / "proofs" / ("sse_" + std::to_string(calls) + "_b" + std::to_string(i) + ".smt2");
+                                artifacts::write(bit_file, bit.to_smt2());
+                                require(bit.check() == z3::unsat, "conditional original-LUT equivalence not proven: " + word.key() + " bit " + std::to_string(i));
+                                proofs.push_back({{"word", word.key()}, {"time", t}, {"bit", i}, {"conditions", conditions}, {"query", bit_file.string()},
+                                                  {"sha256", artifacts::file_hash(bit_file)}, {"result", "UNSAT"}, {"condition_satisfiable", true}});
+                            }
+                        }
                         variants.emplace(key, expression);
                     }
                     else ++cache_hits;

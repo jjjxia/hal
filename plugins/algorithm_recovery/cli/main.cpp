@@ -68,11 +68,84 @@ namespace
         }
         return result;
     }
+    // Event graph plus certified per-phase constants, for program recovery (C3).
+    // Equations are serialised as SMT-LIB assertions (= __out expr) with declarations.
+    void dump_graph(const std::filesystem::path& file, const hal::algorithm_recovery::FoldGraph& graph,
+                    const hal::algorithm_recovery::FoldInput& input, hal::algorithm_recovery::OriginalCircuit& original,
+                    const hal::algorithm_recovery::ScheduleCertificate* certificate, const hal::algorithm_recovery::PadProtocol* protocol, z3::context& ctx)
+    {
+        using hal::algorithm_recovery::SourceKind;
+        const auto smt = [&](const z3::expr& e) {
+            z3::solver s(ctx); s.add((e.is_bool() ? ctx.bool_const("__out") : ctx.bv_const("__out", e.get_sort().bv_size())) == e); return s.to_smt2();
+        };
+        const auto source_json = [&](const std::map<std::string, hal::algorithm_recovery::Source>& sources) {
+            nlohmann::json rows = nlohmann::json::array();
+            for (const auto& [symbol, src] : sources)
+                rows.push_back({{"symbol", symbol}, {"kind", src.kind == SourceKind::signal ? "signal" : src.kind == SourceKind::input ? "input" : "ram"},
+                                {"name", src.name}, {"phase", src.phase}, {"delay", src.delay}});
+            return rows;
+        };
+        nlohmann::json out{{"period", graph.period}, {"origin", graph.origin}, {"window_start", input.start}, {"window_length", input.length},
+                           {"available", graph.available}, {"excluded", graph.excluded}, {"words", nlohmann::json::object()},
+                           {"inputs", nlohmann::json::object()}, {"memories", nlohmann::json::object()}, {"nodes", nlohmann::json::array()},
+                           {"ram_nodes", nlohmann::json::array()}, {"outputs", nlohmann::json::object()}};
+        std::vector<u64> events;
+        for (u64 phase = 0; phase < graph.period; ++phase)
+        {
+            u64 e = graph.origin + phase;
+            if (certificate && certificate->certified) while (e < certificate->origin) e += graph.period;
+            events.push_back(e);
+        }
+        out["phase_events"] = events;
+        if (certificate)
+            out["certificate"] = {{"certified", certificate->certified}, {"origin", certificate->origin}, {"period", certificate->period},
+                                  {"phases_aligned", certificate->certified && certificate->period % std::max<u64>(graph.period, 1) == 0 && certificate->period == graph.period}};
+        const auto known = [&](const std::string& bit, u64 e) -> int {
+            if (!certificate) return -1;
+            return certificate->taint.known(std::stoll(bit.substr(1)), e);
+        };
+        for (const auto& [name, word] : input.words)
+        {
+            nlohmann::json phases = nlohmann::json::array();
+            for (const auto e : events) { std::string row; for (const auto& bit : word.bits) { const auto v = known(bit, e); row += v < 0 ? 'x' : char('0' + v); } phases.push_back(row); }
+            out["words"][name] = {{"bits", word.bits}, {"numeric_order_known", word.numeric_order_known}, {"periodic", graph.periods.count(name) != 0},
+                                  {"certified_known_lsb_first", phases}};
+        }
+        for (const auto& [name, bits] : input.inputs)
+        {
+            bool data = true;
+            if (protocol) for (const auto& bit : bits) data &= !protocol->non_data.count(std::stoll(bit.substr(1)));
+            nlohmann::json phases = nlohmann::json::array();
+            for (const auto e : events) { std::string row; for (const auto& bit : bits) { const auto v = known(bit, e); row += v < 0 ? 'x' : char('0' + v); } phases.push_back(row); }
+            out["inputs"][name] = {{"bits", bits}, {"data", data}, {"certified_known_lsb_first", phases}};
+        }
+        for (const auto& [name, memory] : input.memories) out["memories"][name] = {{"read_bits", memory.read_bits}};
+        for (const auto& node : graph.nodes)
+            out["nodes"].push_back({{"name", node.name}, {"phase", node.phase}, {"width", node.equation.get_sort().bv_size()},
+                                    {"sources", source_json(node.sources)}, {"smt2", smt(node.equation)}});
+        for (const auto& node : graph.ram_nodes)
+            out["ram_nodes"].push_back({{"memory", node.memory}, {"port", node.port}, {"phase", node.phase},
+                                        {"sources", source_json(node.sources)}, {"smt2", smt(node.equation)}});
+        for (const auto& port : original.module().at("ports").items())
+        {
+            if (port.value().at("direction") == "input") continue;
+            nlohmann::json bits = nlohmann::json::array();
+            for (const auto& bit : port.value().at("bits"))
+            {
+                const auto physical = hal::algorithm_recovery::physical_bit(bit);
+                bits.push_back(physical < 0 ? nlohmann::json(physical) : nlohmann::json{{"bit", physical}, {"smt2", smt(original.function(physical))}});
+            }
+            out["outputs"][port.key()] = bits;
+        }
+        std::ofstream stream(file); stream << out.dump() << '\n';
+        if (!stream) throw std::runtime_error("cannot write graph dump");
+    }
 }
+
 
 int main(int argc, char** argv)
 {
-    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}, {"replay-state", 5}, {"certify", 6}};
+    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}, {"replay-state", 5}, {"certify", 6}, {"graph", 7}};
     if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
         std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
@@ -84,6 +157,7 @@ int main(int argc, char** argv)
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
                      "                         or --stimulus-json physical_pad_stimulus.json (exclusive with profile/length/seed options)\n"
                      "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...] [--compare-window N] [--protocol pad_protocol.json]\n"
+                     "       hal-recover graph (same arguments as analyze): certificate, SSE and folding only; writes graph_<profile>.json\n"
                      "       hal-recover certify recovered.json trace_directory pad_protocol.json empty_output_directory [--horizon N]\n"
                      "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
         return 2;
@@ -93,7 +167,8 @@ int main(int argc, char** argv)
         const std::map<std::string, std::set<std::string>> accepted{
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
             {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window", "--protocol"}},
-            {"state", {"--window", "--profiles", "--protocol"}}, {"certify", {"--horizon"}}};
+            {"state", {"--window", "--profiles", "--protocol"}}, {"certify", {"--horizon"}},
+            {"graph", {"--window", "--profiles", "--protocol"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "replay-state")
@@ -147,7 +222,7 @@ int main(int argc, char** argv)
         if (!hal::plugin_manager::load("hgl_parser") || !hal::plugin_manager::load("algorithm_recovery"))
             throw std::runtime_error("cannot load hgl_parser or algorithm_recovery");
         auto nl = hal::netlist_serializer::deserialize_from_file(argv[2]);
-        if (std::string(argv[1]) == "analyze" || std::string(argv[1]) == "state")
+        if (std::string(argv[1]) == "analyze" || std::string(argv[1]) == "state" || std::string(argv[1]) == "graph")
         {
             nlohmann::json groups; std::ifstream(argv[3]) >> groups;
             z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[4], ctx);
@@ -209,6 +284,13 @@ int main(int argc, char** argv)
                 if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
                 const auto& graph = folded.get();
                 profiles[name] = fold_diagnostic(graph, input);
+                {
+                    std::optional<hal::algorithm_recovery::PadProtocol> protocol_for_dump;
+                    if (options.count("--protocol")) protocol_for_dump = hal::algorithm_recovery::PadProtocol::load(options.at("--protocol"), original);
+                    dump_graph(std::filesystem::path(argv[6]) / ("graph_" + name + ".json"), graph, input, original,
+                               certificate ? &*certificate : nullptr, protocol_for_dump ? &*protocol_for_dump : nullptr, ctx);
+                }
+                if (std::string(argv[1]) == "graph") { std::cout << "GRAPH " << name << ' ' << profiles[name].dump() << std::endl; continue; }
                 if (options.count("--compare-window"))
                 {
                     const auto length = comparison_window;
@@ -259,6 +341,7 @@ int main(int argc, char** argv)
                 for (auto& [name, row] : profiles.items()) row["certificate"] = certificate_summary;
             }
             std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
+            if (std::string(argv[1]) == "graph") return 0;
             if (!stream) throw std::runtime_error("cannot save fold report");
             bool executed = false;
             for (const auto& replay : replays) executed |= replay.at("status") == "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_PASS";

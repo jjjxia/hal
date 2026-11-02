@@ -61,7 +61,7 @@ namespace hal::algorithm_recovery
 
     namespace
     {
-        struct Cell { bool carry; std::vector<PhysicalBit> in; uint16_t table; PhysicalBit out; };
+        struct Cell { bool carry; std::vector<PhysicalBit> in; uint16_t table; PhysicalBit out; std::vector<bool> used; };
         struct FF { PhysicalBit q, c, d, e, r; bool async, set, falling, io; };
         struct Ram { std::string name; PhysicalBit rclk, rclke, re, wclk, wclke, we; std::vector<PhysicalBit> raddr, waddr, wdata, mask, rdata; };
         // Values a function can take when the tainted operands vary freely.
@@ -96,6 +96,14 @@ namespace hal::algorithm_recovery
                     for (unsigned i = 0; i < 4; ++i) c.in.push_back(physical_bit(pins.at("I" + std::to_string(i))[0]));
                     c.table = static_cast<uint16_t>(std::stoul(cell.at("parameters").at("LUT_INIT").get<std::string>(), nullptr, 2));
                 }
+                // A LUT input the truth table ignores is neither an ordering
+                // dependency nor an information-flow source.
+                for (unsigned i = 0; i < c.in.size(); ++i)
+                {
+                    bool used = c.carry;
+                    if (!c.carry) for (unsigned k = 0; k < 16 && !used; ++k) used = ((c.table >> k) ^ (c.table >> (k ^ (1u << i)))) & 1;
+                    c.used.push_back(used);
+                }
                 cell_of.emplace(out, cells.size()); cells.push_back(std::move(c));
             }
             std::vector<size_t> order; std::vector<uint8_t> mark(cells.size(), 0);
@@ -108,7 +116,8 @@ namespace hal::algorithm_recovery
                     auto& [index, next] = stack.back();
                     if (next < cells[index].in.size())
                     {
-                        const auto dep = cells[index].in[next++]; const auto it = cell_of.find(dep);
+                        const auto i = next++; if (!cells[index].used[i]) continue;
+                        const auto dep = cells[index].in[i]; const auto it = cell_of.find(dep);
                         if (it == cell_of.end()) continue;
                         require(mark[it->second] != 1, "combinational feedback in original netlist");
                         if (!mark[it->second]) { mark[it->second] = 1; stack.push_back({it->second, 0}); }
@@ -173,7 +182,7 @@ namespace hal::algorithm_recovery
                     for (const auto index : order)
                     {
                         const auto& cell = cells[index]; std::vector<std::pair<bool, bool>> ops;
-                        for (const auto bit : cell.in) ops.push_back(get(bit));
+                        for (size_t i = 0; i < cell.in.size(); ++i) ops.push_back(cell.used[i] ? get(cell.in[i]) : std::make_pair(false, false));
                         const auto evaluate = [&](const std::vector<bool>& v) {
                             if (cell.carry) return (v[0] && v[1]) || (v[0] && v[2]) || (v[1] && v[2]);
                             return bool((cell.table >> (v[0] | (v[1] << 1) | (v[2] << 2) | (v[3] << 3))) & 1);

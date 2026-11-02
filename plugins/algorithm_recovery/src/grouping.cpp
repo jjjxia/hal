@@ -1,3 +1,4 @@
+#include <functional>
 #include "algorithm_recovery/grouping.h"
 #include "hal_core/netlist/gate.h"
 #include "hal_core/netlist/module.h"
@@ -57,9 +58,52 @@ namespace hal::algorithm_recovery
             config.with_known_structures(rams);
             std::cout << "DANA_START threads=" << options.dana_threads << std::endl;
             auto dana = unwrap(dataflow::analyze(config));
+            // A DANA group in which some member's Q only feeds other members' D
+            // pins directly is a register chain (delay line): those Q nets never
+            // leave the module, so it is several words. Split acyclic chains by
+            // depth; rotations (cyclic member wiring) stay one word.
+            Json chain_splits = Json::array();
+            for (bool again = true; again;)
+            {
+                again = false;
+                for (const auto& [id, gates] : dana.get_groups())
+                {
+                    std::map<Net*, Gate*> by_q;
+                    for (auto* gate : gates) by_q[gate->get_fan_out_net("Q")] = gate;
+                    bool internal = false;
+                    for (auto* gate : gates)
+                    {
+                        auto* q = gate->get_fan_out_net("Q"); if (!q) continue;
+                        bool outside = q->is_global_output_net() || q->get_destinations().empty();
+                        for (auto* ep : q->get_destinations())
+                            outside |= !gates.count(ep->get_gate()) || ep->get_pin()->get_name() != "D";
+                        internal |= !outside;
+                    }
+                    if (!internal) continue;
+                    std::map<Gate*, int> depth; std::set<Gate*> visiting; bool cyclic = false;
+                    std::function<int(Gate*)> level = [&](Gate* gate) -> int {
+                        if (auto it = depth.find(gate); it != depth.end()) return it->second;
+                        if (!visiting.insert(gate).second) { cyclic = true; return 0; }
+                        auto* d = gate->get_fan_in_net("D"); int value = 0;
+                        if (d && by_q.count(d) && by_q.at(d) != gate) value = level(by_q.at(d)) + 1;
+                        visiting.erase(gate); depth[gate] = value; return value;
+                    };
+                    for (auto* gate : gates) level(gate);
+                    if (cyclic) continue;
+                    std::map<int, std::unordered_set<Gate*>> layers;
+                    for (const auto& [gate, value] : depth) layers[value].insert(gate);
+                    if (layers.size() < 2) continue;
+                    std::vector<std::unordered_set<Gate*>> parts; Json sizes = Json::array();
+                    for (auto& [value, part] : layers) { sizes.push_back(part.size()); parts.push_back(std::move(part)); }
+                    chain_splits.push_back({{"group", id}, {"layers", sizes}});
+                    unwrap(dana.split_group(id, parts)); again = true; break;
+                }
+            }
+            if (!chain_splits.empty()) std::cout << "DANA_CHAIN_SPLITS " << chain_splits.dump() << std::endl;
             GroupingResult result;
             result.dana = {{"groups", Json::object()}, {"configuration", {{"min_group_size", 8}, {"threads", options.dana_threads},
                 {"known_registers", Json::array()}, {"known_structures", "physical SB_RAM40_4K library pin groups"}}}};
+            result.dana["chain_splits"] = chain_splits;
             std::vector<std::vector<Gate*>> registers;
             std::set<u32> expected;
             for (const auto& [id, gates] : dana.get_groups())

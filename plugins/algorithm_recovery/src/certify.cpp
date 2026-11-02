@@ -2,6 +2,8 @@
 #include "artifacts.h"
 #include <chrono>
 #include <functional>
+#include <numeric>
+#include <algorithm>
 #include <iostream>
 
 namespace hal::algorithm_recovery
@@ -60,6 +62,48 @@ namespace hal::algorithm_recovery
                 if (taint.is_error()) return ERR(taint.get_error().get());
                 result.taint = std::move(taint.get());
                 const auto& T = result.taint;
+                // Candidate relation: keep stored signals whose recorded (taint, value)
+                // sequence repeats on the tail of the horizon; drop the rest from R by
+                // tainting them everywhere. Dropping only weakens R (free-running timers).
+                const size_t tail = H / 2;
+                const auto period_of = [&](const std::function<int(size_t)>& key) -> size_t {
+                    for (size_t p = 1; 3 * p <= H - tail; ++p)
+                    {
+                        bool ok = true;
+                        for (size_t t = tail; t + p <= H && ok; ++t) ok = key(t) == key(t + p);
+                        if (ok) return p;
+                    }
+                    return 0;
+                };
+                const size_t P0 = period_of([&](size_t t) {
+                    int k = 0; for (const auto pad : pads) k = k * 9 + (trace.value(pad, t) + 1) * 3 + trace.value(pad, t, true) + 1; return k; });
+                require(P0 > 0, "protocol pads are not periodic on the horizon tail");
+                std::vector<std::pair<size_t, PhysicalBit>> kept; std::vector<PhysicalBit> drops;
+                std::vector<PhysicalBit> stored; for (const auto& f : ffs) stored.push_back(f.q);
+                stored.insert(stored.end(), ram_reads.begin(), ram_reads.end());
+                for (const auto bit : stored)
+                {
+                    if (forced.periodic.count({bit, 0, 1, 0})) continue;
+                    bool any = false; for (size_t t = tail; t <= H && !any; ++t) any = T.known(bit, t) >= 0;
+                    if (!any) continue;
+                    const auto p = period_of([&](size_t t) { return T.known(bit, t); });
+                    if (!p) drops.push_back(bit); else kept.push_back({p, bit});
+                }
+                std::sort(kept.begin(), kept.end());
+                size_t P = P0;
+                for (size_t i = 0; i < kept.size(); ++i)
+                {
+                    const auto next = std::lcm(P, kept[i].first);
+                    if (next > H / 4) { for (size_t j = i; j < kept.size(); ++j) drops.push_back(kept[j].second); break; }
+                    P = next;
+                }
+                if (!drops.empty())
+                {
+                    for (const auto bit : drops) forced.periodic.insert({bit, 0, 1, 0});
+                    rounds.push_back({{"round", round}, {"dropped_from_relation", drops.size()}, {"protocol_period", P0}});
+                    std::cout << "CERT round " << round << " dropped " << drops.size() << " non-periodic stored signals from R" << std::endl;
+                    continue;
+                }
                 std::vector<std::vector<uint8_t>> sig(H + 1); std::vector<size_t> hash(H + 1);
                 for (size_t t = 0; t <= H; ++t)
                 {
@@ -70,16 +114,15 @@ namespace hal::algorithm_recovery
                     for (const auto bit : ram_reads) s.push_back(T.known(bit, t) + 1);
                     size_t h = s.size(); for (const auto v : s) h = h * 1000003u ^ v; hash[t] = h;
                 }
-                size_t t0 = 0, P = 0;
-                for (size_t p = 1; 3 * p <= H; ++p)
+                size_t t0 = 0;
                 {
                     size_t last = 0; bool mismatch = false;
-                    for (size_t t = H - p + 1; t-- > 0;)
-                        if (hash[t] != hash[t + p] || sig[t] != sig[t + p]) { last = t; mismatch = true; break; }
-                    const size_t start = mismatch ? last + 1 : 0;
-                    if (H - start >= 3 * p) { t0 = start; P = p; break; }
+                    for (size_t t = H - P + 1; t-- > 0;)
+                        if (hash[t] != hash[t + P] || sig[t] != sig[t + P]) { last = t; mismatch = true; break; }
+                    t0 = mismatch ? last + 1 : 0;
+                    if (H - t0 < 3 * P) P = 0;
                 }
-                Json summary{{"round", round}, {"forced_taints", forced.size()}};
+                Json summary{{"round", round}, {"forced_taints", forced.size()}, {"protocol_period", P0}, {"relation_signals_kept", kept.size()}};
                 if (!P)
                 {
                     summary["status"] = "NO_PERIODIC_SCHEDULE"; rounds.push_back(summary);

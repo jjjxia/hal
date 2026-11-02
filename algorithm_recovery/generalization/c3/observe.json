@@ -1,0 +1,11 @@
+{
+ "description": "Interface priors for program recovery (C3), declared before any program-recovery run. Like the pad protocol, they state WHEN results are read, never what they mean. cycle = clock cycle relative to the transaction start (may exceed the period: the value is then read in the next transaction's frame); strobe = an output port whose certified value 1 marks the observation phases.",
+ "present": [{"port": "data_o", "cycle": 33}],
+ "sha1": [{"port": "text_o", "cycle": 87}, {"port": "text_o", "cycle": 88}, {"port": "text_o", "cycle": 89}, {"port": "text_o", "cycle": 90}, {"port": "text_o", "cycle": 91}],
+ "fir_decim": [{"port": "filter_out", "strobe": "ce_out"}],
+ "small_hb_dec": [{"port": "data_out", "strobe": "stb_out"}],
+ "ibex_mul": [{"port": "result_o", "strobe": "valid_o"}],
+ "bambu_arf": [{"port": "o1", "strobe": "o1_vld"}, {"port": "o2", "strobe": "o2_vld"}, {"port": "o3", "strobe": "o3_vld"}, {"port": "o4", "strobe": "o4_vld"}],
+ "qdiv": [{"port": "o_quotient_out", "cycle": 48}, {"port": "o_overflow", "cycle": 48}],
+ "ascon": [{"port": "bdo", "strobe": "bdo_valid"}]
+}

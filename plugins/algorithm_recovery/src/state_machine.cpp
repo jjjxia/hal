@@ -130,6 +130,22 @@ namespace hal::algorithm_recovery
                 if (options.program.proof_resource_limit) solver.set("rlimit", options.program.proof_resource_limit);
                 solver.add(condition && a != b); const auto file = out / "proofs" / (std::to_string(++proof_id) + ".smt2");
                 artifacts::write(file, solver.to_smt2()); const auto status = solver.check();
+                if (status == z3::unknown && a.is_bv() && a.get_sort().bv_size() > 1)
+                {
+                    // Whole-word query UNKNOWN: discharge each bit separately.
+                    std::filesystem::remove(file);
+                    for (unsigned i = 0; i < a.get_sort().bv_size(); ++i)
+                    {
+                        z3::solver bit(ctx); bit.set("timeout", options.program.proof_timeout_ms);
+                        if (options.program.proof_resource_limit) bit.set("rlimit", options.program.proof_resource_limit);
+                        bit.add(condition && a.extract(i, i) != b.extract(i, i));
+                        const auto bit_file = out / "proofs" / (std::to_string(++proof_id) + ".smt2"); artifacts::write(bit_file, bit.to_smt2());
+                        const auto bit_status = bit.check();
+                        require(bit_status == z3::unsat, "state-machine HAL/original equivalence not proved: " + name + " bit " + std::to_string(i) + " " + (bit_status == z3::unknown ? bit.reason_unknown() : "SAT"));
+                        schema["proofs"].push_back({{"name", name}, {"bit", i}, {"query", bit_file.string()}, {"sha256", artifacts::file_hash(bit_file)}, {"result", "UNSAT"}});
+                    }
+                    return;
+                }
                 require(status == z3::unsat, "state-machine HAL/original equivalence not proved: " + name + " " + (status == z3::unknown ? solver.reason_unknown() : "SAT"));
                 schema["proofs"].push_back({{"name", name}, {"query", file.string()}, {"sha256", artifacts::file_hash(file)}, {"result", "UNSAT"}});
             };
