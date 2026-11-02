@@ -126,6 +126,18 @@ namespace
         for (const auto& node : graph.ram_nodes)
             out["ram_nodes"].push_back({{"memory", node.memory}, {"port", node.port}, {"phase", node.phase},
                                         {"sources", source_json(node.sources)}, {"smt2", smt(node.equation)}});
+        // Tristate output pads ($mux A=z, the only $mux the frontend accepts) are
+        // exported as (data, enable), like the full-state backend; no single smt2.
+        std::map<hal::algorithm_recovery::PhysicalBit, std::pair<hal::algorithm_recovery::PhysicalBit, hal::algorithm_recovery::PhysicalBit>> pad_drivers;
+        for (const auto& cell : original.module().at("cells")) if (cell.at("type") == "$mux")
+        {
+            const auto& pins = cell.at("connections");
+            pad_drivers.emplace(hal::algorithm_recovery::physical_bit(pins.at("Y")[0]),
+                std::make_pair(hal::algorithm_recovery::physical_bit(pins.at("B")[0]), hal::algorithm_recovery::physical_bit(pins.at("S")[0])));
+        }
+        const auto driven = [&](hal::algorithm_recovery::PhysicalBit physical) {
+            return physical < 0 ? nlohmann::json(physical) : nlohmann::json{{"bit", physical}, {"smt2", smt(original.function(physical))}};
+        };
         for (const auto& port : original.module().at("ports").items())
         {
             if (port.value().at("direction") == "input") continue;
@@ -133,7 +145,9 @@ namespace
             for (const auto& bit : port.value().at("bits"))
             {
                 const auto physical = hal::algorithm_recovery::physical_bit(bit);
-                bits.push_back(physical < 0 ? nlohmann::json(physical) : nlohmann::json{{"bit", physical}, {"smt2", smt(original.function(physical))}});
+                if (auto it = pad_drivers.find(physical); it != pad_drivers.end())
+                    bits.push_back({{"bit", physical}, {"tristate", true}, {"data", driven(it->second.first)}, {"enable", driven(it->second.second)}});
+                else bits.push_back(driven(physical));
             }
             out["outputs"][port.key()] = bits;
         }

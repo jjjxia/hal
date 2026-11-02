@@ -21,3 +21,14 @@ Reported per design and family: targets, accepted, wrong, confirmed; no tuning a
 Addition (2026-11-02, after the first run): for ibex_mul and ascon, whose refuted candidates were not
 exercised by the variant trace, a second fresh trace (variant_stimulus.py seed 20261113, same protocol)
 is used for confirmation; candidates, judge and acceptance rules are unchanged.
+Amendment 1 (2026-11-02, Index controller, second non-Canny design for E1.4): the script also reads
+`ram:<cell>` symbols (iCE40 RAM read latches; bits from the graph's memories[<cell>].read_bits). The graph
+records no certified-known RAM read values, so these symbols stay symbolic in the certified function. This
+is conservative for WRONG (more candidates are refuted) and has no effect on CONFIRMED. The benchmarks are
+synthesized without BRAM and are unaffected.
+Amendment 2 (2026-11-02, written after a single trial on qdiv, whose result did not change): CONFIRMED
+additionally requires that the certified, unspecialised node equation predicts the mispredicted variant
+event exactly, so the event provably lies at the certified phase. Reason: the Index variant trace has no
+transaction protocol, so phase alignment is not given by construction. `confirmed_any` keeps the original
+rule. All designs are rerun with this rule (build/bench2_v1/stats_t12_a2/); the earlier results stay in
+stats_t12/ for comparison.

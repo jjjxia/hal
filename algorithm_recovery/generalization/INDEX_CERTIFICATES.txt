@@ -22,3 +22,12 @@ receipts               build/index_c1_v1/controller_cert_v2/    build/index_c1_v
 Scope (from certificate.json): every admitted run satisfies R_t for all t; derived-clock edges
 are taken from untainted observations; Z3 and the original-JSON cell semantics are trusted.
 Program recovery for Index is not done (RAM support missing in c3/decompile.py).
+
+Event graph (C2), controller, 2026-11-02: `hal-recover graph` with the certificate's arguments
+(--window 512 --profiles irregular --protocol controller_protocol.json) -> build/index_c1_v1/controller_graph_v4.
+Two generic fixes were needed: (1) a HAL equation refuted by the original-LUT check is replaced by the
+original interpretation (hal 55d5f3048d8); (2) the graph dump exports a tristate output pad
+($mux A=z) as (data, enable), like the full-state backend, instead of asking for the function of the pad
+net (failure "unrecognized original cutpoint 71"). Result: origin 544, period 32 graph events, 4,359 nodes,
+5,376 RAM nodes, 359 histories, one word excluded (DANA_module_168, mixed/unknown physical writes);
+RAM replay 1024/1024; 147 s, 0.77 GB.

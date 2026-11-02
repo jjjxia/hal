@@ -30,6 +30,8 @@ def bit(rows_, pos_, b, t, post):
 
 def phys(sym, k):
     kind, _, base = sym.partition(":")
+    if kind == "ram":  # RAM read latch (Index only; the benchmarks are synthesized without BRAM)
+        return int(G["memories"][base]["read_bits"][k][1:])
     d = G["words"][base] if kind == "word" else G["inputs"][base]
     return int(d["bits"][k][1:])
 
@@ -66,6 +68,8 @@ def specialise(e, phase, syms):
     subs = []
     for name, v in syms.items():
         kind, _, base = name.partition(":")
+        if kind == "ram":  # no certified-known RAM read values: left symbolic (conservative)
+            continue
         known = (G["words"][base] if kind == "word" else G["inputs"][base])["certified_known_lsb_first"][phase]
         w = v.size()
         if "x" not in known:
@@ -126,6 +130,10 @@ for nd in G["nodes"]:
         continue
     stats["F2"]["targets"] += 1; stats["F1"]["targets"] += 1
 
+    def raw_value(vals):
+        e = z3.substitute(raw, *[(syms[nm], z3.BitVecVal(v, syms[nm].size())) for nm, v in vals.items()]) if vals else raw
+        return z3.simplify(e).as_long()
+
     def judge(fam, cand_expr, predict, desc):
         stats[fam]["accepted"] += 1
         sv = z3.Solver(); sv.add(z3.BitVec("__out", n) == cand_expr)
@@ -136,11 +144,18 @@ for nd in G["nodes"]:
         if eq:
             return
         stats[fam]["wrong"] += 1
-        bad = next((t for vals, t in V if predict(vals) != t), None)
-        if bad is not None:
+        # Amendment 2 (2026-11-02): a mispredicted variant event confirms the error only if the
+        # certified (unspecialised) node equation predicts that same event, i.e. the event is at
+        # the certified phase; "confirmed_any" keeps the original rule for comparison.
+        missed = [(vals, t) for vals, t in V if predict(vals) != t]
+        if missed:
+            stats[fam]["confirmed_any"] += 1
+        hit = next(((vals, t) for vals, t in missed if raw_value(vals) == t), None)
+        if hit is not None:
             stats[fam]["confirmed"] += 1
-            if len(examples[fam]) < 5:
-                examples[fam].append({"word": W, "phase": phase, "candidate": desc})
+            if len(examples[fam]) < 50:
+                examples[fam].append({"word": W, "phase": phase, "candidate": desc,
+                                      "variant_observed": hit[1], "candidate_predicted": predict(hit[0])})
     # ---- F2: GF(2) fit per bit + CEC under training-constant support bits ----------------
     cand_bits, ok = [], True
     for i in range(n):
