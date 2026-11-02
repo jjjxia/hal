@@ -1,0 +1,63 @@
+E2.1 structural oracle, written 2026-11-02 BEFORE implementing the scorer or scoring any case
+==========================================================================================
+Cases: the eight frozen held-out designs (C2C3_BENCHMARKS_FROZEN.txt); half-band is reported but
+marked development. Recovered input: the event graph used for program_v5 of each case (gate-level
+mode, i.e. C1 equations from the anonymous netlist; mode (b) of E2.7).
+Oracle (evaluation side, independent of recovery):
+ 1. RTL to word level with Yosys 0.33: the case's own read_verilog lines, then
+    `hierarchy -top <top>; proc; flatten; opt_clean; write_json` (no techmap, no opt_dff), so
+    every RTL register is one $dff/$adff/$sdff/$dffe-family cell named by its Q wire.
+ 2. A Python word-level evaluator simulates this netlist cycle by cycle with the case's own
+    stimulus (evaluation_contract port values, same reset prefix and transactions).
+ 3. Truth write event (R, c): register R is written at cycle c of a transaction if D != Q before
+    the edge in at least one of the simulated transactions.
+ 4. Truth producers of (R, c): registers X (and data ports) such that replacing X's value by a
+    random value changes D(R) at that cycle in at least one of 8 trials per transaction.
+    Truth delay of a producer: 0 if X was last written earlier in the same transaction, else 1.
+Mapping recovered -> RTL: DANA word bits -> RTL register bits through the non-anonymous
+synthesized netlist (anonymisation keeps physical bit ids); a recovered write event (W, phase)
+predicts writes of every RTL register with bits in W at the corresponding cycle; the producers of
+(W, phase) are the RTL registers covered by its source words (input pads -> "data ports").
+Cycle alignment: transaction-relative phase = (phase - first_event + origin...) as in
+c3/decompile.py; cycle = floor(phase / 2); one global convention for all cases.
+Scores per case: write-event recall and precision over mapped registers; producer-set exact
+match rate and Jaccard on matched events; producer delay accuracy; number of RTL registers
+split into >= 2 recovered words and of recovered words merging >= 2 RTL registers.
+No change to recovery is made after scoring; scorer bugs found later are fixed and rerun for all
+cases, and recorded.
+Amendment (same day, before implementing the evaluator or scoring): step 1 uses the case's
+synth.ys read_verilog lines verbatim and inserts `memory` after `flatten`, so ROMs (PRESENT's
+S-box tables) become word-level logic: `hierarchy -top <top>; proc; flatten; memory; opt_clean`.
+Amendment 2 (2026-11-02, after a first PRESENT trial run of the scorer, before scoring any
+other case): producers are DATA producers. A register whose value at that cycle is identical in
+every simulated transaction is a protocol constant at that phase (the round counter), and non-data
+ports are protocol inputs; neither counts as a producer. Correspondingly the recovered producers
+of a write event are the source words that remain in the node function after substituting the
+certificate's known bits at that phase (the specialisation of c3/decompile.py).
+Amendment 3 (2026-11-02, after the first scorer run on present, fir_decim and small_hb_dec;
+all eight cases are rescored with this version): (a) a truth write event is a cycle where D is
+not identically Q: either D != Q on the simulated values, or D does not follow Q when Q is
+randomised (registers such as active_d1 <= active are written every cycle even when the value
+repeats). (b) Recovered producers are computed per RTL register at BIT level: the source bits in
+the support of that register's bits in the specialised node function, mapped to RTL registers
+(a recovered word may merge several RTL registers; word-level mapping would over-count).
+Amendment 4 (2026-11-02, after the full run of amendment 3: qdiv precision 0.69, ascon recall
+0.48; recorded because it was made after seeing results; all eight cases rescored):
+ - Data registers are found by a sampled taint simulation instead of "value identical across
+   transactions" (which mistakes rarely firing data conditions, e.g. qdiv's quotient bits early in
+   the division, for constants): data ports are tainted; after each edge a register is tainted if
+   re-randomising the currently tainted leaves of its cone changes its next value.
+ - Write event: D != Q for some trial in which the register's own Q and all tainted leaves of its
+   cone are randomised jointly (rare data conditions such as dividend >= divisor then fire).
+ - Producer X of a write: with all tainted leaves randomised as background, re-randomising X alone
+   changes D in some trial; only tainted registers and data ports can be producers.
+ - On both sides an identity update (next value = current value of the same register bits after
+   specialisation) is a hold, not a write.
+
+STATUS 2026-11-02 (session stopped by usage limit):
+ Amendment-3 scores (all eight, build/bench2_v1/stats_e21/superseded_a3/): write recall / precision /
+ producer exact match: present 1/1/1, fir_decim 1/1/1, small_hb_dec 1/1/1, sha1 0.996/1/1,
+ bambu_arf 1/1/0.98, ibex_mul 1/1/0.78, qdiv 1/0.69/0.88, ascon 0.48/0.89/0.83.
+ Amendment-4 scorer run only on present (1/1/1) and qdiv (1/0.69/0.74). qdiv's remaining
+ differences are early-iteration conditional subtractions that random full-width divisors never
+ trigger in the oracle; NOT yet resolved. Remaining cases not rescored with amendment 4.
