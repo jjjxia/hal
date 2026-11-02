@@ -31,3 +31,7 @@ original interpretation (hal 55d5f3048d8); (2) the graph dump exports a tristate
 net (failure "unrecognized original cutpoint 71"). Result: origin 544, period 32 graph events, 4,359 nodes,
 5,376 RAM nodes, 359 histories, one word excluded (DANA_module_168, mixed/unknown physical writes);
 RAM replay 1024/1024; 147 s, 0.77 GB.
+Headset, same day, same arguments with hmd_groups_arithmetic3_threads2 and headset_protocol.json ->
+build/index_c1_v1/headset_graph_v1: origin 544, period 32, 4,343 nodes, 5,376 RAM nodes, 357 histories,
+one word excluded (DANA_module_176); 147 s, 0.77 GB. T1.2 (amendment 2) on both graphs, confirmed errors only:
+controller F1 7 / F2 0, headset F1 10 / F2 1 (build/bench2_v1/stats_t12_a2/index_{controller,headset}.json).
