@@ -10,7 +10,9 @@ contract = json.load(open(contract_path))
 ns = {}
 exec(open(f"{prog_dir}/program.py").read(), ns)
 report = json.load(open(f"{prog_dir}/report.json"))
-assert report["state_values"] == 0, "reference check here covers pure transaction functions"
+# Loop-carried state (values left by the previous transaction) is filled with RANDOM values
+# on every trial: a pass then also shows that the outputs do not depend on that state.
+state_keys = [tuple(k) for k in json.load(open(f"{prog_dir}/interface.json"))["state_keys"]] if report["state_values"] else []
 by_bit = {p["physical_bit"]: p for p in contract["port_bits"] if p["direction"] == "input"}
 src = open(f"{prog_dir}/program.py").read()
 import re
@@ -83,6 +85,13 @@ def arf(i1, i2, i3, i4, i5, i6, G1, G2, GG1, GG2):
     return {"o1": op13, "o2": op14, "o3": m(op9 + op25), "o4": m(op10 + op26)}
 
 
+def ascon_aead128_encrypt(key, nonce, ad, pt):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ascon_ref", "/home/jiahao/hal/build/bench_candidates/ascon_primas/src/ascon.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    return mod.ascon_encrypt(key, nonce, ad, pt, variant="Ascon-AEAD128")
+
+
 def qdiv(a, b):
     ma, mb = a & M(31), b & M(31)
     mag = (ma << 15) // mb
@@ -115,6 +124,19 @@ for trial in range(N):
         x = {n: rng.getrandbits(32) for n in names}
         per_cycle = {c: x for c in range(contract["period_cycles"])}  # data_mode hold
         expected = arf(*(x[n] for n in ["i1", "i2", "i3", "i4", "i5", "i6", "G1", "G2", "GG1", "GG2"]))
+    elif case == "ascon":
+        # cocotb convention of the source repository: byte j of a 32-bit word is bits 8j..8j+7
+        key, nonce, ad, pt = (bytes(rng.getrandbits(8) for _ in range(16)) for _ in range(4))
+        word = lambda b, w: int.from_bytes(b[4 * w:4 * w + 4], "little")
+        per_cycle = {}
+        for w in range(4):
+            per_cycle.setdefault(1 + w, {})["key"] = word(key, w)
+            per_cycle.setdefault(5 + w, {})["bdi"] = word(nonce, w)
+            per_cycle.setdefault(22 + w, {})["bdi"] = word(ad, w)
+            per_cycle.setdefault(44 + w, {})["bdi"] = word(pt, w)
+        ct, tag = ascon_aead128_encrypt(key, nonce, ad, pt)
+        out = bytes(ct) + bytes(tag)  # ciphertext (16 B) || tag (16 B)
+        expected = {("bdo", "cycle", k): word(out, k) for k in range(8)}
     elif case == "sha1":
         block = [rng.getrandbits(32) for _ in range(16)]
         # RTL timing (evaluation side): the command written in cycle 0 takes effect at cycle 1;
@@ -128,14 +150,20 @@ for trial in range(N):
         p = by_bit[int(pad)]; cycle = int(phase) // 2
         value = per_cycle.get(cycle, {}).get(p["name"], rng.getrandbits(64))  # unread/free cycles: random
         pads[(f"pad{pad}", int(phase))] = (value >> p["offset"]) & 1
-    outs, _ = ns["transaction"](pads, {})
+    outs, _ = ns["transaction"](pads, {k: rng.getrandbits(512) for k in state_keys})
     by_port = {}
     for (port, phase), v in sorted(outs.items(), key=lambda kv: kv[0][1]):
         by_port.setdefault(port, []).append((phase, v))
     for key, v in expected.items():
-        port, k = key if isinstance(key, tuple) else (key, None)
-        observed = by_port.get(port, [])
-        checked = observed if k is None else observed[k:k + 1]
+        if isinstance(key, tuple) and len(key) == 3:  # k-th observed CYCLE of the port (both phases)
+            port, _, k = key
+            cyc = sorted({ph // 2 for ph, _ in by_port.get(port, [])})
+            checked = [(ph, val) for ph, val in by_port.get(port, []) if k < len(cyc) and ph // 2 == cyc[k]]
+            observed = checked
+        else:
+            port, k = key if isinstance(key, tuple) else (key, None)
+            observed = by_port.get(port, [])
+            checked = observed if k is None else observed[k:k + 1]
         if not checked:
             mismatch += 1; compared_missing.add(key if isinstance(key, str) else f"{port}[{k}]")
             continue

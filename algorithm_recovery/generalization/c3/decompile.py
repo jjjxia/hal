@@ -494,6 +494,40 @@ def find_counter(iter_vars, table):
     return None
 
 
+def iteration_constants(run):
+    """Fully known symbols whose certified values vary over the run, and their per-step values."""
+    first = run[0]
+    syms = {}
+    for name in steps[first]:
+        for sym, var in raw_symbols(name, first):
+            syms[sym] = var
+    out_ = []
+    for sym, var in sorted(syms.items()):
+        pats = [known_pattern(sym, ph) for ph in run]
+        if any(pt != pats[0] for pt in pats) and all("x" not in pt for pt in pats):
+            out_.append((sym, var.size()))
+    return out_, [{sym: int(known_pattern(sym, ph)[::-1], 2) for sym, _ in out_} for ph in run]
+
+
+def split_run(run):
+    """Constants that are not an affine counter but piecewise constant (e.g. a round-range
+    selector) split the run into sub-loops whose bodies have no varying constants."""
+    iv, table = iteration_constants(run)
+    if not iv or find_counter(iv, table) is not None:
+        return [run]
+    # blocks of steps whose specialised node functions are identical (hash-consed z3 terms)
+    names_ = sorted(steps[run[0]])
+    sig = [tuple(nodes[(nm, ph)]["expr"].get_id() for nm in names_) for ph in run]
+    blocks, start = [], 0
+    for k in range(1, len(run) + 1):
+        if k == len(run) or sig[k] != sig[start]:
+            blocks.append(run[start:k]); start = k
+    if len(blocks) <= max(4, len(run) // 8):
+        return [b for b in blocks if len(b) >= MIN_ITERATIONS]  # short blocks stay flat
+    return [run]
+
+
+runs = [sub for run in runs for sub in split_run(run)]
 loops, roll_proofs = [], collections.Counter()
 for li, run in enumerate(runs):
     first = run[0]
@@ -503,7 +537,9 @@ for li, run in enumerate(runs):
         for sym, var in raw_symbols(name, first):
             sym_vars[sym] = var
     invariant, iter_vars, partial = {}, [], []
-    for sym, var in sorted(sym_vars.items()):
+    # all steps specialise to the same functions: the specialised function is the body
+    uniform = len({tuple(nodes[(nm, ph)]["expr"].get_id() for nm in names) for ph in run}) == 1 and all((nm, ph) in nodes for nm in names for ph in run)
+    for sym, var in ([] if uniform else sorted(sym_vars.items())):
         pats = [known_pattern(sym, ph) for ph in run]
         if all(pt == pats[0] for pt in pats):
             sub = pattern_subs(sym, var, pats[0])
@@ -524,6 +560,9 @@ for li, run in enumerate(runs):
         subs.append((sym, z3.BitVec("pv:" + sym, w)))  # pv:SYM = (SYM & ~imask) | ival, computed per iteration
     templates = {}
     for name in names:
+        if uniform:
+            templates[name] = nodes[(name, first)]["expr"]
+            continue
         raw = nodes[(name, first)]["raw"]
         templates[name] = z3.simplify(z3.substitute(raw, *[(sym_vars[sym], e) for sym, e in subs]))
     # per-iteration check: template with this iteration's constants == flat specialised node
@@ -689,7 +728,7 @@ def base_word(sym):
 def learn_order(word, order, how):
     if word and word not in word_order and len(order) == len(words[word]["bits"]) and sorted(order) == list(range(len(order))):
         word_order[word] = list(order); order_sources[word] = how
-ARITH_PROOF_MS = {"linear": 60000, "bilinear": 20000}
+ARITH_PROOF_MS = {"linear": 60000, "bilinear": 20000, "arx": 120000}
 
 
 def known_order_candidates(expr, variables, used, is_param, f, rng):
@@ -723,14 +762,14 @@ def arith_part(expr, variables, node_id, phase_code, src, out, ind, writes=None,
 
     def candidates():
         for chain in chains_:
-            cand = lift_arith.fit_chain(f, chain, None, rng, None)
+            cand = lift_arith.fit_chain(f, chain, None, rng, None) or lift_arith.fit_chain_arx(f, chain, rng)
             if cand is not None:
                 yield cand
         yield from known_order_candidates(expr, variables, used, is_param, f, rng)
     for cand in candidates():
         if set(cand["outputs"]) & used:
             continue
-        kind = "bilinear" if any(cand["bilinear"].values()) else "linear"
+        kind = "bilinear" if any(cand["bilinear"].values()) else ("arx" if cand.get("bitwise") else "linear")
         z = lift_arith.candidate_expr(cand, variables)
         solver = z3.Solver(); solver.set("timeout", ARITH_PROOF_MS[kind])
         solver.add(z3.Or(*[z3.Extract(o, o, expr) != z3.Extract(q, q, z) for q, o in enumerate(cand["outputs"])]))
@@ -739,7 +778,7 @@ def arith_part(expr, variables, node_id, phase_code, src, out, ind, writes=None,
         open(qfile, "w").write(solver.to_smt2())
         status = str(solver.check())
         entry = {"node": node_id, "kind": kind, "width": cand["width"], "operand_widths": [len(g) for g in cand["operands"]],
-                 "signed": cand.get("signed"),
+                 "signed": cand.get("signed"), "bitwise": (cand.get("bitwise") or {}).get("name") or (bool(cand.get("bitwise")) or None),
                  "const": cand["const"], "linear": cand["linear"], "bilinear": {f"{g},{h}": v for (g, h), v in cand["bilinear"].items()},
                  "random_tests": 64, "proof": status.upper(), "query": qfile, "sha256": hashlib.sha256(open(qfile, "rb").read()).hexdigest()}
         arith_log.append(entry)
@@ -778,6 +817,34 @@ def arith_part(expr, variables, node_id, phase_code, src, out, ind, writes=None,
         for (g, h), dv in cand["bilinear"].items():
             if dv:
                 poly.append(f"{names[g]} * {names[h]}" if sc(dv) == 1 else f"({sc(dv)}) * {names[g]} * {names[h]}")
+        bw = cand.get("bitwise")
+        if bw:
+            rn = []
+            for r, role in enumerate(bw["roles"]):
+                codes = [src(*b) for b in role]
+                bases = {c_[0] for c_ in codes}
+                nm = f"w{len(out)}_{r}"
+                if len(bases) == 1:
+                    out.append(f"{ind}{nm} = bits({next(iter(bases))}, *{registry.const('ORD', tuple(c_[1] for c_ in codes))})")
+                else:
+                    out.append(f"{ind}{nm} = pick(" + ", ".join(f"{c_[0]}, {c_[1]}" for c_ in codes) + ")")
+                rn.append(nm)
+            M_ = hex((1 << m) - 1)
+            if bw["name"] == "ch" and len(rn) == 3:
+                fexpr = f"({rn[0]} & {rn[1]}) | (~{rn[0]} & {rn[2]})"
+            elif bw["name"] == "parity" and len(rn) == 3:
+                fexpr = f"{rn[0]} ^ {rn[1]} ^ {rn[2]}"
+            elif bw["name"] == "maj" and len(rn) == 3:
+                fexpr = f"({rn[0]} & {rn[1]}) | ({rn[0]} & {rn[2]}) | ({rn[1]} & {rn[2]})"
+            else:
+                terms_ = []
+                for x, v in enumerate(bw["table"]):
+                    if v:
+                        terms_.append("(" + " & ".join(w if (x >> r) & 1 else f"~{w}" for r, w in enumerate(rn)) + ")")
+                fexpr = " | ".join(terms_) or "0"
+            fname = f"f{len(out)}"
+            out.append(f"{ind}{fname} = ({fexpr}) & {M_}  # bitwise layer{' (' + bw['name'] + ')' if bw['name'] else ''}")
+            poly.append(fname)
         zname = f"z{len(out)}"
         out.append(f"{ind}{zname} = ({' + '.join(poly) or '0'}) & {hex((1 << m) - 1)}  # proven: {kind} word arithmetic")
         terms.append(f"place({zname}, *{registry.const('OUT', tuple(cand['outputs']))})")

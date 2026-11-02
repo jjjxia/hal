@@ -1,0 +1,40 @@
+E2.3 robustness protocol, written 2026-11-02 BEFORE generating or running the variants
+======================================================================================
+Algorithm: PandA-bambu examples/arf_res_sharing/module.c (commit c2ba6936), Bambu 2024.10
+(official AppImage from release.bambuhls.eu, 1,405,510,848 bytes), same command as bambu_arf:
+  bambu --top-fname=arf --generate-interface=INFER -v2 module.c constraints_ui_mult<N>.xml
+Variants: N = 1 (the frozen held-out bambu_arf), 2, 4 (tech_constraints ui_mult_expr_FU n=N).
+Synthesis: Yosys 0.33 synth_ice40 -nobram (as bambu_arf). Protocol: as bambu_arf
+(reset 2 cycles, start_port=1 at cycle 0, period 16 cycles, data held), provided the
+generated design finishes within 16 cycles; otherwise the period is the smallest multiple
+of 4 cycles that covers done_port, fixed from an RTL simulation before recovery.
+Pipeline: prepare_bench2 -> run_bench2.sh stages -> graph -> c3/decompile.py.
+Reported per variant (no tuning between variants): certificate (origin, period), graph
+nodes and excluded words, multi-role registers (storage_reuse), proven additions, fitted
+multiplications (tested, proof status), program lines, held-out and 2000-input reference
+checks against module.c. Robustness holds if every variant passes the reference check and
+the counts of recovered operations per transaction agree up to the expected reuse.
+
+Status 2026-11-02: the AppImage was downloaded to build/_tools/bambu-2024.10/
+(sha256 e4f0214496a5d35de1932975b0f41cd95bc33a53a904fc565d6c2cb01df40773); running it needs
+the user's permission, so the Bambu variants are NOT run yet.
+
+Part B (synthesis options), written before running: the same RTL synthesized with
+synth_ice40 -nobram -abc9 -dffe_min_ce_use 2 (build/bench2_flowb, prepared, traced and
+certified for E1.5). For present, fir_decim, ibex_mul and qdiv: import -> groups (same
+options as run_bench2.sh) -> graph -> decompile -> reference check (same scripts and seeds).
+Reported: certificate, graph nodes / excluded words, loops and counters, lifted structure,
+program lines, reference result; compared with the default-flow program_v5 of each case.
+Robust if every variant passes and the recovered loop counts, tables and proven arithmetic
+coincide.
+
+RESULTS part B (2026-11-02; flow B programs build/bench2_flowb/<case>/program_v1 vs default program_v5)
+  present   both: 31-iteration loop, counter 1..31, one 4->4 table used 18 times, 72 lifted lines;
+            flat 19,951 vs 19,967. 2,000/2,000 fresh inputs.
+  fir_decim both: no loop; coefficients read from the impulse response identical; 13 vs 14 proven
+            arithmetic steps, 128 vs 125 lines. 2,000/2,000.
+  ibex_mul  DIFFERS: flow B rolls 25 iterations (counter 25..1) and leaves 7 steps flat, each
+            proven (7 bilinear accumulator steps); default rolls 31 (+1 load step). Both have
+            32 proven multiply steps. 275 vs 112 lines. 2,000/2,000.
+  qdiv      both: loops of 30 and 13 iterations, 3 proven linear steps; 3,153 vs 3,610 lines.
+            2,000/2,000.

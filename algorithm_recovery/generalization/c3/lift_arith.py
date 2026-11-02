@@ -41,6 +41,8 @@ def chains(expr):
         return x
     owner = {}
     for i in range(n):
+        if len(sup[i]) <= 1:
+            continue
         for b in sup[i]:
             if b in owner:
                 parent[find(i)] = find(owner[b])
@@ -48,9 +50,9 @@ def chains(expr):
                 owner[b] = i
     comps = collections.defaultdict(list)
     for i in range(n):
-        if sup[i]:
+        if len(sup[i]) > 1:  # single-bit supports are routes, lifted elsewhere
             comps[find(i)].append(i)
-    result, leftover = [], [i for i in range(n) if not sup[i]]
+    result, leftover = [], [i for i in range(n) if len(sup[i]) <= 1]
     for members in comps.values():
         members.sort(key=lambda i: (len(sup[i]), i))
         # split a component into chains: each bit extends the unique chain whose last support it contains
@@ -150,6 +152,20 @@ def candidate_expr(cand, variables):
     for (g, h), dv in cand["bilinear"].items():
         if dv:
             z = z + z3.BitVecVal(dv, m) * ops[g] * ops[h]
+    bw = cand.get("bitwise")
+    if bw:
+        words_ = []
+        for role in bw["roles"]:
+            bits_ = [z3.Extract(k, k, variables[s_]) for s_, k in role]
+            words_.append(z3.Concat(*reversed(bits_)) if len(bits_) > 1 else bits_[0])
+        F = z3.BitVecVal(0, m)
+        for x, v in enumerate(bw["table"]):
+            if v:
+                term = z3.BitVecVal((1 << m) - 1, m)
+                for r, w in enumerate(words_):
+                    term = term & (w if (x >> r) & 1 else ~w)
+                F = F | term
+        z = z + F
     return z
 
 
@@ -220,3 +236,145 @@ def fit_known(f, n_out, operands, rng, outputs=None, samples=64):
                     "signed": [bool(x) and len(groups[g]) > 1 for g, x in enumerate(signed)], "method": "known_input_order",
                     "order_ambiguous": ambiguous}
     return None
+
+
+BITWISE_NAMES = {}
+
+
+def _name_tables():
+    import itertools
+    f = {"ch": lambda b, c, d: (b & c) | ((1 - b) & d), "parity": lambda b, c, d: b ^ c ^ d,
+         "maj": lambda b, c, d: (b & c) | (b & d) | (c & d)}
+    for nm, fn in f.items():
+        BITWISE_NAMES[tuple(fn(x & 1, (x >> 1) & 1, (x >> 2) & 1) for x in range(8))] = nm
+
+
+_name_tables()
+
+
+def fit_chain_arx(f, chain, rng, max_linear=6, why=None):
+    """Chain whose levels mix linear bits with ONE same-level interacting group of 2..3 bits
+    (a bitwise function layer): z = c0 + sum_g c_g L_g + F (mod 2^m), F_i = T(group bits at level i)
+    with the same table T at every level (roles may be permuted per level). None if not this shape."""
+    import itertools
+    levels, prev = [], frozenset()
+    for i, s_ in chain:
+        levels.append(sorted(s_ - prev)); prev = s_
+    outs = [i for i, _ in chain]
+    m = len(outs)
+    M = (1 << m) - 1
+    if any(not l for l in levels) or len(levels[0]) > max_linear + 3:
+        return None
+
+    def z_of(assign):
+        vals = collections.defaultdict(int)
+        for (s, k), b in assign.items():
+            if b:
+                vals[s] |= 1 << k
+        y = f(vals)
+        return sum(((y >> o) & 1) << q for q, o in enumerate(outs))
+    z0 = z_of({})
+
+    def inter(u, w):
+        return (z_of({u: 1, w: 1}) - z_of({u: 1}) - z_of({w: 1}) + z0) & M
+    lin_ops, roles, table = None, None, None
+    for i, lvl in enumerate(levels):
+        # same-level interaction graph: one nonlinear group, the rest linear
+        nl = sorted({u for u in lvl for w in lvl if u < w and inter(u, w)} | {w for u in lvl for w in lvl if u < w and inter(u, w)})
+        lin = [u for u in lvl if u not in nl]
+        if not nl and table is not None and roles is not None:
+            # interactions vanish mod 2^m (top bits). If the table is affine mod 2 there, every
+            # assignment of this level's bits gives the same function: assign deterministically.
+            k = len(roles)
+            t0 = table[0] & 1
+            affine2 = all((table[x] & 1) == t0 ^ (sum(((table[1 << r] & 1) ^ t0) for r in range(k) if (x >> r) & 1) & 1) for x in range(1 << k))
+            if affine2 and len(lvl) == k + len(lin_ops):
+                ordered = sorted(lvl)
+                for r in range(k):
+                    roles[r].append(ordered[r])
+                for g, u in enumerate(ordered[k:]):
+                    lin_ops[g].append(u)
+                continue
+        if not 2 <= len(nl) <= 3:
+            why is not None and why.append(("group size", i, len(nl), len(lin)))
+            return None
+        k = len(nl)
+        # table of the group at this level, as differences scaled by 2^i
+        diff = {}
+        for x in range(1 << k):
+            a = {nl[q]: (x >> q) & 1 for q in range(k)}
+            diff[x] = (z_of(a) - z0) & M
+        found = None
+        for perm in itertools.permutations(range(k)):
+            # role r of the table is bit nl[perm[r]]
+            def idx(x):
+                return sum(((x >> perm[r]) & 1) << r for r in range(k))
+            T = [None] * (1 << k)
+            for x in range(1 << k):
+                T[idx(x)] = diff[x]
+            if table is None:
+                # T(p) - T(0) = d / 2^i in {-1, 0, 1}; T(0) = 1 when some difference is -1
+                unit = 1 << i
+                ok, t = True, []
+                for v in T:
+                    if v == 0:
+                        t.append(0)
+                    elif v == unit & M:
+                        t.append(1)
+                    elif v == (-unit) & M:
+                        t.append(-1)
+                    else:
+                        ok = False; break
+                if not ok:
+                    continue
+                base = 1 if -1 in t else 0
+                cand_table = [base + d for d in t]
+                found = (perm, cand_table); break
+            else:
+                unit = 1 << i
+                if all(((table[idx_] - table[0]) * unit - T[idx_]) & M == 0 for idx_ in range(1 << k)):
+                    found = (perm, table); break
+        if found is None:
+            why is not None and why.append(("table mismatch", i, [hex(diff[x]) for x in range(1 << k)]))
+            return None
+        perm, T = found
+        if table is None:
+            table = T
+            roles = [[] for _ in range(k)]
+            lin_ops = [[] for _ in range(len(lin))]
+        if len(lin) > len(lin_ops):
+            why is not None and why.append(("more linear bits", i, len(lin)))
+            return None
+        for r in range(k):
+            roles[r].append(nl[perm[r]])
+        for g, u in enumerate(sorted(lin)):
+            lin_ops[g].append(u)
+    # name the bitwise layer up to a permutation of its roles (Ch's selector first, etc.)
+    k_ = len(roles)
+    for perm in itertools.permutations(range(k_)):
+        # new role r is old role perm[r]
+        Tn = [table[sum(((x >> r) & 1) << perm[r] for r in range(k_))] for x in range(1 << k_)]
+        if tuple(Tn) in BITWISE_NAMES:
+            table, roles = Tn, [roles[perm[r]] for r in range(k_)]
+            break
+    # linear coefficients from unit points of each linear operand's level-0 bit
+    c = [(z_of({op[0]: 1}) - z0) & M for op in lin_ops]
+    F0 = sum(table[0] << i for i in range(m)) & M
+    const = (z0 - F0) & M
+
+    def predict(assign):
+        tot = const
+        for g, op in enumerate(lin_ops):
+            tot += c[g] * sum(assign.get(b, 0) << i for i, b in enumerate(op))
+        for i in range(m):
+            x = sum(assign.get(roles[r][i], 0) << r for r in range(len(roles)) if i < len(roles[r]))
+            tot += table[x] << i
+        return tot & M
+    for _ in range(64):
+        assign = {b: rng.getrandbits(1) for lvl in levels for b in lvl}
+        if z_of(assign) != predict(assign):
+            why is not None and why.append(("random test", hex(z_of(assign)), hex(predict(assign))))
+            return None
+    return {"outputs": outs, "operands": lin_ops, "const": const, "linear": c, "bilinear": {}, "width": m,
+            "signed": [False] * len(lin_ops), "bitwise": {"table": table, "roles": roles, "name": BITWISE_NAMES.get(tuple(table))},
+            "method": "arx_chain", "order_ambiguous": False}
