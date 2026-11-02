@@ -34,7 +34,8 @@ namespace hal::algorithm_recovery
             const auto out = std::filesystem::absolute(output);
             if (std::filesystem::exists(out))
                 for (const auto& entry : std::filesystem::directory_iterator(out))
-                    require(taint && entry.path().filename() == "certificate", "SSE output directory must be empty");
+                    // only the certificate written by the same invocation may precede the extraction
+                    require(entry.path().filename() == "certificate", "SSE output directory must be empty");
             std::filesystem::create_directories(out / "proofs");
             GuidedAnalysis result;
             const auto& ports = original.module().at("ports");

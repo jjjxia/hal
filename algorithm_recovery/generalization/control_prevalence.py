@@ -7,13 +7,16 @@ recovery that fixes it to its trace value. Counts are over the certified periodi
 [origin, origin + period). usage: control_prevalence.py ANALYSIS_DIR TRACE_DIR [ORIGINAL_JSON]"""
 import json, sys
 
+import os
 analysis, trace_dir = sys.argv[1], sys.argv[2]
-cert = json.load(open(f"{analysis}/certificate/certificate.json"))
+# accepts an analyze/graph directory (certificate/ inside) or a bare `hal-recover certify` output
+cdir = f"{analysis}/certificate" if os.path.isdir(f"{analysis}/certificate") else analysis
+cert = json.load(open(f"{cdir}/certificate.json"))
 meta = json.load(open(f"{trace_dir}/native_trace.json"))
 observed = meta["observed"]
 controls = [c for c in meta["controls"] if isinstance(c, int)]
 pos = {b: i for i, b in enumerate(observed)}
-rows = open(f"{analysis}/certificate/taint_observed.txt").read().split()
+rows = open(f"{cdir}/taint_observed.txt").read().split()
 origin, period = cert["origin"], cert["period"]
 data_carrying, per_phase = set(), []
 for t in range(origin, origin + period):
@@ -30,9 +33,9 @@ if len(sys.argv) > 3:
             for pin in ("E", "R", "S"):
                 if pin in cell["connections"]:
                     ff_pins.setdefault(cell["connections"][pin][0], []).append(pin)
-sse = json.load(open(f"{analysis}/sse_report.json"))
-fold = json.load(open(f"{analysis}/fold_report.json"))
-profile = next(iter(fold.values()))
+sse = json.load(open(f"{analysis}/sse_report.json")) if os.path.exists(f"{analysis}/sse_report.json") else {}
+fold = json.load(open(f"{analysis}/fold_report.json")) if os.path.exists(f"{analysis}/fold_report.json") else {}
+profile = next(iter(fold.values())) if fold else {}
 affected_ffs = sum(len(ff_pins.get(c, [])) for c in data_carrying)
 total_ffs = sum(len(v) for v in ff_pins.values())
 print(json.dumps({

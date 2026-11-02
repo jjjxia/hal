@@ -310,15 +310,29 @@ lines = ["# Recovered untimed transaction program (generated; do not edit).",
          f"# case={case}; graph period={P} events; certified origin={G['certificate']['origin']}; one call = one protocol transaction",
          "def sgn(x, w):", "    return x - (1 << w) if (x >> (w - 1)) & 1 else x",
          "def sra(x, s, w):", "    return (sgn(x, w) >> min(s, w)) & ((1 << w) - 1)", "",
+         "def route(x, pairs):  # bit k of x -> bit o, for (o, k) in pairs",
+         "    return sum(((x >> k) & 1) << o for o, k in pairs)",
+         "def pins(*pairs):  # 1-bit values placed at bit o, for (o, v) in pairs",
+         "    return sum((v & 1) << o for o, v in pairs)",
+         "def bits(x, *idx):  # gather: bit i of the result = bit idx[i] of x (None: constant 0)",
+         "    return sum(((x >> k) & 1) << i for i, k in enumerate(idx) if k is not None)",
+         "def pick(*vk):  # gather across values: bit i = bit k_i of v_i, for v_i, k_i in pairs",
+         "    return sum(((v >> k) & 1) << i for i, (v, k) in enumerate(zip(vk[::2], vk[1::2])) if k is not None)",
+         "def place(y, *idx):  # scatter: bit i of y -> bit idx[i]",
+         "    return sum(((y >> i) & 1) << k for i, k in enumerate(idx))",
+         "def padword(pads, ph, names):  # word whose bit i is data pad names[i] at phase ph",
+         "    return sum((pads.get((n, ph), 0) & 1) << i for i, n in enumerate(names))", "",
          "def transaction(pads, state):",
          "    \"\"\"pads[(pad, phase)] -> bit for data pads; state[(word, phase, delay)] -> loop-carried value.\"\"\"",
          "    v = {}"]
 header = list(lines)
 
 
-def source_code(node, sym):
+def source_code(node, sym, tolerant=False):
     s = node["sources"][sym]
     base = sym.partition(":")[2]
+    if tolerant:
+        return f"v.get({(base, s['phase'])!r}, 0)" if s["delay"] == 0 else f"state.get({(base, s['phase'], s['delay'])!r}, 0)"
     return f"v[{(base, s['phase'])!r}]" if s["delay"] == 0 else f"state[{(base, s['phase'], s['delay'])!r}]"
 
 
@@ -507,7 +521,7 @@ for li, run in enumerate(runs):
     for sym, w in iter_vars:
         subs.append((sym, iter_sym[sym]))
     for sym, w in partial:
-        subs.append((sym, (sym_vars[sym] & ~z3.BitVec("imask:" + sym, w)) | z3.BitVec("ival:" + sym, w)))
+        subs.append((sym, z3.BitVec("pv:" + sym, w)))  # pv:SYM = (SYM & ~imask) | ival, computed per iteration
     templates = {}
     for name in names:
         raw = nodes[(name, first)]["raw"]
@@ -515,8 +529,8 @@ for li, run in enumerate(runs):
     # per-iteration check: template with this iteration's constants == flat specialised node
     for it, ph in enumerate(run):
         inst = [(iter_sym[sym], z3.BitVecVal(table[it][sym], w)) for sym, w in iter_vars]
-        inst += [(z3.BitVec("imask:" + sym, w), z3.BitVecVal(ptable[it][sym][0], w)) for sym, w in partial]
-        inst += [(z3.BitVec("ival:" + sym, w), z3.BitVecVal(ptable[it][sym][1], w)) for sym, w in partial]
+        inst += [(z3.BitVec("pv:" + sym, w), (sym_vars[sym] & z3.BitVecVal(((1 << w) - 1) ^ ptable[it][sym][0], w)) | z3.BitVecVal(ptable[it][sym][1], w))
+                 for sym, w in partial]
         for name in names:
             instance = z3.substitute(templates[name], *inst) if inst else templates[name]
             solver = z3.Solver(); solver.set("timeout", 120000)
@@ -534,7 +548,7 @@ def pyname(sym):
     return sym.replace(":", "_").replace("-", "_")
 
 
-def emit_loop(L):
+def emit_loop(L, lifted=False):
     first = L["phases"][0]
     carried = set(L["names"])
     out_lines = [f"    # loop {L['index']}: {len(L['phases'])} iterations writing {', '.join(L['names'])}"]
@@ -556,7 +570,7 @@ def emit_loop(L):
         for sym in node["sources"]:
             base = sym.partition(":")[2]
             if sym.startswith("word:") and base in carried and data_symbol(sym, first) and base not in init:
-                init[base] = source_code(node, sym)
+                init[base] = source_code(node, sym, tolerant=True)
     for base in sorted(init):
         out_lines.append(f"    cur_{base} = {init[base]}")
     out_lines.append(f"    for it in range({n}):")
@@ -573,27 +587,46 @@ def emit_loop(L):
     else:
         for sym, w in L["iter_vars"]:
             out_lines.append(f"        {pyname('iter:' + sym)} = L{L['index']}_{pyname(sym)}[it]")
+    carried_l = set(L["names"])
+    first_node = nodes[(L["names"][0], first)]
     for sym, w in L["partial"]:
-        out_lines.append(f"        {pyname('imask:' + sym)}, {pyname('ival:' + sym)} = L{L['index']}_{pyname(sym)}[it]")
+        base_ = sym.partition(":")[2]
+        mask_, val_ = pyname("imask:" + sym), pyname("ival:" + sym)
+        out_lines.append(f"        {mask_}, {val_} = L{L['index']}_{pyname(sym)}[it]")
+        if sym.startswith("word:"):
+            holder = next(nodes[(nm, first)] for nm in L["names"] if sym in nodes[(nm, first)]["sources"])
+            value_ = f"cur_{base_}" if base_ in carried_l else source_code(holder, sym, tolerant=True)
+        else:
+            value_ = f"pads.get(({base_!r}, ph), 0)"
+        out_lines.append(f"        {pyname('pv:' + sym)} = ({value_} & ~{mask_}) | {val_}  # certified known bits of this iteration")
     new_names = []
     for name in L["names"]:
         node = nodes[(name, first)]
 
         def env(sym, node=node):
+            # Reads use .get: every iteration is SMT-equal to its flat node, so a value the flat
+            # node does not read (absent from the interface or dead) cannot affect the result.
             kind, _, base = sym.partition(":")
             if kind == "word":
                 if base in carried:
                     return f"cur_{base}"
-                return source_code(node, sym)
+                return source_code(node, sym, tolerant=True)
             if kind == "input":
-                return f"pads[({base!r}, ph)]"
-            if kind in ("iter", "imask", "ival"):
+                return f"pads.get(({base!r}, ph), 0)"
+            if kind in ("iter", "imask", "ival", "pv"):
                 return pyname(sym)
             raise KeyError(sym)
+        alias = {}
+        if L["counter"] is not None:
+            for q, (sym_, k) in enumerate(L["counter"]["bits"]):
+                if dict(L["iter_vars"])[sym_] == 1:
+                    alias["iter:" + sym_] = ("r", q)
+        lifted_code = emit_lifted(L["templates"][name], env, 8, lambda s_: s_.partition(":")[0] in ("iter", "imask", "ival"),
+                                  f"new_{name}", alias, node_id=[name, f"loop{L['index']}"], phase_code="ph", writes=name) if lifted else None
         pr = Printer(env)
         code = pr.emit(L["templates"][name])
-        out_lines += ["    " + ln for ln in pr.lines]
-        out_lines.append(f"        new_{name} = {code}")
+        plain = ["    " + ln for ln in pr.lines] + [f"        new_{name} = {code}"]
+        out_lines += lifted_code if lifted_code is not None and len(lifted_code) <= len(plain) else plain
         new_names.append(name)
     for name in new_names:
         out_lines.append(f"        v[({name!r}, ph)] = new_{name}")
@@ -601,6 +634,302 @@ def emit_loop(L):
     if carried_written:
         out_lines.append("        " + ", ".join(f"cur_{nm}" for nm in carried_written) + " = " + ", ".join(f"new_{nm}" for nm in carried_written))
     return out_lines
+
+
+# ---- step 4a: routing and table lifting --------------------------------------------
+import lift
+out_dir_proofs = f"{out}/proofs"
+
+
+class Registry:
+    """Module-level constants of the lifted program; tables are classified up to wire order."""
+
+    def __init__(self):
+        self.consts, self.names, self.classes, self.uses = {}, {}, collections.defaultdict(list), collections.Counter()
+
+    def const(self, prefix, value):
+        key = (prefix, repr(value))
+        if key not in self.names:
+            name = f"{prefix}{sum(1 for k in self.names if k[0] == prefix)}"
+            self.names[key] = name; self.consts[name] = value
+        return self.names[key]
+
+    def classify(self, T, k, m):
+        for name, S in self.classes[(k, m)]:
+            c = lift.canonical([S, T], k, m)
+            if len(c) == 1:
+                _, in_order, out_order = c[0][1][1]
+                self.uses[name] += 1
+                return name, in_order, out_order
+        name = f"TABLE{sum(len(v) for v in self.classes.values())}"
+        self.classes[(k, m)].append((name, T)); self.consts[name] = list(T); self.uses[name] += 1
+        return name, tuple(range(k)), tuple(range(m))
+
+    def lines(self):
+        return [f"{name} = {value!r}" for name, value in self.consts.items()]
+
+
+registry = Registry()
+lift_stats = collections.Counter()
+
+
+import lift_arith, random as _random
+arith_log = []
+# numeric bit order of words, LSB first: from HAL's bit-order propagation where established,
+# then from proven arithmetic (chain order of outputs and of whole-word operands)
+word_order = {w: list(range(len(d["bits"]))) for w, d in words.items() if d.get("numeric_order_known")}
+order_sources = {w: "HAL" for w in word_order}
+
+
+def base_word(sym):
+    parts = sym.split(":")
+    return parts[-1] if "word" in parts[:-1] else None
+
+
+def learn_order(word, order, how):
+    if word and word not in word_order and len(order) == len(words[word]["bits"]) and sorted(order) == list(range(len(order))):
+        word_order[word] = list(order); order_sources[word] = how
+ARITH_PROOF_MS = {"linear": 60000, "bilinear": 20000}
+
+
+def known_order_candidates(expr, variables, used, is_param, f, rng):
+    rest = [i for i in range(expr.size()) if i not in used]
+    if len(rest) < 4:
+        return
+    syms = set()
+    for i in rest:
+        syms |= {x for x in lift.symbol_bits(z3.simplify(z3.Extract(i, i, expr)))}
+    syms = sorted(x for x in syms if not is_param(x))
+    if not 1 <= len(syms) <= 3 or any(base_word(x) not in word_order for x in syms):
+        return
+    support = set()
+    for i in rest:
+        support |= {(x, k) for x, ks in lift.symbol_bits(z3.simplify(z3.Extract(i, i, expr))).items() for k in ks}
+    operands = [[(x, k) if (x, k) in support else None for k in word_order[base_word(x)]] for x in syms]
+    cand = lift_arith.fit_known(f, expr.size(), operands, rng, outputs=rest)
+    if cand is not None:
+        yield cand
+
+
+def arith_part(expr, variables, node_id, phase_code, src, out, ind, writes=None, is_param=lambda s_: False):
+    """Proven word-level arithmetic for expr: chains of nested supports, then known-order
+    identification for the remaining bits. Returns (bits, code terms)."""
+    if expr.size() < 4:
+        return set(), []
+    chains_, _ = lift_arith.chains(expr)
+    f = lift_arith.compile_expr(expr, Printer)
+    rng = _random.Random(20261106)
+    used, terms = set(), []
+
+    def candidates():
+        for chain in chains_:
+            cand = lift_arith.fit_chain(f, chain, None, rng, None)
+            if cand is not None:
+                yield cand
+        yield from known_order_candidates(expr, variables, used, is_param, f, rng)
+    for cand in candidates():
+        if set(cand["outputs"]) & used:
+            continue
+        kind = "bilinear" if any(cand["bilinear"].values()) else "linear"
+        z = lift_arith.candidate_expr(cand, variables)
+        solver = z3.Solver(); solver.set("timeout", ARITH_PROOF_MS[kind])
+        solver.add(z3.Or(*[z3.Extract(o, o, expr) != z3.Extract(q, q, z) for q, o in enumerate(cand["outputs"])]))
+        os.makedirs(f"{out_dir_proofs}", exist_ok=True)
+        qfile = f"{out_dir_proofs}/arith_{len(arith_log)}.smt2"
+        open(qfile, "w").write(solver.to_smt2())
+        status = str(solver.check())
+        entry = {"node": node_id, "kind": kind, "width": cand["width"], "operand_widths": [len(g) for g in cand["operands"]],
+                 "signed": cand.get("signed"),
+                 "const": cand["const"], "linear": cand["linear"], "bilinear": {f"{g},{h}": v for (g, h), v in cand["bilinear"].items()},
+                 "random_tests": 64, "proof": status.upper(), "query": qfile, "sha256": hashlib.sha256(open(qfile, "rb").read()).hexdigest()}
+        arith_log.append(entry)
+        entry["method"] = cand.get("method", "nested_support_chain")
+        if status != "unsat":
+            continue  # tested candidate only: never used in the program
+        entry["order_ambiguous"] = cand.get("order_ambiguous", False)
+        if writes and len(cand["outputs"]) == expr.size() and not cand.get("order_ambiguous"):
+            learn_order(writes, cand["outputs"], f"proven {kind} output")
+        for grp in cand["operands"]:
+            syms_ = {b[0] for b in grp if b is not None}
+            if None not in grp and len(syms_) == 1 and base_word(next(iter(syms_))):
+                learn_order(base_word(next(iter(syms_))), [k for _, k in grp], f"proven {kind} operand")
+        m = cand["width"]
+        names = []
+        for gi, grp in enumerate(cand["operands"]):
+            syms_ = {b[0] for b in grp if b is not None}
+            nm = f"a{len(out)}_{gi}"
+            if all(x.startswith("input:") and variables[x].size() == 1 for x in syms_) and None not in grp:
+                out.append(f"{ind}{nm} = padword(pads, {phase_code}, {registry.const('PADS', tuple(x.partition(':')[2] for x, _ in grp))})")
+            else:
+                codes = [None if b is None else src(*b) for b in grp]
+                bases = {c[0] for c in codes if c is not None}
+                if len(bases) == 1:
+                    out.append(f"{ind}{nm} = bits({next(iter(bases))}, *{registry.const('ORD', tuple(None if c is None else c[1] for c in codes))})")
+                else:
+                    out.append(f"{ind}{nm} = pick(" + ", ".join("0, None" if c is None else f"{c[0]}, {c[1]}" for c in codes) + ")")
+            if cand.get("signed", [False] * len(cand["operands"]))[gi]:
+                out.append(f"{ind}{nm} = sgn({nm}, {len(grp)})  # two's complement operand")
+            names.append(nm)
+        poly = [str(cand["const"])] if cand["const"] else []
+        sc = lambda c_: c_ - (1 << m) if c_ >> (m - 1) else c_  # print coefficients as signed residues
+        for g, cg in enumerate(cand["linear"]):
+            if cg:
+                poly.append(names[g] if sc(cg) == 1 else (f"-{names[g]}" if sc(cg) == -1 else f"({sc(cg)}) * {names[g]}"))
+        for (g, h), dv in cand["bilinear"].items():
+            if dv:
+                poly.append(f"{names[g]} * {names[h]}" if sc(dv) == 1 else f"({sc(dv)}) * {names[g]} * {names[h]}")
+        zname = f"z{len(out)}"
+        out.append(f"{ind}{zname} = ({' + '.join(poly) or '0'}) & {hex((1 << m) - 1)}  # proven: {kind} word arithmetic")
+        terms.append(f"place({zname}, *{registry.const('OUT', tuple(cand['outputs']))})")
+        used |= set(cand["outputs"])
+        lift_stats[f"arith_{kind}_bits"] += m
+    return used, terms
+
+
+def emit_lifted(expr, env, indent, is_param, target, alias=None, node_id=None, phase_code="ph", writes=None):
+    """Lines computing `target` = expr with proven arithmetic, routes, XOR layers and tables
+    lifted; None if nothing lifts. alias maps a 1-bit parameter symbol to (code, bit) of a loop counter."""
+    variables = {str(x): x for x in z3_vars(expr)}
+    alias = alias or {}
+    ind = " " * indent
+    out, local = [], {}
+
+    def src(sname, k):
+        if sname in alias:
+            return alias[sname]
+        if sname not in local:
+            local[sname] = f"s{len(local)}"
+            out.append(f"{ind}{local[sname]} = {env(sname)}")
+        return local[sname], k
+    abits, aterms = arith_part(expr, variables, node_id, phase_code, src, out, ind, writes, is_param)
+    rest = z3.simplify(expr & z3.BitVecVal(((1 << expr.size()) - 1) ^ sum(1 << i for i in abits), expr.size())) if abits else expr
+    plan = lift.lift(rest, variables, is_param)
+    if not (aterms or plan["route"] or plan["xor"] or plan["tables"] or plan["param_route"]):
+        return None
+
+    def gather(items):
+        codes = [src(x, k) for x, k in items]
+        if len({c for c, _ in codes}) == 1:
+            return f"bits({codes[0][0]}, *{tuple(b for _, b in codes)})"
+        return "pick(" + ", ".join(f"{c}, {b}" for c, b in codes) + ")"
+
+    def routes(pairs_by_code, prefix="R"):
+        terms = []
+        for code, pairs in sorted(pairs_by_code.items()):
+            terms.append(f"route({code}, {registry.const(prefix, tuple(sorted(pairs)))})")
+        return terms
+    parts, xor_terms = list(aterms), []
+    inv = 0
+    by_code = collections.defaultdict(list)
+    pin_pairs = []
+    for o, (sname, k), flag in plan["route"]:
+        inv |= flag << o
+        if variables[sname].size() == 1 and sname not in alias:
+            pin_pairs.append((o, src(sname, k)[0]))
+        else:
+            code, b = src(sname, k); by_code[code].append((o, b))
+    parts += routes(by_code)
+    if pin_pairs:
+        parts.append("pins(" + ", ".join(f"({o}, {c})" for o, c in sorted(pin_pairs)) + ")")
+    lift_stats["route_bits"] += len(plan["route"])
+    # XOR layers: the t-th term of every bit (ordered by source and rotation offset) forms layer t
+    if plan["xor"]:
+        layers = collections.defaultdict(lambda: collections.defaultdict(list))
+        for o, terms, c0 in plan["xor"]:
+            inv |= c0 << o
+            keyed = sorted(terms, key=lambda xk: (xk[0], (xk[1] - o) % variables[xk[0]].size()))
+            seen = collections.Counter()
+            for x, k in keyed:
+                code, b = src(x, k)
+                layer = (code, seen[code]); seen[code] += 1
+                layers[layer][code].append((o, b))
+        xs = []
+        for layer in sorted(layers):
+            xs += routes(layers[layer], "X")
+        parts.append("(" + " ^ ".join(xs) + ")")
+        lift_stats["xor_bits"] += len(plan["xor"])
+    # tables: XOR pre-whitening, then classification up to wire order
+    loops_ = collections.defaultdict(list)
+    for t in plan["tables"]:
+        w = lift.whiten(t, is_param)
+        if w:
+            name, in_order, out_order = registry.classify(w["table"], len(w["a"]), len(t["outputs"]))
+            a = [w["a"][q] for q in in_order]; b = [w["b"][q] for q in in_order]
+            outs = tuple(t["outputs"][q] for q in out_order)
+            asym, bsym = {x for x, _ in a}, {x for x, _ in b}
+            if len(asym) == 1 and len(bsym) == 1 and not (asym | bsym) & set(alias):
+                loops_[(name, "xor", asym.pop(), bsym.pop())].append((tuple(k for _, k in a), tuple(k for _, k in b), outs))
+            else:
+                parts.append(f"place({name}[{gather(a)} ^ {gather(b)}], *{outs})")
+            lift_stats["xor_table_bits"] += len(t["outputs"])
+        else:
+            name, in_order, out_order = registry.classify(t["table"], len(t["inputs"]), len(t["outputs"]))
+            ins = [t["inputs"][q] for q in in_order]
+            outs = tuple(t["outputs"][q] for q in out_order)
+            isym = {x for x, _ in ins}
+            if len(isym) == 1 and not isym & set(alias):
+                loops_[(name, "plain", isym.pop(), None)].append((tuple(k for _, k in ins), None, outs))
+            else:
+                parts.append(f"place({name}[{gather(ins)}], *{outs})")
+            lift_stats["table_bits"] += len(t["outputs"])
+        lift_stats["tables"] += 1
+    for (name, kind, A, B), inst in loops_.items():
+        ca = src(A, 0)[0]
+        if len(inst) == 1:
+            ia, ib, outs = inst[0]
+            idx = f"bits({ca}, *{ia})" + (f" ^ bits({src(B, 0)[0]}, *{ib})" if kind == "xor" else "")
+            parts.append(f"place({name}[{idx}], *{outs})")
+            continue
+        GA = registry.const("IN", tuple(i[0] for i in inst)); OUT = registry.const("OUT", tuple(i[2] for i in inst))
+        idx = f"bits({ca}, *{GA}[j])"
+        if kind == "xor":
+            GB = registry.const("IN", tuple(i[1] for i in inst)); idx += f" ^ bits({src(B, 0)[0]}, *{GB}[j])"
+        acc = f"u{len(out)}"
+        out.append(f"{ind}{acc} = 0")
+        out.append(f"{ind}for j in range({len(inst)}):  # {len(inst)} instances of {name}")
+        out.append(f"{ind}    {acc} |= place({name}[{idx}], *{OUT}[j])")
+        parts.append(acc)
+    # parameter parts (XORed on top): single parameter bits are routes, the rest small tables
+    pby = collections.defaultdict(list)
+    for o, params, g in plan["param_route"]:
+        if len(params) == 1 and g == [0, 1]:
+            code, b = src(*params[0]); pby[code].append((o, b))
+        else:
+            xor_terms.append(f"({registry.const('P', tuple(g))}[{gather(params)}] << {o})")
+        lift_stats["param_bits"] += 1
+    xor_terms = routes(pby, "R") + xor_terms
+    if plan["keep"]:
+        mask = sum(1 << i for i in plan["keep"])
+        kexpr = z3.simplify(rest & z3.BitVecVal(mask, expr.size()))
+        pr = Printer(env)
+        code = pr.emit(kexpr)
+        out += [ind + ln[4:] for ln in pr.lines]
+        parts.append(code)
+        lift_stats["kept_bits"] += len(plan["keep"])
+    value = " | ".join(parts) if parts else "0"
+    const = plan["const"] ^ inv
+    if const:
+        value = f"({value}) ^ {hex(const)}"
+    if xor_terms:
+        value = f"({value}) ^ " + " ^ ".join(xor_terms)
+    out.append(f"{ind}{target} = {value}")
+    return out
+
+
+def emit_flat_node_lifted(key):
+    name, ph = key
+    node = nodes[key]
+
+    def env(sym_, ph=ph, node=node):
+        kind, _, base = sym_.partition(":")
+        if kind == "word":
+            return source_code(node, sym_)
+        if kind == "input":
+            return f"pads[{(base, ph)!r}]"
+        raise KeyError(sym_)
+    lifted = emit_lifted(node["expr"], env, 4, lambda s_: False, f"v[{key!r}]", node_id=list(key), phase_code=str(ph), writes=name)
+    plain = emit_flat_node(key)
+    return lifted if lifted is not None and len(lifted) <= len(plain) else plain
 
 
 rolled = list(header)
@@ -613,7 +942,37 @@ for key in order:
     elif L["index"] not in emitted:
         emitted.add(L["index"]); rolled += emit_loop(L)
 rolled += tail
-program = "\n".join(rolled) + "\n"
+program_rolled = "\n".join(rolled) + "\n"
+open(f"{out}/program_rolled.py", "w").write(program_rolled)
+
+LIFT = True
+lifted_lines = []
+emitted = set()
+for key in order:
+    L = in_loop.get(key)
+    if L is None:
+        lifted_lines += emit_flat_node_lifted(key)
+    elif L["index"] not in emitted:
+        emitted.add(L["index"]); lifted_lines += emit_loop(L, lifted=True)
+tail_lifted = ["    outputs = {}"]
+for ob in observations:
+    def env(sym, ph=ob["phase"]):
+        kind, _, base = sym.partition(":")
+        if kind == "word":
+            p2, d = last_write(base, ph)
+            return f"v[{(base, p2)!r}]" if d == 0 else f"state[{(base, p2, d)!r}]"
+        if kind == "input":
+            return f"pads[{(base, ph)!r}]"
+        raise KeyError(sym)
+    target = f"outputs[{(ob['port'], ob['phase'])!r}]"
+    code = emit_lifted(ob["expr"], env, 4, lambda s_: False, target, node_id=["output", ob["port"], ob["phase"]], phase_code=str(ob["phase"]))
+    pr = Printer(env)
+    plain = pr.lines + [f"    {target} = {pr.emit(ob['expr'])}"]
+    tail_lifted += code if code is not None and len(code) <= len(plain) else plain
+tail_lifted += tail[tail.index("    new_state = {}"):]
+hdr = list(header)
+cut = hdr.index("def transaction(pads, state):")
+program = "\n".join(hdr[:cut] + registry.lines() + [""] + hdr[cut:] + lifted_lines + tail_lifted) + "\n"
 open(f"{out}/program.py", "w").write(program)
 json.dump({"pad_reads": sorted(pad_reads), "state_keys": state_keys,
            "observations": [(o["port"], o["phase"]) for o in observations]}, open(f"{out}/interface.json", "w"), indent=1)
@@ -684,9 +1043,14 @@ def validate(text, path):
 
 
 flat_results, flat_failure = validate(program_flat, f"{out}/program_flat.py")
+rolled_results, rolled_failure = validate(program_rolled, f"{out}/program_rolled.py")
 results, first_failure = validate(program, f"{out}/program.py")
 ok = lambda r: bool(r["compared"]) and not r["mismatch"]
-report = {"case": case, "status": "PASS" if ok(results) and ok(flat_results) else "FAIL",
+report = {"case": case, "status": "PASS" if ok(results) and ok(flat_results) and ok(rolled_results) else "FAIL",
+          "rolled_validation": dict(rolled_results), "rolled_first_failure": rolled_failure,
+          "rolled_program_lines": program_rolled.count("\n"),
+          "lifting": dict(lift_stats), "arithmetic": arith_log, "word_orders": {w: order_sources[w] for w in sorted(word_order)}, "tables": {name: {"inputs": k, "outputs": m, "instances": registry.uses[name], "table": T}
+                                                for (k, m), v in registry.classes.items() for name, T in v},
           "validation": dict(results), "first_failure": first_failure,
           "flat_validation": dict(flat_results), "flat_first_failure": flat_failure,
           "flat_program_lines": program_flat.count("\n"),

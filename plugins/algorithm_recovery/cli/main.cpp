@@ -168,7 +168,7 @@ int main(int argc, char** argv)
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
             {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window", "--protocol"}},
             {"state", {"--window", "--profiles", "--protocol"}}, {"certify", {"--horizon"}},
-            {"graph", {"--window", "--profiles", "--protocol"}}};
+            {"graph", {"--window", "--profiles", "--protocol", "--ablation-trace-controls"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "replay-state")
@@ -260,8 +260,12 @@ int main(int argc, char** argv)
                     }
                 if (extraction_window != window) std::cout << "WINDOW clipped to certified region: " << extraction_window << std::endl;
             }
+            // Evaluation-only ablation: keep the certificate (windows, per-phase constants) but extract
+            // equations with EVERY FF control fixed to its trace value, as trace-guided recovery does.
+            const bool ablation = options.count("--ablation-trace-controls") != 0;
+            if (ablation) std::cout << "ABLATION: all FF controls concretized to trace values (not a certified extraction)" << std::endl;
             auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], extraction_window, profiles_to_analyze,
-                certificate ? &certificate->taint : nullptr);
+                certificate && !ablation ? &certificate->taint : nullptr);
             if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
             if (std::string(argv[1]) == "state")
             {

@@ -6,12 +6,18 @@ multi-role if its write events within one period compute >= 2 distinct functions
 (distinct raw expression hashes; identical functions at different slots count once).
 Register-level baseline: one node per register whose operand set is the union over its
 write events. Spurious dependencies = union operands absent from a given event.
-usage: storage_reuse.py PROGRAM_DIR"""
+usage: storage_reuse.py PROGRAM_DIR | GRAPH_JSON"""
 import collections, json, sys
 
 d = sys.argv[1]
-p = json.load(open(f"{d}/program.json"))
-m = json.loads(open(f"{d}/recovered.cpp", "rb").read()[p["model_offset"]:p["model_offset"] + p["model_length"]])
+if d.endswith(".json"):  # a certified event graph (hal-recover graph / analyze: graph_<profile>.json)
+    import hashlib
+    g = json.load(open(d))
+    m = {"period": g["period"], "excluded": g["excluded"],
+         "nodes": [dict(n, raw_sha256=hashlib.sha256(n["smt2"].encode()).hexdigest()) for n in g["nodes"]]}
+else:
+    p = json.load(open(f"{d}/program.json"))
+    m = json.loads(open(f"{d}/recovered.cpp", "rb").read()[p["model_offset"]:p["model_offset"] + p["model_length"]])
 by_word = collections.defaultdict(list)
 for n in m["nodes"]:
     by_word[n["name"]].append(n)
