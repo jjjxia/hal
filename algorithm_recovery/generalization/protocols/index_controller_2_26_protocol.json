@@ -1,0 +1,10 @@
+{
+ "schema": "PAD_PROTOCOL_V1",
+ "source_sha256": "4aadb0dd7a8f66e8d9a08f5889aab22d7f2a44c18030d8c77df21abf60a0060f",
+ "non_data_inputs": [
+  2,
+  3,
+  47
+ ],
+ "description": "Index controller 2.26: clock pads 3 and 2 and the automatically discovered active-low reset pad 47 are protocol inputs; every other pad is free data (no claim about board-level roles)."
+}

@@ -1,0 +1,24 @@
+Index firmware certificates (protocol-relative schedule, native C1), recorded 2026-11-02
+=======================================================================================
+Netlists: SteamVR 2.26 images (identity by hash only; not redistributed), recovered under
+/home/jiahao/HardwareRE/dynamicRE/harder_netlists/consumer_bitstreams/artifacts/netlists/.
+Protocol rule (same for both, fixed before certifying the headset): the clock pads and the
+reset pad discovered by `hal-recover trace` are protocol inputs; every other pad is free data.
+Trace: `hal-recover trace ... --profiles irregular --profile-length 1024 --seed 20261031`.
+
+                       controller (indexcontroller_fpga_2_26)   headset (ice40cm_corelv_20181219v2_26)
+recovered.json sha256  4aadb0dd...                              3d105d70...
+protocol               protocols/index_controller_2_26_protocol.json   protocols/index_headset_2_26_protocol.json
+                       non-data pads 2, 3, 47                   non-data pads 2, 3, 52
+status                 PROTOCOL_SCHEDULE_CERTIFIED              PROTOCOL_SCHEDULE_CERTIFIED
+origin / period        399 / 128 events                         399 / 128 events
+flip-flops             3,469                                    3,505
+control nets           133 (98 carry data)                      137 (102 carry data)
+untainted FF per phase 170 (mean)                               170 (mean)
+concretized controls   35 per phase (mean)                      35 per phase (mean)
+free RAM read latches  336                                      336
+time                   107 s                                    105 s (8 refinement rounds; round 7 has 0 failures)
+receipts               build/index_c1_v1/controller_cert_v2/    build/index_c1_v1/headset_cert_v1/
+Scope (from certificate.json): every admitted run satisfies R_t for all t; derived-clock edges
+are taken from untainted observations; Z3 and the original-JSON cell semantics are trusted.
+Program recovery for Index is not done (RAM support missing in c3/decompile.py).
