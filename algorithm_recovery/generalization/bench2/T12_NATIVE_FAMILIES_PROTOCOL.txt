@@ -1,0 +1,20 @@
+T1.2 / E1.4 on the held-out set, written 2026-11-02 BEFORE implementing or running
+=================================================================================
+The original Daikon and Trace2Model binaries are downloaded third-party code whose execution
+needs the user's permission; until then two method families are re-implemented on the native
+pipeline with their original acceptance rules (as F1/F2 were in the earlier RQ2 study):
+ F2  fitting + CEC: each next-state bit of a target word at a phase is fitted over GF(2) on the
+     training samples (columns: support bits not constant in training); a word candidate is
+     ACCEPTED if every bit is consistent with training and equals the netlist cone once the
+     support bits that are constant in training are fixed to those values (CEC under
+     training-constant bits).
+ F1  Daikon-style invariant mining over word values (bit order as grouped by HAL): T == c,
+     T == X, T == X ^ Y, T == X + Y, T == X - Y (mod 2^n) over the node's source words of the
+     same width; ACCEPTED if it holds on every training sample.
+Targets: every multi-bit node (word, phase) of the graph used for program_v5.
+Training samples: the trace events of the training window at that phase (pre values -> post).
+Judge: an accepted candidate is WRONG if z3 refutes its equality with the certified specialised
+node function (certificate known bits substituted). A wrong candidate is CONFIRMED if it
+mispredicts the next value on some event at that phase of the variant trace (same protocol,
+fresh data), i.e. a reachable error.
+Reported per design and family: targets, accepted, wrong, confirmed; no tuning afterwards.

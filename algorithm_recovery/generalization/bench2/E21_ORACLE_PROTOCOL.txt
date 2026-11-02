@@ -61,3 +61,17 @@ STATUS 2026-11-02 (session stopped by usage limit):
  Amendment-4 scorer run only on present (1/1/1) and qdiv (1/0.69/0.74). qdiv's remaining
  differences are early-iteration conditional subtractions that random full-width divisors never
  trigger in the oracle; NOT yet resolved. Remaining cases not rescored with amendment 4.
+
+Amendment 5 (2026-11-02, after the amendment-4 run on present and qdiv; all eight cases are then
+rescored): negative answers of the sampled write and producer tests are confirmed by z3 on the RTL
+word-level cone (tainted leaves and the register's own Q symbolic, other leaves at their simulated
+values): written iff D != Q is satisfiable; X is a producer iff D(X=x1) != D(X=x2) is satisfiable
+with all other tainted leaves free. UNKNOWN (5 s) keeps the sampled answer and is counted.
+Sampling cannot find rarely firing data conditions (qdiv's early conditional subtractions).
+Amendment 5b (same day): the sampled taint test is confirmed by z3 in the same way (tainted iff the
+next value depends on the currently tainted leaves), cached per register, transaction-relative
+cycle and set of tainted leaves.
+Amendment 5c (same day, after the amendment-5 scores of ibex_mul): recovered source bits whose
+synthesized-netlist name maps to no RTL register (synthesis renamed some FF bits) make that event's
+recovered producer set unknown; such events are excluded from the producer scores and counted as
+"producer_unmapped_events".

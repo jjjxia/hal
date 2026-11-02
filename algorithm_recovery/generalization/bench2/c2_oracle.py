@@ -151,6 +151,127 @@ def evaluate(vals, cellset=None):
         eval_cell(cells[n], vals)
 
 
+import z3
+
+
+def z3_cone(n, vals, sym_leaves, cset):
+    """D of register n as a z3 bit-vector: leaves in sym_leaves are variables, other nets take vals."""
+    var, memo = {}, {}
+    for leaf in sym_leaves:
+        bits_ = [leaf[1]] if isinstance(leaf, tuple) else [b for b in regs[leaf]["connections"]["Q"] if isinstance(b, int)]
+        name = f"port{leaf[1]}" if isinstance(leaf, tuple) else f"reg_{leaf}"
+        v = z3.BitVec(name, len(bits_))
+        var[leaf] = v
+        for i, b in enumerate(bits_):
+            memo[b] = z3.Extract(i, i, v)
+
+    def bitexpr(b):
+        if b == "1":
+            return z3.BitVecVal(1, 1)
+        if not isinstance(b, int):
+            return z3.BitVecVal(0, 1)
+        if b in memo:
+            return memo[b]
+        return z3.BitVecVal(vals.get(b, 0), 1)
+
+    def vec(bits_):
+        es = [bitexpr(b) for b in bits_]
+        return z3.Concat(*reversed(es)) if len(es) > 1 else es[0]
+
+    def ext(x, w, signed, to):
+        if to <= w:
+            return z3.Extract(to - 1, 0, x) if to < w else x
+        return z3.SignExt(to - w, x) if signed else z3.ZeroExt(to - w, x)
+
+    for cn_name in cset:
+        c = cells[cn_name]; t, cn = c["type"], c["connections"]
+        yw = len(cn["Y"])
+        A = vec(cn["A"]) if cn.get("A") else None
+        B = vec(cn["B"]) if cn.get("B") else None
+        aw, bw = len(cn.get("A", [])), len(cn.get("B", []))
+        asg, bsg = P(c, "A_SIGNED"), P(c, "B_SIGNED")
+        one, zero = z3.BitVecVal(1, yw), z3.BitVecVal(0, yw)
+        b1 = lambda cond: z3.If(cond, z3.BitVecVal(1, yw), z3.BitVecVal(0, yw))
+        if t == "$mux":
+            y = z3.If(vec(cn["S"]) != 0, B, A)
+        elif t == "$pmux":
+            S = vec(cn["S"]); y = A
+            for k in reversed(range(len(cn["S"]))):
+                y = z3.If(z3.Extract(k, k, S) == 1, z3.Extract((k + 1) * yw - 1, k * yw, B), y)
+        elif t in ("$add", "$sub", "$mul", "$and", "$or", "$xor", "$xnor"):
+            a, b = ext(A, aw, asg, yw), ext(B, bw, bsg, yw)
+            y = {"$add": lambda: a + b, "$sub": lambda: a - b, "$mul": lambda: a * b, "$and": lambda: a & b,
+                 "$or": lambda: a | b, "$xor": lambda: a ^ b, "$xnor": lambda: ~(a ^ b)}[t]()
+        elif t in ("$div", "$mod"):
+            w = max(aw, bw, yw); a, b = ext(A, aw, asg, w), ext(B, bw, bsg, w)
+            if asg and bsg:
+                y = z3.If(b == 0, z3.BitVecVal(0, w), a / b if t == "$div" else z3.SRem(a, b))
+            else:
+                y = z3.If(b == 0, z3.BitVecVal(0, w), z3.UDiv(a, b) if t == "$div" else z3.URem(a, b))
+            y = ext(y, w, False, yw)
+        elif t == "$not":
+            y = ~ext(A, aw, asg, yw)
+        elif t == "$neg":
+            y = -ext(A, aw, asg, yw)
+        elif t == "$pos":
+            y = ext(A, aw, asg, yw)
+        elif t in ("$eq", "$ne", "$lt", "$le", "$gt", "$ge"):
+            sg = asg and bsg; w = max(aw, bw)
+            a, b = ext(A, aw, sg, w), ext(B, bw, sg, w)
+            if sg:
+                cond = {"$eq": a == b, "$ne": a != b, "$lt": a < b, "$le": a <= b, "$gt": a > b, "$ge": a >= b}[t]
+            else:
+                cond = {"$eq": a == b, "$ne": a != b, "$lt": z3.ULT(a, b), "$le": z3.ULE(a, b), "$gt": z3.UGT(a, b), "$ge": z3.UGE(a, b)}[t]
+            y = b1(cond)
+        elif t == "$logic_not":
+            y = b1(A == 0)
+        elif t == "$logic_and":
+            y = b1(z3.And(A != 0, B != 0))
+        elif t == "$logic_or":
+            y = b1(z3.Or(A != 0, B != 0))
+        elif t in ("$reduce_or", "$reduce_bool"):
+            y = b1(A != 0)
+        elif t == "$reduce_and":
+            y = b1(A == (1 << aw) - 1)
+        elif t in ("$reduce_xor", "$reduce_xnor"):
+            r_ = z3.Extract(0, 0, A)
+            for i in range(1, aw):
+                r_ = r_ ^ z3.Extract(i, i, A)
+            r_ = ~r_ if t == "$reduce_xnor" else r_
+            y = z3.ZeroExt(yw - 1, r_) if yw > 1 else r_
+        elif t in ("$shl", "$sshl", "$shr", "$sshr", "$shift", "$shiftx"):
+            w = max(aw, yw, 1) + 1; sw = max(w, bw) + 1
+            a = ext(A, aw, asg and t in ("$sshr", "$shift", "$shl", "$sshl"), sw)
+            bb = ext(B, bw, bsg and t in ("$shift", "$shiftx"), sw)
+            if t in ("$shl", "$sshl"):
+                y = a << bb
+            elif t == "$shr":
+                y = z3.LShR(ext(A, aw, False, sw), bb)
+            elif t == "$sshr":
+                y = a >> bb
+            else:
+                y = z3.If(bb < 0 if bsg else z3.BoolVal(False), a << (-bb), (a >> bb) if t == "$shift" and asg else z3.LShR(ext(A, aw, False, sw), bb))
+                if t == "$shiftx":
+                    y = z3.If(z3.UGE(bb, aw) if not bsg else bb >= aw, z3.BitVecVal(0, sw), y)
+            y = ext(y, sw, False, yw)
+        else:
+            raise NotImplementedError(t)
+        y = ext(y, y.size(), False, yw) if y.size() != yw else y
+        for i, b in enumerate(cn["Y"]):
+            if isinstance(b, int):
+                memo[b] = z3.Extract(i, i, y)
+    return vec(regs[n]["connections"]["D"]), var
+
+
+z3_stats = collections.Counter()
+
+
+def sat(cond):
+    s_ = z3.Solver(); s_.set("timeout", 5000); s_.add(cond)
+    r_ = s_.check(); z3_stats[str(r_)] += 1
+    return r_
+
+
 regs = {n: c for n, c in cells.items() if c["type"] in SEQ}
 names = {}
 for nm, d in rtl["netnames"].items():
@@ -235,6 +356,7 @@ for ti, t in enumerate(held):
     for r in range(period_ev):
         tx_of_event[t["first_event"] + r] = (ti, r)
 TR = 12
+z3_write, z3_prod, z3_taint = {}, {}, {}
 
 
 def tainted_leaves(leaves):
@@ -279,6 +401,15 @@ for e in rising:
             v2 = dict(vals); randomise(v2, tl); evaluate(v2, cset)
             if word(v2, cn["D"]) != d_actual:
                 tnt = True; break
+        if not tnt and tl:
+            key_t = (n, e - first) if e >= first else (n, e)
+            rel_e = (e - first) % period_ev if e >= first else None
+            ck = (n, rel_e, tuple(sorted(str(x) for x in tl)))
+            if ck not in z3_taint:
+                D_, var_ = z3_cone(n, vals, tl, cset)
+                fresh = [(v, z3.FreshConst(v.sort())) for v in var_.values()]
+                z3_taint[ck] = sat(D_ != z3.substitute(D_, *fresh)) == z3.sat
+            tnt = z3_taint[ck]
         new_taint[n] = tnt
         if not rec:
             continue
@@ -290,6 +421,12 @@ for e in rising:
             v2 = dict(vals); randomise(v2, tl + own); evaluate(v2, cset)
             if word(v2, cn["D"]) != word(v2, q):
                 written = True; break
+        if not written and (n, r) not in z3_write:
+            D_, var_ = z3_cone(n, vals, tl + own, cset)
+            qv = var_[n] if n in var_ else None
+            z3_write[(n, r)] = qv is not None and sat(D_ != qv) == z3.sat
+        if not written and z3_write.get((n, r)):
+            written = True
         if not written:
             continue
         truth_write[(n, r)].add(ti)
@@ -303,6 +440,13 @@ for e in rising:
                 randomise(v2, [x]); evaluate(v2, cset)
                 if word(v2, cn["D"]) != d1:
                     prods[key] = 1; break
+            if key not in prods and (n, r, key) not in z3_prod:
+                D_, var_ = z3_cone(n, vals, tl, cset)
+                x1 = var_[x]
+                x2 = z3.FreshConst(x1.sort())
+                z3_prod[(n, r, key)] = sat(D_ != z3.substitute(D_, (x1, x2))) == z3.sat
+            if key not in prods and z3_prod.get((n, r, key)):
+                prods[key] = 1
     for n, c in regs.items():
         put(vals, c["connections"]["Q"], nxt[n])
     taint.update(new_taint)
@@ -413,6 +557,7 @@ for w, d in G["words"].items():
             bit_reg[(w, i)] = sorted(regs_)[0]
 pred = collections.defaultdict(dict)  # (reg, rel_event) -> producers
 pred_written = set()
+unmapped_pred = set()
 for nd in G["nodes"]:
     r = rel(nd["phase"])
     prods = {}
@@ -448,6 +593,8 @@ for nd in G["nodes"]:
                 if x is not None:
                     d = s_["delay"] + rho(nd["phase"]) - rho(s_["phase"])
                     pr[(x, None)] = min(d, 1)
+                else:
+                    unmapped_pred.add((reg, r))
             else:
                 pr[("port", s_["name"])] = 0
         pred[(reg, r)].update(pr)
@@ -456,7 +603,8 @@ mapped = set().union(*word_regs.values()) if word_regs else set()
 # a recovered write at event r is the clock edge at r; truth uses the same rising events
 T_ev = {(n, r) for (n, r) in truth if n in mapped}
 P_ev = {k for k in pred_written if k[0] in mapped}
-hit = T_ev & P_ev
+hit_all = T_ev & P_ev
+hit = hit_all - unmapped_pred
 exact = jac = delay_ok = delay_n = 0
 for k in hit:
     tp = {x for x in truth[k] if x[0] != "port"}
@@ -470,10 +618,11 @@ splits = collections.Counter()
 for w, rs in word_regs.items():
     for x in rs:
         splits[x] += 1
-res = {"case": contract["case"], "rtl_registers": len(regs), "mapped_rtl_registers": len(mapped),
+res = {"case": contract["case"], "z3_confirmations": dict(z3_stats), "rtl_registers": len(regs), "mapped_rtl_registers": len(mapped),
        "unmapped_rtl_registers": sorted(reg_name[n] for n in regs if n not in mapped),
        "transactions_simulated": len(held), "truth_write_events": len(T_ev), "recovered_write_events": len(P_ev),
-       "write_recall": len(hit) / len(T_ev) if T_ev else None, "write_precision": len(hit) / len(P_ev) if P_ev else None,
+       "write_recall": len(hit_all) / len(T_ev) if T_ev else None, "write_precision": len(hit_all) / len(P_ev) if P_ev else None,
+       "producer_scored_events": len(hit), "producer_unmapped_events": len(hit_all) - len(hit),
        "producer_exact_match": exact / len(hit) if hit else None, "producer_jaccard": jac / len(hit) if hit else None,
        "producer_delay_accuracy": delay_ok / delay_n if delay_n else None,
        "rtl_registers_split_over_words": sum(1 for v in splits.values() if v >= 2),
