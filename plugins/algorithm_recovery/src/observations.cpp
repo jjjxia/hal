@@ -46,6 +46,13 @@ namespace hal::algorithm_recovery
         auto json = Ordered::parse(text);
         require(json.at("modules").size() == 1, "expected one original module");
         module_name = json.at("modules").begin().key(); m_module = json.at("modules").begin().value();
+        for (auto it = m_module.at("ports").begin(); it != m_module.at("ports").end();)  // same rule as the import frontend
+        {
+            const auto& bits = it.value().at("bits");
+            if (it.value().at("direction") == "output" && std::none_of(bits.begin(), bits.end(), [](const auto& b) { return b.is_number_integer(); }))
+            { constant_output_ports.push_back(it.key()); it = m_module.at("ports").erase(it); }
+            else ++it;
+        }
         std::set<PhysicalBit> output_pads;
         for (const auto& port : m_module.at("ports")) for (const auto& bit : port.at("bits"))
         {

@@ -1,0 +1,32 @@
+E2.4 negative cases, written 2026-11-02 BEFORE running them
+===========================================================
+Purpose: the system must either reject (no certificate / graph not closed / program refused)
+or report the case as out of scope. A closed graph with a program that fails held-out or
+fresh-input checks counts as a SILENT WRONG RESULT and is reported as such.
+
+N1 data-dependent schedule: ibex_mul netlist and protocol unchanged except
+   data_ind_timing_i = 0 (multiplier may finish early depending on op_b).
+   Expected: protocol-relative certificate fails (FSM state depends on data), or the
+   certified period does not match the 33-cycle transaction and program recovery is refused.
+   Stages: prepare_bench2 -> trace -> certify -> (if certified) graph -> decompile.
+N2 rotating binding and N3 hidden pipeline: constructed designs, to be specified before running.
+
+N2 rotating binding (specified before running): constructed design rotbind.v, 3-cycle transaction,
+   y = (a+b) + (a^b) on 16-bit operands; the two partial results are bound to registers r0/r1
+   in even transactions and to r1/r0 in odd transactions (a data-independent toggle).
+   Expected: certified schedule period = 2 transactions; program recovery refuses or the
+   period multiple is reported; a closed one-transaction program would be a silent error.
+
+RESULTS
+N1 (2026-11-02): prepare equivalent (278,916 observations, 0 mismatches); certificate
+   PROTOCOL_SCHEDULE_CERTIFIED with period 2 events (one clock) at origin 16, i.e. the FSM
+   state is data and only a one-step relation is certified; graph closed at period 2
+   (15 nodes; 2 words never written); decompile REFUSED: "graph period 2 differs from the
+   transaction length 66". No program was produced. Receipts: build/bench2_neg/neg_ibex_dataind0*.
+N2 (2026-11-02): prepare equivalent (12,352 observations, 0 mismatches); frozen pipeline
+   (run_bench2.sh, 6 GiB cap) passes all stages; certificate period 12 events = 2
+   transactions (origin 10); event graph closed with period 12 (28 nodes, 0 excluded);
+   decompile REFUSED: "graph period 12 differs from the transaction length 6". The graph
+   correctly exposes the two-transaction binding period; no one-transaction program was
+   produced. Receipts: build/bench2_neg/neg_rotbind*.
+N3 hidden pipeline: not run.

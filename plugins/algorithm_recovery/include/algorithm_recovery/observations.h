@@ -34,6 +34,7 @@ namespace hal::algorithm_recovery
         const std::set<PhysicalBit>& leaves() const { return m_leaves; }
         std::string module_name;
         std::string source_path, source_sha256;
+        std::vector<std::string> constant_output_ports;  // output pads driven only by constants (dropped)
         std::map<PhysicalBit, OriginalFF> flip_flops;
         std::set<PhysicalBit> inputs, controls, clocks;
     private:

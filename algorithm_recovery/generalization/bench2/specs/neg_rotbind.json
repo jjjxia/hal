@@ -1,0 +1,40 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/neg_rotbind/synth/rotbind/rotbind.json",
+ "top": "rotbind",
+ "source": {
+  "url": "constructed (E2.4 N2)",
+  "commit": "-",
+  "license": "-",
+  "author": "NetNotary authors",
+  "category": "negative: rotating binding"
+ },
+ "clock": "clk",
+ "non_data": [
+  "rst",
+  "start"
+ ],
+ "defaults": {
+  "rst": 0,
+  "start": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "rst": 1
+   }
+  }
+ ],
+ "period": 3,
+ "schedule": {
+  "0": {
+   "start": 1
+  }
+ },
+ "data_mode": "hold",
+ "case": "neg_rotbind",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102,
+ "negative": "N2: rotating binding"
+}

@@ -71,6 +71,19 @@ namespace hal::algorithm_recovery
             const auto text = read(source), library_text = read(library);
             auto input = Ordered::parse(text), lib = Ordered::parse(library_text);
             require(input.at("modules").size() == 1, "expected one flat recovered module");
+            // Output pads driven only by constants carry no observation: drop and record them
+            // (the same rule is applied by OriginalCircuit, so every stage sees the same pads).
+            Json constant_outputs = Json::array();
+            {
+                auto& mutable_ports = input.at("modules").begin().value().at("ports");
+                for (auto it = mutable_ports.begin(); it != mutable_ports.end();)
+                {
+                    const auto& bits = it.value().at("bits");
+                    if (it.value().at("direction") == "output" && std::none_of(bits.begin(), bits.end(), [](const auto& b) { return b.is_number_integer(); }))
+                    { constant_outputs.push_back({{"port", it.key()}, {"bits", bits}}); it = mutable_ports.erase(it); }
+                    else ++it;
+                }
+            }
             const auto& module = input.at("modules").begin().value();
             std::map<std::string, Ordered> types;
             for (const auto& cell : lib.at("cells")) types.emplace(cell.at("name"), cell);
@@ -303,7 +316,7 @@ namespace hal::algorithm_recovery
             result.receipt = {{"status", "IMPORT_CHECKED"}, {"input", std::filesystem::absolute(source).string()}, {"input_sha256", digest(text)},
                 {"library", std::filesystem::absolute(library).string()}, {"library_sha256", digest(library_text)},
                 {"input_cells", input_counts}, {"output_cells", output_counts}, {"counts", counts}, {"ports", Json(ports)},
-                {"restored_unused_input_ports", restored_unused_inputs},
+                {"restored_unused_input_ports", restored_unused_inputs}, {"dropped_constant_output_ports", constant_outputs},
                 {"manual_semantic_inputs", Json::array()}, {"scope", "All pins, parameters, global IO aliases and two-state LUT/carry truth tables; not sequential/RAM behavioral equivalence."}};
             write(out / "prepare.json", result.receipt.dump(2) + '\n');
             write(out / "verify_import.json", result.receipt.dump(2) + '\n');
