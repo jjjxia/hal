@@ -627,6 +627,8 @@ res = {"case": contract["case"], "z3_confirmations": dict(z3_stats), "rtl_regist
        "producer_delay_accuracy": delay_ok / delay_n if delay_n else None,
        "rtl_registers_split_over_words": sum(1 for v in splits.values() if v >= 2),
        "words_merging_registers": sum(1 for rs in word_regs.values() if len(rs) >= 2),
+       "missed_by_register": dict(collections.Counter(reg_name[n] for n, r in T_ev - P_ev)),
+       "truth_writes_by_register": dict(collections.Counter(reg_name[n] for n, r in T_ev)),
        "missed_examples": sorted((reg_name[n], r) for n, r in T_ev - P_ev)[:12],
        "spurious_examples": sorted((reg_name[n], r) for n, r in P_ev - T_ev)[:12],
        "producer_mismatch_examples": [

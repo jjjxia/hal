@@ -18,3 +18,6 @@ node function (certificate known bits substituted). A wrong candidate is CONFIRM
 mispredicts the next value on some event at that phase of the variant trace (same protocol,
 fresh data), i.e. a reachable error.
 Reported per design and family: targets, accepted, wrong, confirmed; no tuning afterwards.
+Addition (2026-11-02, after the first run): for ibex_mul and ascon, whose refuted candidates were not
+exercised by the variant trace, a second fresh trace (variant_stimulus.py seed 20261113, same protocol)
+is used for confirmation; candidates, judge and acceptance rules are unchanged.
