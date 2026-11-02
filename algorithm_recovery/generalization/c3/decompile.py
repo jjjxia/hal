@@ -10,9 +10,15 @@ Steps (NetNotary C3):
  4. emit a Python function (one call = one transaction) and validate it against the
     original-gate trace on transactions disjoint from the extraction window.
 
+Step 3 (roll-up): consecutive write steps whose nodes have the SAME raw (unspecialised)
+equation and the same relative sources differ only in certified per-phase constants; they
+are emitted once as a loop body whose varying constants come from an iteration table (or
+an affine counter found over bit orders). Each iteration is SMT-checked against the flat
+specialised node. Both the flat and the rolled program are validated on the trace.
+
 usage: decompile.py GRAPH_JSON TRACE_DIR CONTRACT_JSON OBSERVE_JSON CASE OUT_DIR
 Run with build/c3_venv/bin/python (z3-solver)."""
-import collections, json, os, sys
+import collections, hashlib, itertools, json, os, sys
 import z3
 
 graph_path, trace_dir, contract_path, observe_path, case, out = sys.argv[1:7]
@@ -98,7 +104,8 @@ nodes = {}
 for n in G["nodes"]:
     e = parse(n["smt2"])
     nodes[(n["name"], n["phase"])] = {"expr": specialise(e, n["phase"]), "sources": {s["symbol"]: s for s in n["sources"]},
-                                      "width": n["width"], "raw_size": len(n["smt2"])}
+                                      "width": n["width"], "raw_size": len(n["smt2"]), "raw": e,
+                                      "raw_sha256": hashlib.sha256(n["smt2"].encode()).hexdigest()}
 # Re-index sample coordinates so that one program call is one protocol transaction
 # (Theorem 4: changing the origin is a retiming of the event graph).
 first = contract["transactions"][0]["first_event"]
@@ -306,22 +313,34 @@ lines = ["# Recovered untimed transaction program (generated; do not edit).",
          "def transaction(pads, state):",
          "    \"\"\"pads[(pad, phase)] -> bit for data pads; state[(word, phase, delay)] -> loop-carried value.\"\"\"",
          "    v = {}"]
-for key in order:
+header = list(lines)
+
+
+def source_code(node, sym):
+    s = node["sources"][sym]
+    base = sym.partition(":")[2]
+    return f"v[{(base, s['phase'])!r}]" if s["delay"] == 0 else f"state[{(base, s['phase'], s['delay'])!r}]"
+
+
+def emit_flat_node(key):
     name, ph = key
     node = nodes[key]
 
     def env(sym, ph=ph, node=node):
         kind, _, base = sym.partition(":")
         if kind == "word":
-            s = node["sources"][sym]
-            return f"v[{(base, s['phase'])!r}]" if s["delay"] == 0 else f"state[{(base, s['phase'], s['delay'])!r}]"
+            return source_code(node, sym)
         if kind == "input":
             return f"pads[{(base, ph)!r}]"
         raise KeyError(sym)
     pr = Printer(env)
     code = pr.emit(node["expr"])
-    lines += pr.lines
-    lines.append(f"    v[{key!r}] = {code}")
+    return pr.lines + [f"    v[{key!r}] = {code}"]
+
+
+for key in order:
+    lines += emit_flat_node(key)
+body_start = len(lines)
 lines.append("    outputs = {}")
 for ob in observations:
     def env(sym, ph=ob["phase"]):
@@ -342,8 +361,262 @@ for (name, ph, d) in state_keys:
     src = f"v[{(name, ph)!r}]" if d == 1 else f"state[{(name, ph, d - 1)!r}]"
     lines.append(f"    new_state[{(name, ph, d)!r}] = {src}")
 lines.append("    return outputs, new_state")
-program = "\n".join(lines) + "\n"
+tail = lines[body_start:]
+program_flat = "\n".join(lines) + "\n"
+open(f"{out}/program_flat.py", "w").write(program_flat)
+
+# ---- step 3: roll-up ------------------------------------------------------------------
+steps = collections.OrderedDict()
+for key in order:
+    steps.setdefault(key[1], []).append(key[0])
+step_phases = list(steps)
+
+
+def known_pattern(sym, ph):
+    """Certified known bits of a symbol at the (remapped) phase ph of a node, lsb first."""
+    kind, _, base = sym.partition(":")
+    table = words[base]["certified_known_lsb_first"] if kind == "word" else inputs[base]["certified_known_lsb_first"]
+    return table[(ph + shift) % P]
+
+
+def raw_symbols(name, ph):
+    return sorted({str(v): v for v in z3_vars(nodes[(name, ph)]["raw"])}.items())
+
+
+def data_symbol(sym, ph):
+    return "x" in known_pattern(sym, ph)
+
+
+def compatible(prev, cur, first):
+    """Step `cur` repeats step `first`. A graph node of the loop's word set that dead-code
+    elimination dropped at `cur` is recomputed (pure, harmless) if its data sources are
+    available: carried words or live nodes."""
+    if not set(steps[cur]) <= set(steps[first]):
+        return False
+    carried = set(steps[first])
+    for name in steps[first]:
+        if (name, cur) not in nodes:
+            return False
+        if (name, cur) not in live:
+            for sym, _ in raw_symbols(name, cur):
+                if sym.startswith("word:") and data_symbol(sym, cur):
+                    src = nodes[(name, cur)]["sources"][sym]
+                    base = sym.partition(":")[2]
+                    if src["delay"] != 0 or (base not in carried and (src["name"], src["phase"]) not in live):
+                        return False
+        if nodes[(name, cur)]["raw_sha256"] != nodes[(name, first)]["raw_sha256"]:
+            return False
+    for name in steps[first]:
+        for sym, _ in raw_symbols(name, cur):
+            if not sym.startswith("word:"):
+                continue
+            if data_symbol(sym, cur) != data_symbol(sym, first):
+                return False
+            if not data_symbol(sym, cur):
+                continue
+            s = nodes[(name, cur)]["sources"][sym]
+            base = sym.partition(":")[2]
+            if base in carried:
+                if (s["name"], s["phase"], s["delay"]) != (base, prev, 0):
+                    return False
+            else:
+                f = nodes[(name, first)]["sources"][sym]
+                if (s["name"], s["phase"], s["delay"]) != (f["name"], f["phase"], f["delay"]):
+                    return False
+    return True
+
+
+def first_step_ok(first):
+    """At the first iteration every node must read a carried word from one common source."""
+    carried, seen = set(steps[first]), {}
+    for name in steps[first]:
+        for sym, _ in raw_symbols(name, first):
+            base = sym.partition(":")[2]
+            if sym.startswith("word:") and base in carried and data_symbol(sym, first):
+                s = nodes[(name, first)]["sources"][sym]
+                if seen.setdefault(base, (s["phase"], s["delay"])) != (s["phase"], s["delay"]):
+                    return False
+    return True
+
+
+MIN_ITERATIONS = 3
+runs, i = [], 0
+while i < len(step_phases):
+    j = i + 1
+    if first_step_ok(step_phases[i]):
+        while j < len(step_phases) and compatible(step_phases[j - 1], step_phases[j], step_phases[i]):
+            j += 1
+    if j - i >= MIN_ITERATIONS:
+        runs.append(step_phases[i:j]); i = j
+    else:
+        i += 1
+
+
+def pattern_subs(sym, var, pat):
+    w = var.size()
+    if "x" not in pat:
+        return const_bv(pat, w)
+    if pat.strip("x"):
+        mask = const_bv("".join("1" if c != "x" else "0" for c in pat), w)
+        val = const_bv("".join(c if c != "x" else "0" for c in pat), w)
+        return (var & ~mask) | val
+    return None
+
+
+def find_counter(iter_vars, table):
+    """Bit order (over the concatenated 1..8 bits of the varying constants) under which the
+    iteration constants form an arithmetic sequence a + b*it; None if there is none."""
+    bits = [(sym, k) for sym, w in iter_vars for k in range(w)]
+    if not 1 <= len(bits) <= 8 or len(table) < 3:
+        return None
+    rows = [[(row[sym] >> k) & 1 for sym, k in bits] for row in table]
+    W = len(bits)
+    for perm in itertools.permutations(range(W)):
+        seq = [sum(r[perm[q]] << q for q in range(W)) for r in rows]
+        b = (seq[1] - seq[0]) % (1 << W)
+        if b and all((seq[t] - seq[0] - b * t) % (1 << W) == 0 for t in range(len(seq))):
+            # position q of the counter holds bit k of symbol sym
+            return {"a": seq[0], "b": b, "width": W, "bits": [bits[perm[q]] for q in range(W)]}
+    return None
+
+
+loops, roll_proofs = [], collections.Counter()
+for li, run in enumerate(runs):
+    first = run[0]
+    names = sorted(steps[first])
+    sym_vars = {}
+    for name in names:
+        for sym, var in raw_symbols(name, first):
+            sym_vars[sym] = var
+    invariant, iter_vars, partial = {}, [], []
+    for sym, var in sorted(sym_vars.items()):
+        pats = [known_pattern(sym, ph) for ph in run]
+        if all(pt == pats[0] for pt in pats):
+            sub = pattern_subs(sym, var, pats[0])
+            if sub is not None:
+                invariant[sym] = sub
+        elif all("x" not in pt for pt in pats):
+            iter_vars.append((sym, var.size()))
+        else:
+            partial.append((sym, var.size()))
+    table = [{sym: int(known_pattern(sym, ph)[::-1], 2) for sym, _ in iter_vars} for ph in run]
+    ptable = [{sym: (int("".join("1" if c != "x" else "0" for c in known_pattern(sym, ph))[::-1], 2),
+                     int("".join(c if c != "x" else "0" for c in known_pattern(sym, ph))[::-1], 2)) for sym, _ in partial} for ph in run]
+    subs = list(invariant.items())
+    iter_sym = {sym: z3.BitVec("iter:" + sym, w) for sym, w in iter_vars}
+    for sym, w in iter_vars:
+        subs.append((sym, iter_sym[sym]))
+    for sym, w in partial:
+        subs.append((sym, (sym_vars[sym] & ~z3.BitVec("imask:" + sym, w)) | z3.BitVec("ival:" + sym, w)))
+    templates = {}
+    for name in names:
+        raw = nodes[(name, first)]["raw"]
+        templates[name] = z3.simplify(z3.substitute(raw, *[(sym_vars[sym], e) for sym, e in subs]))
+    # per-iteration check: template with this iteration's constants == flat specialised node
+    for it, ph in enumerate(run):
+        inst = [(iter_sym[sym], z3.BitVecVal(table[it][sym], w)) for sym, w in iter_vars]
+        inst += [(z3.BitVec("imask:" + sym, w), z3.BitVecVal(ptable[it][sym][0], w)) for sym, w in partial]
+        inst += [(z3.BitVec("ival:" + sym, w), z3.BitVecVal(ptable[it][sym][1], w)) for sym, w in partial]
+        for name in names:
+            instance = z3.substitute(templates[name], *inst) if inst else templates[name]
+            solver = z3.Solver(); solver.set("timeout", 120000)
+            solver.add(instance != nodes[(name, ph)]["expr"])
+            r = solver.check()
+            roll_proofs[str(r)] += 1
+            assert r == z3.unsat, f"roll-up iteration {it} of {name} not proven: {r}"
+    stride = run[1] - run[0]
+    regular = all(run[k + 1] - run[k] == stride for k in range(len(run) - 1))
+    loops.append({"index": li, "phases": run, "names": names, "templates": templates, "iter_vars": iter_vars, "partial": partial,
+                  "table": table, "ptable": ptable, "counter": find_counter(iter_vars, table), "regular": regular, "stride": stride})
+
+
+def pyname(sym):
+    return sym.replace(":", "_").replace("-", "_")
+
+
+def emit_loop(L):
+    first = L["phases"][0]
+    carried = set(L["names"])
+    out_lines = [f"    # loop {L['index']}: {len(L['phases'])} iterations writing {', '.join(L['names'])}"]
+    n = len(L["phases"])
+    if L["regular"]:
+        phase_expr = f"{first} + {L['stride']} * it"
+    else:
+        out_lines.append(f"    L{L['index']}_PHASE = {L['phases']!r}")
+        phase_expr = f"L{L['index']}_PHASE[it]"
+    for sym, w in L["iter_vars"]:
+        if L["counter"] is None:
+            out_lines.append(f"    L{L['index']}_{pyname(sym)} = {[row[sym] for row in L['table']]!r}")
+    for sym, w in L["partial"]:
+        out_lines.append(f"    L{L['index']}_{pyname(sym)} = {[row[sym] for row in L['ptable']]!r}  # (known mask, known value)")
+    # initial values of carried words: the common source at the first iteration
+    init = {}
+    for name in L["names"]:
+        node = nodes[(name, first)]
+        for sym in node["sources"]:
+            base = sym.partition(":")[2]
+            if sym.startswith("word:") and base in carried and data_symbol(sym, first) and base not in init:
+                init[base] = source_code(node, sym)
+    for base in sorted(init):
+        out_lines.append(f"    cur_{base} = {init[base]}")
+    out_lines.append(f"    for it in range({n}):")
+    out_lines.append(f"        ph = {phase_expr}")
+    c = L["counter"]
+    if c is not None:
+        out_lines.append(f"        r = ({c['a']} + {c['b']} * it) & {hex((1 << c['width']) - 1)}  # iteration counter ({c['width']} bits)")
+        per_sym = collections.defaultdict(list)
+        for q, (sym, k) in enumerate(c["bits"]):
+            per_sym[sym].append((k, q))
+        for sym, w in L["iter_vars"]:
+            parts = [f"(((r >> {q}) & 1) << {k})" if k else f"((r >> {q}) & 1)" for k, q in sorted(per_sym[sym])]
+            out_lines.append(f"        {pyname('iter:' + sym)} = {' | '.join(parts)}")
+    else:
+        for sym, w in L["iter_vars"]:
+            out_lines.append(f"        {pyname('iter:' + sym)} = L{L['index']}_{pyname(sym)}[it]")
+    for sym, w in L["partial"]:
+        out_lines.append(f"        {pyname('imask:' + sym)}, {pyname('ival:' + sym)} = L{L['index']}_{pyname(sym)}[it]")
+    new_names = []
+    for name in L["names"]:
+        node = nodes[(name, first)]
+
+        def env(sym, node=node):
+            kind, _, base = sym.partition(":")
+            if kind == "word":
+                if base in carried:
+                    return f"cur_{base}"
+                return source_code(node, sym)
+            if kind == "input":
+                return f"pads[({base!r}, ph)]"
+            if kind in ("iter", "imask", "ival"):
+                return pyname(sym)
+            raise KeyError(sym)
+        pr = Printer(env)
+        code = pr.emit(L["templates"][name])
+        out_lines += ["    " + ln for ln in pr.lines]
+        out_lines.append(f"        new_{name} = {code}")
+        new_names.append(name)
+    for name in new_names:
+        out_lines.append(f"        v[({name!r}, ph)] = new_{name}")
+    carried_written = [nm for nm in new_names if nm in init]
+    if carried_written:
+        out_lines.append("        " + ", ".join(f"cur_{nm}" for nm in carried_written) + " = " + ", ".join(f"new_{nm}" for nm in carried_written))
+    return out_lines
+
+
+rolled = list(header)
+in_loop = {(name, ph): L for L in loops for ph in L["phases"] for name in L["names"]}
+emitted = set()
+for key in order:
+    L = in_loop.get(key)
+    if L is None:
+        rolled += emit_flat_node(key)
+    elif L["index"] not in emitted:
+        emitted.add(L["index"]); rolled += emit_loop(L)
+rolled += tail
+program = "\n".join(rolled) + "\n"
 open(f"{out}/program.py", "w").write(program)
+json.dump({"pad_reads": sorted(pad_reads), "state_keys": state_keys,
+           "observations": [(o["port"], o["phase"]) for o in observations]}, open(f"{out}/interface.json", "w"), indent=1)
 
 # ---- validation against the original-gate trace -------------------------------------
 meta = json.load(open(f"{trace_dir}/native_trace.json"))
@@ -367,45 +640,61 @@ def wordval(name, t, post):
     return v
 
 
-ns = {}
-exec(compile(program, f"{out}/program.py", "exec"), ns)
 training_end = contract["training_end_exclusive"]
-results = collections.Counter()
-first_failure = None
 theta = origin + shift
-for start in range(theta, len(rows) - 2 * P, P):
-    if start < training_end:
-        continue
-    pads = {(base, ph): bitval(int(inputs[base]["bits"][0][1:]), start + ph) for (base, ph) in pad_reads}
-    state = {}
-    ok_state = True
-    for (name, ph, d) in state_keys:
-        val = wordval(name, start + ph - d * P, True)
-        if val is None:
-            ok_state = False
-        state[(name, ph, d)] = val
-    if not ok_state or any(v is None for v in pads.values()):
-        results["skipped_unknown"] += 1
-        continue
-    outs, _ = ns["transaction"](pads, state)
-    for (port, ph), value in outs.items():
-        expected = 0
-        for i, p in enumerate(ports[port]):
-            x = bitval(p["physical_bit"], start + ph)
-            if x is None:
-                expected = None; break
-            expected |= x << i
-        if expected is None:
-            results["unknown_observation"] += 1
+
+
+def validate(text, path):
+    ns = {}
+    exec(compile(text, path, "exec"), ns)
+    results = collections.Counter()
+    first_failure = None
+    for start in range(theta, len(rows) - 2 * P, P):
+        if start < training_end:
             continue
-        results["compared"] += 1
-        if value != expected:
-            results["mismatch"] += 1
-            if first_failure is None:
-                first_failure = {"start": start, "port": port, "phase": ph, "program": value, "trace": expected}
-    results["transactions"] += 1
-report = {"case": case, "status": "PASS" if results["compared"] and not results["mismatch"] else "FAIL",
+        pads = {(base, ph): bitval(int(inputs[base]["bits"][0][1:]), start + ph) for (base, ph) in pad_reads}
+        state = {}
+        ok_state = True
+        for (name, ph, d) in state_keys:
+            val = wordval(name, start + ph - d * P, True)
+            if val is None:
+                ok_state = False
+            state[(name, ph, d)] = val
+        if not ok_state or any(v is None for v in pads.values()):
+            results["skipped_unknown"] += 1
+            continue
+        outs, _ = ns["transaction"](pads, state)
+        for (port, ph), value in outs.items():
+            expected = 0
+            for i, p in enumerate(ports[port]):
+                x = bitval(p["physical_bit"], start + ph)
+                if x is None:
+                    expected = None; break
+                expected |= x << i
+            if expected is None:
+                results["unknown_observation"] += 1
+                continue
+            results["compared"] += 1
+            if value != expected:
+                results["mismatch"] += 1
+                if first_failure is None:
+                    first_failure = {"start": start, "port": port, "phase": ph, "program": value, "trace": expected}
+        results["transactions"] += 1
+    return results, first_failure
+
+
+flat_results, flat_failure = validate(program_flat, f"{out}/program_flat.py")
+results, first_failure = validate(program, f"{out}/program.py")
+ok = lambda r: bool(r["compared"]) and not r["mismatch"]
+report = {"case": case, "status": "PASS" if ok(results) and ok(flat_results) else "FAIL",
           "validation": dict(results), "first_failure": first_failure,
+          "flat_validation": dict(flat_results), "flat_first_failure": flat_failure,
+          "flat_program_lines": program_flat.count("\n"),
+          "loops": [{"iterations": len(L["phases"]), "first_phase": L["phases"][0], "stride": L["stride"] if L["regular"] else None,
+                     "words": L["names"], "iteration_constants": [s_ for s_, _ in L["iter_vars"]],
+                     "partially_known_varying": [s_ for s_, _ in L["partial"]],
+                     "counter": None if L["counter"] is None else {k: L["counter"][k] for k in ("a", "b", "width")}} for L in loops],
+          "rollup_iteration_checks": dict(roll_proofs),
           "graph_nodes": len(nodes), "live_nodes": len(order), "state_values": len(state_keys),
           "data_pad_reads": len(pad_reads), "observations": [(o["port"], o["phase"]) for o in observations],
           "program_lines": program.count("\n"), "validated_on": "held-out transactions (start >= training_end_exclusive), state from the trace"}
