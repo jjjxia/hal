@@ -29,4 +29,15 @@ N2 (2026-11-02): prepare equivalent (12,352 observations, 0 mismatches); frozen 
    decompile REFUSED: "graph period 12 differs from the transaction length 6". The graph
    correctly exposes the two-transaction binding period; no one-transaction program was
    produced. Receipts: build/bench2_neg/neg_rotbind*.
-N3 hidden pipeline: not run.
+N3 hidden pipeline (specified 2026-11-02 before running): constructed hidpipe.v, 3-cycle
+   transaction; register p carries a+b of the PREVIOUS transaction, so
+   y_t = (a_{t-1} + b_{t-1}) + (a_t ^ b_t) (16-bit, p = 0 after reset).
+   Expected: a program with loop-carried state that matches this stream from the reset state
+   (checked on 2,000 fresh transactions), or a refusal. A pure (stateless) program, or one that
+   fails the stream check, is a silent error.
+N3 (2026-11-02): prepare equivalent; frozen pipeline passes all stages; event graph closed;
+   decompile produces a program with ONE loop-carried value (the pipeline register p, read
+   from the previous transaction), held-out 62/62; stream check from the reset state against
+   y_t = (a_{t-1}+b_{t-1}) + (a_t ^ b_t): 2,000/2,000 (negatives/check_hidpipe.py).
+   The hidden pipeline is exposed as explicit state; no silent error.
+Summary: N1 refused, N2 refused (period multiple exposed), N3 handled as a stateful program.

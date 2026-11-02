@@ -85,5 +85,11 @@
    "port": "y",
    "cycle": 3
   }
+ ],
+ "neg_hidpipe": [
+  {
+   "port": "y",
+   "cycle": 3
+  }
  ]
 }
