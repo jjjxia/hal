@@ -778,7 +778,7 @@ def arith_part(expr, variables, node_id, phase_code, src, out, ind, writes=None,
         open(qfile, "w").write(solver.to_smt2())
         status = str(solver.check())
         entry = {"node": node_id, "kind": kind, "width": cand["width"], "operand_widths": [len(g) for g in cand["operands"]],
-                 "signed": cand.get("signed"), "bitwise": (cand.get("bitwise") or {}).get("name") or (bool(cand.get("bitwise")) or None),
+                 "signed": cand.get("signed"), "output_order": list(cand["outputs"]), "bitwise": (cand.get("bitwise") or {}).get("name") or (bool(cand.get("bitwise")) or None),
                  "const": cand["const"], "linear": cand["linear"], "bilinear": {f"{g},{h}": v for (g, h), v in cand["bilinear"].items()},
                  "random_tests": 64, "proof": status.upper(), "query": qfile, "sha256": hashlib.sha256(open(qfile, "rb").read()).hexdigest()}
         arith_log.append(entry)
