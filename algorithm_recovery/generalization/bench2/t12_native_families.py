@@ -83,7 +83,8 @@ def proved_equal(a, b, timeout=10000):
     return True if r == z3.unsat else (False if r == z3.sat else None)
 
 
-train = sorted(e for e in meta["windows"]["training"] if e >= origin)
+win = meta["windows"].get("training") or next(iter(meta["windows"].values()))  # Index traces: one named profile
+train = sorted(e for e in win if e >= origin)
 var_events = list(range(origin, len(vrows) - 1))
 stats = collections.defaultdict(collections.Counter)
 accepted_smt2 = collections.defaultdict(list)

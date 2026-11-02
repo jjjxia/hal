@@ -111,7 +111,7 @@ namespace hal::algorithm_recovery
                 }
                 return cone_cache.at(root);
             };
-            Json proofs = Json::array(); unsigned calls = 0, cache_hits = 0, ff_count = 0, original_fallbacks = 0, sse_skipped = 0;
+            Json proofs = Json::array(); unsigned calls = 0, cache_hits = 0, ff_count = 0, original_fallbacks = 0, sse_skipped = 0, hal_refuted = 0;
             for (auto word = grouped.at("words").begin(); word != grouped.at("words").end(); ++word)
             {
                 auto* module = nl->get_module_by_id(word.value().at("module_id")); require(module, "missing DANA module");
@@ -192,7 +192,15 @@ namespace hal::algorithm_recovery
                             if (std::filesystem::file_size(file) > (4u << 20)) { smt_attempt = "SKIPPED_QUERY_SIZE"; smt_unknown_seen = true; }
                             else { status = proof.check(); if (status == z3::unknown) smt_unknown_seen = true; }
                         }
-                        require(status != z3::sat, "conditional original-LUT equivalence refuted: " + word.key());
+                        // HAL's equation is only a candidate: if the original-netlist check refutes it,
+                        // keep the refutation as a receipt and use the independent interpretation.
+                        std::string refuted_file;
+                        if (status == z3::sat)
+                        {
+                            refuted_file = (out / "proofs" / ("refuted_" + std::to_string(calls) + ".smt2")).string();
+                            std::filesystem::rename(file, refuted_file);
+                            ++hal_refuted; smt_attempt = "REFUTED";
+                        }
                         z3::solver sanity(ctx); sanity.set("timeout", 60000u); sanity.add(condition);
                         require(sanity.check() == z3::sat, "vacuous or UNKNOWN control assumptions");
                         if (status == z3::unsat)
@@ -206,7 +214,7 @@ namespace hal::algorithm_recovery
                             // function by congruence (no SMT needed). The values are fixed at the
                             // net level, not by syntactic subterm matching (which simplification
                             // can defeat), so every occurrence of a concretized control is replaced.
-                            std::filesystem::remove(file);
+                            if (refuted_file.empty()) std::filesystem::remove(file);
                             std::map<PhysicalBit, bool> fixed; std::map<PhysicalBit, z3::expr> memo;
                             for (size_t i = 0; i < key.size(); ++i) if (key[i] >= 0) fixed.emplace(ordered_controls[i], key[i] != 0);
                             std::vector<z3::expr> replaced;
@@ -216,7 +224,7 @@ namespace hal::algorithm_recovery
                             artifacts::write(congruence, Json{{"word", word.key()}, {"time", t}, {"conditions", conditions},
                                 {"rule", "the original interpretation is rebuilt with each listed control net replaced by its value; under the conditions each such net equals that value, so by induction over the acyclic cone the rebuilt function equals the original one"}}.dump(2) + '\n');
                             proofs.push_back({{"word", word.key()}, {"time", t}, {"conditions", conditions}, {"query", congruence.string()}, {"sha256", artifacts::file_hash(congruence)},
-                                              {"result", "CONGRUENCE"}, {"condition_satisfiable", true}, {"whole_word_smt", smt_attempt},
+                                              {"result", "CONGRUENCE"}, {"condition_satisfiable", true}, {"whole_word_smt", smt_attempt}, {"refuted_HAL_query", refuted_file},
                                               {"equation_source", "ORIGINAL_INTERPRETER_CONTROL_SUBSTITUTION"}});
                             expression = pack(ctx, replaced).simplify(); ++original_fallbacks;
                         }
@@ -327,7 +335,7 @@ namespace hal::algorithm_recovery
             result.report = {{"status", "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED"}, {"groups", result.words.size()}, {"FF_bits", ff_count},
                 {"HAL_calls", calls}, {"cache_hits", cache_hits}, {"RAM_instances", base.memories.size()}, {"RAM_port_proofs", ram_proofs}, {"windows", windows}, {"proofs", proofs},
                 {"observation_files", trace.metadata.at("files")}, {"window_length", window_length},
-                {"concretization", taint ? "PROTOCOL_TAINT" : "TRACE_VALUES_OF_ALL_FF_CONTROLS"}, {"original_interpreter_equations", original_fallbacks}, {"variants_without_HAL_SSE", sse_skipped},
+                {"concretization", taint ? "PROTOCOL_TAINT" : "TRACE_VALUES_OF_ALL_FF_CONTROLS"}, {"original_interpreter_equations", original_fallbacks}, {"variants_without_HAL_SSE", sse_skipped}, {"HAL_equations_refuted", hal_refuted},
                 {"complete_update_words", std::count_if(result.words.begin(), result.words.end(), [](const auto& w) { return !w.second.complete_update.empty(); })},
                 {"manual_semantic_inputs", trace.metadata.value("manual_semantic_inputs", Json::array())}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
             artifacts::write(out / "sse_report.json", result.report.dump(2) + '\n');
