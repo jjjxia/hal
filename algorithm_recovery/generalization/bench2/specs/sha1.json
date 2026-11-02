@@ -1,0 +1,46 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/oc_sha_core/synth/sha1/sha1.json",
+ "top": "sha1",
+ "source": {
+  "url": "https://github.com/freecores/sha_core",
+  "commit": "f90e67a6040d7dd5de54188ed0b8b7ec05d4ac85",
+  "license": "OpenCores BSD-style",
+  "author": "marsgod (OpenCores)",
+  "category": "hash"
+ },
+ "clock": "clk_i",
+ "non_data": [
+  "rst_i",
+  "cmd_i",
+  "cmd_w_i"
+ ],
+ "defaults": {
+  "rst_i": 0,
+  "cmd_i": 0,
+  "cmd_w_i": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "rst_i": 1
+   }
+  }
+ ],
+ "period": 92,
+ "schedule": {
+  "0": {
+   "cmd_w_i": 1,
+   "cmd_i": 2
+  },
+  "84": {
+   "cmd_w_i": 1,
+   "cmd_i": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "sha1",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

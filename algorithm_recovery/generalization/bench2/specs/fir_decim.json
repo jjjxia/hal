@@ -1,0 +1,43 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/adi_fir_decim/synth/fir_decim/fir_decim.json",
+ "top": "fir_decim",
+ "source": {
+  "url": "https://github.com/analogdevicesinc/hdl",
+  "commit": "1eb1555998e4caa7e19da403e7a64f6767f0116f",
+  "license": "GPL-2.0 or ADI-BSD",
+  "author": "Analog Devices",
+  "category": "folded DSP",
+  "parameters": "USE_DSP48E=0"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset",
+  "clk_enable"
+ ],
+ "defaults": {
+  "reset": 0,
+  "clk_enable": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset": 1
+   }
+  }
+ ],
+ "period": 10,
+ "schedule": {
+  "0": {
+   "clk_enable": 1
+  },
+  "5": {
+   "clk_enable": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "fir_decim",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

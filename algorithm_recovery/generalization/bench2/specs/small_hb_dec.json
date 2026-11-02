@@ -1,0 +1,47 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/synth/small_hb_dec/small_hb_dec.json",
+ "top": "small_hb_dec",
+ "source": {
+  "url": "https://github.com/EttusResearch/uhd",
+  "commit": "d1be63490e3f3df22ff2f4ea1315f9aada468562",
+  "license": "GPL-3.0-or-later",
+  "author": "Ettus Research",
+  "category": "folded DSP",
+  "parameters": "WIDTH=18"
+ },
+ "clock": "clk",
+ "non_data": [
+  "rst",
+  "bypass",
+  "run",
+  "stb_in"
+ ],
+ "defaults": {
+  "rst": 0,
+  "bypass": 0,
+  "run": 1,
+  "stb_in": 0
+ },
+ "prefix": [
+  {
+   "cycles": 20,
+   "values": {
+    "rst": 1
+   }
+  }
+ ],
+ "period": 8,
+ "schedule": {
+  "0": {
+   "stb_in": 1
+  },
+  "4": {
+   "stb_in": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "small_hb_dec",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

@@ -1,0 +1,45 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/synth/ibex_md_top/ibex_md_top.json",
+ "top": "ibex_md_top",
+ "source": {
+  "url": "https://github.com/lowRISC/ibex",
+  "commit": "f4515520c0045bb8ef1e72d46ed82499a6ac5f18",
+  "license": "Apache-2.0",
+  "author": "lowRISC",
+  "category": "iterative arithmetic",
+  "parameters": "RV32M=RV32MSlow; wrapper ibex_md_top.sv adds the two imd_val registers from ibex_id_stage"
+ },
+ "clock": "clk_i",
+ "non_data": [
+  "rst_ni",
+  "md_op_i",
+  "signed_mode_i",
+  "mult_en_i",
+  "div_en_i",
+  "data_ind_timing_i"
+ ],
+ "defaults": {
+  "rst_ni": 1,
+  "md_op_i": 0,
+  "signed_mode_i": 0,
+  "mult_en_i": 1,
+  "div_en_i": 0,
+  "data_ind_timing_i": 1
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "rst_ni": 0,
+    "mult_en_i": 0
+   }
+  }
+ ],
+ "period": 33,
+ "schedule": {},
+ "data_mode": "hold",
+ "case": "ibex_mul",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

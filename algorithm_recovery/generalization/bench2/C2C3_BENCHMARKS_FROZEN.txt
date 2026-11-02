@@ -1,0 +1,51 @@
+C2/C3 held-out benchmark set, frozen 2026-11-01 BEFORE any recovery run
+=======================================================================
+Selection: background screening of 33 candidates (screening/BENCHMARK_SCREENING.md,
+screening/candidates.json). Eight picks, eight authors/organisations, four categories.
+All are HELD-OUT for NetNotary C1/C2/C3: no recovery, grouping, certificate or
+inverse-folding rule may be tuned on them. Any adapter or rule change made after
+seeing a result on a case turns that case into development data and must be recorded.
+Development set (already seen): seqcordic, slowfil_srl, hwbfly, qtrstage, shared
+biquads, Hilbert, Index firmware.
+
+  case          source (commit)                                   category              author / org
+  present       freecores/present_encryptor 953c39e0              cipher (round-iter.)  R. Ameli
+  sha1          freecores/sha_core f90e67a6                        hash (round-iter.)    marsgod (OpenCores)
+  fir_decim     analogdevicesinc/hdl 1eb15559 (USE_DSP48E=0)       folded DSP            Analog Devices
+  small_hb_dec  EttusResearch/uhd d1be6349 (WIDTH=18)              folded DSP            Ettus Research
+  ibex_mul      lowRISC/ibex f4515520 (RV32MSlow, MUL protocol)    iterative arithmetic  lowRISC
+  bambu_arf     PandA-bambu c2ba6936, Bambu 2024.10, 1 multiplier  HLS resource sharing  PoliMi PandA
+  qdiv          freecores/verilog_fixed_point_math_library a94eb0b2 iterative arithmetic T. Burke / S. Skalicky
+  ascon         rprimas/ascon-verilog e1069549 (V1, sv2v)          cipher (AEAD)         R. Primas (TU Graz)
+
+Inputs (all under ignored build/):
+  synthesized netlists: build/bench_candidates/<name>/synth/<top>/<top>.json
+    (Yosys 0.33 synth_ice40 -nobram; scripts and logs alongside).
+  per-case spec (protocol, prefix, period, data mode, 128 transactions, 64 training):
+    bench2/specs/<case>.json (committed with this file).
+  preparation: bench2/prepare_bench2.py SPEC build/bench2_v1/<case>
+    -> input/recovered.{json,v}, stimulus.json, protocol.json (PAD_PROTOCOL_V1),
+       evaluation_contract.json (names/data: evaluation side only),
+       anonymization_equivalence.json (anonymous netlist vs synthesized netlist).
+
+Anonymisation check results (prepared before freezing):
+  case          synth sha256 (prefix)  events  period  known outputs  mismatches
+  present       805c60eff5d66d96       8452    33      540928         0
+  sha1          4d036845de306e41       23556   92      848016         0
+  fir_decim     fef0dc11b552e1b1       2564    10      69228          0
+  small_hb_dec  1f952afd0c56c5c7       2088    8       39672          0
+  ibex_mul      3c026a47fa1b944d       8452    33      278916         0
+  bambu_arf     6eeb1223ede55869       4100    16      545300         0
+  qdiv          c37c9e450f432579       12292   48      417928         0
+  ascon         (equivalence simulation still running at freeze time)
+
+Frozen pipeline per case (bench2/run_bench2.sh), serial, 180 min / 16 GiB each:
+  hal-recover import -> groups (--mi-types counter,addition --mi-controls 3, 1 thread each)
+  -> trace (--stimulus-json) -> analyze --protocol protocol.json --window <training length>
+  -> cross-run taint check against a second trace with the same non-data pads and new data.
+Measurements reported per case (no tuning between cases): certificate status, origin, period,
+goals, rounds; data-carrying control nets per phase; groups and ordered groups; graph nodes,
+excluded words, histories; registers split into >=2 write events; FIT_PROVED/raw counts;
+periodic and whole-state replay; stage times. Algorithm-level readability (E3.3) and
+C2 structural oracles (E2.1) are scored separately and later; their oracle construction
+must be written down before scoring.

@@ -1,0 +1,50 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/ascon_primas/synth/ascon_core/ascon_core.json",
+ "top": "ascon_core",
+ "source": {
+  "url": "https://github.com/rprimas/ascon-verilog",
+  "commit": "e1069549a1895f376391530a1842694ea8bb044b",
+  "license": "CC0-1.0",
+  "author": "R. Primas (TU Graz)",
+  "category": "cipher (AEAD)",
+  "parameters": "V1 (UROL=1, CCW=32), sv2v"
+ },
+ "clock": "clk",
+ "non_data": [
+  "rst",
+  "mode",
+  "key_valid",
+  "bdi_valid",
+  "bdi_type",
+  "bdi_eot",
+  "bdi_eoi",
+  "bdo_ready",
+  "bdo_eoo"
+ ],
+ "defaults": {
+  "rst": 0,
+  "mode": 0,
+  "key_valid": 0,
+  "bdi_valid": 0,
+  "bdi_type": 0,
+  "bdi_eot": 0,
+  "bdi_eoi": 0,
+  "bdo_ready": 0,
+  "bdo_eoo": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "rst": 1
+   }
+  }
+ ],
+ "period": 75,
+ "schedule_csv": "/home/jiahao/hal/build/bench_candidates/ascon_primas/check/ascon_aead128enc_ad16_pt16_v1.csv",
+ "data_mode": "cycle",
+ "case": "ascon",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

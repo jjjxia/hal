@@ -1,0 +1,40 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/oc_present/synth/present_encryptor_top/present_encryptor_top.json",
+ "top": "present_encryptor_top",
+ "source": {
+  "url": "https://github.com/freecores/present_encryptor",
+  "commit": "953c39e01b29e73c39487dc8e14e4f3d62cd23a9",
+  "license": "LGPL-2.1-or-later",
+  "author": "R. Ameli (Ferdowsi U.)",
+  "category": "cipher"
+ },
+ "clock": "clk_i",
+ "non_data": [
+  "key_load",
+  "data_load"
+ ],
+ "defaults": {
+  "key_load": 0,
+  "data_load": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {}
+  }
+ ],
+ "period": 33,
+ "schedule": {
+  "0": {
+   "key_load": 1
+  },
+  "1": {
+   "data_load": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "present",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

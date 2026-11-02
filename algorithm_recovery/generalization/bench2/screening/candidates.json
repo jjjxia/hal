@@ -1,0 +1,1137 @@
+[
+ {
+  "name": "ascon_primas",
+  "status": "pick",
+  "rank": 1,
+  "category": "cipher (round-iterative AEAD/hash)",
+  "author": "Robert Primas (TU Graz)",
+  "url": "https://github.com/rprimas/ascon-verilog",
+  "commit": "e1069549a1895f376391530a1842694ea8bb044b",
+  "license": "CC0-1.0",
+  "top": "ascon_core",
+  "files": [
+   "rtl/ascon_core.sv",
+   "rtl/config.sv",
+   "rtl/functions.sv",
+   "rtl/asconp.sv",
+   "rtl/register.sv"
+  ],
+  "preprocessing": "sv2v v0.0.13: sv2v -I src/rtl -DV1 src/rtl/ascon_core.sv > conv/ascon_core_v1.v (Yosys 0.33 rejects multi-dim packed arrays in asconp.sv:28)",
+  "parameters": "variant V1 (UROL=1 round/cycle, CCW=32-bit bus)",
+  "non_data_inputs": [
+   "clk",
+   "rst",
+   "mode",
+   "key_valid",
+   "bdi_valid",
+   "bdi_type",
+   "bdi_eot",
+   "bdi_eoi",
+   "bdo_ready",
+   "bdo_eoo"
+  ],
+  "data_inputs": [
+   "key",
+   "bdi"
+  ],
+  "cycles_per_transaction": 75,
+  "protocol": "AEAD128-ENC, 16-byte AD, 16-byte PT; fixed 75-cycle control vector (check/ascon_aead128enc_ad16_pt16_v1.csv); key words consumed cycles 1-4, nonce 5-8, AD 22-25, PT 44-47 (CT on bdo same cycles), tag on bdo 71-74",
+  "reference": "pyascon (ascon.py) + cocotb test.py in repo; our iverilog TB: 5/5 random (key,nonce,AD,PT) match pyascon on RTL and on the synthesized iCE40 netlist",
+  "risks": "SystemVerilog (needs sv2v); async active-high reset (SB_DFFR/SB_DFFER); FSM handshake inputs must follow the recorded control vector; 3762 LUT4 near upper end",
+  "synth_ok": true,
+  "lut4": 3762,
+  "carry": 11,
+  "dff": 486,
+  "runtime_s": 14.3,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/ascon_primas/synth/ascon_core"
+ },
+ {
+  "name": "oc_present",
+  "status": "pick",
+  "rank": 2,
+  "category": "cipher (round-iterative block cipher)",
+  "author": "Reza Ameli (Ferdowsi Univ. of Mashhad), via OpenCores/freecores",
+  "url": "https://github.com/freecores/present_encryptor",
+  "commit": "953c39e01b29e73c39487dc8e14e4f3d62cd23a9",
+  "license": "LGPL-2.1-or-later (file headers)",
+  "top": "present_encryptor_top",
+  "files": [
+   "rtl/verilog/present_encryptor_top.v",
+   "rtl/verilog/sub_per.v",
+   "rtl/verilog/substitution.v",
+   "rtl/verilog/permutation.v",
+   "rtl/verilog/sbox.v",
+   "rtl/verilog/key_update.v"
+  ],
+  "preprocessing": "none",
+  "parameters": "PRESENT-80 (fixed)",
+  "non_data_inputs": [
+   "clk_i",
+   "key_load",
+   "data_load"
+  ],
+  "data_inputs": [
+   "data_i"
+  ],
+  "cycles_per_transaction": 33,
+  "protocol": "c0 key_load=1 (data_i=key); c1 data_load=1 (data_i[63:0]=plaintext); c2-c32 idle (data_i don't-care); ciphertext on data_o during c0 of the next period",
+  "reference": "repo tb/testbench.v (4 PRESENT-paper vectors, all reproduced); our strictly periodic TB: 10/10 random vectors vs Python PRESENT-80, RTL and gate-level",
+  "risks": "no reset pin (round_counter set by data_load); key register is overwritten by the key schedule so key_load is part of every transaction",
+  "synth_ok": true,
+  "lut4": 287,
+  "carry": 3,
+  "dff": 153,
+  "runtime_s": 0.8,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_present/synth/present_encryptor_top"
+ },
+ {
+  "name": "oc_sha_core:sha1",
+  "status": "pick",
+  "rank": 3,
+  "category": "hash (round-iterative)",
+  "author": "marsgod (OpenCores sha_core)",
+  "url": "https://github.com/freecores/sha_core",
+  "commit": "f90e67a6040d7dd5de54188ed0b8b7ec05d4ac85",
+  "license": "OpenCores BSD-style notice (use/distribute with copyright notice; no warranty)",
+  "top": "sha1",
+  "files": [
+   "rtl/sha1.v"
+  ],
+  "preprocessing": "none",
+  "parameters": "none",
+  "non_data_inputs": [
+   "clk_i",
+   "rst_i",
+   "cmd_i",
+   "cmd_w_i"
+  ],
+  "data_inputs": [
+   "text_i"
+  ],
+  "cycles_per_transaction": 92,
+  "protocol": "c0 cmd_w_i=1 cmd_i=3'b010 (first block; 3'b110 = continuation); c1-c16 text_i=W0..W15; busy until c83; c84 cmd_w_i=1 cmd_i=3'b001 (read); digest words H0..H4 sampled on text_o at c87-c91",
+  "reference": "repo bench/test_sha1.v fails under Icarus (TB drives inputs on the clock edge; race). Our race-free TB: 5/5 random single-block messages match hashlib.sha1 with the fixed 92-cycle schedule, RTL and gate-level",
+  "risks": "repo testbench racy; 32-bit streaming input (data read only in cycles c1-c16)",
+  "synth_ok": true,
+  "lut4": 1574,
+  "carry": 224,
+  "dff": 893,
+  "runtime_s": 3.0,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_sha_core/synth/sha1"
+ },
+ {
+  "name": "adi_fir_decim",
+  "status": "pick",
+  "rank": 4,
+  "category": "folded DSP (polyphase decimating FIR, one pre-add/MAC)",
+  "author": "Analog Devices Inc. (hdl library)",
+  "url": "https://github.com/analogdevicesinc/hdl",
+  "commit": "1eb1555998e4caa7e19da403e7a64f6767f0116f",
+  "license": "GPL-2.0 or ADI-BSD (dual, per file header)",
+  "top": "fir_decim",
+  "files": [
+   "library/axi_adc_decimate/fir_decim.v"
+  ],
+  "preprocessing": "chparam -set USE_DSP48E 0 fir_decim (selects the author's generic MAC branch instead of a DSP48E1 instance)",
+  "parameters": "USE_DSP48E=0",
+  "non_data_inputs": [
+   "clk",
+   "reset",
+   "clk_enable"
+  ],
+  "data_inputs": [
+   "filter_in"
+  ],
+  "cycles_per_transaction": 10,
+  "protocol": "reset 1+ cycles; clk_enable=1 every 5th cycle (one input sample per 5 cycles); one output (ce_out pulse, filter_out) per 2 samples = 10 cycles",
+  "reference": "no repo testbench (MATLAB m2k_decim.m only). Our check: least-squares fit over 300 random samples gives an exact (residual 0) decimate-by-2 FIR h=[213,-962,1778,1778,-962,213]; gate-level output identical to RTL",
+  "risks": "storage0/1 bit-serial shift memories with initial values; requires USE_DSP48E=0 override",
+  "synth_ok": true,
+  "lut4": 518,
+  "carry": 54,
+  "dff": 200,
+  "runtime_s": 1.2,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/adi_fir_decim/synth/fir_decim"
+ },
+ {
+  "name": "ettus_hbdec:small_hb_dec",
+  "status": "pick",
+  "rank": 5,
+  "category": "folded DSP (halfband decimator, shared multiplier/accumulator)",
+  "author": "Ettus Research (UHD FPGA, usrp2 sdr_lib)",
+  "url": "https://github.com/EttusResearch/uhd",
+  "commit": "d1be63490e3f3df22ff2f4ea1315f9aada468562",
+  "license": "GPL-3.0-or-later (file headers)",
+  "top": "small_hb_dec",
+  "files": [
+   "fpga/usrp2/sdr_lib/small_hb_dec.v",
+   "fpga/usrp2/sdr_lib/round_sd.v",
+   "fpga/usrp2/sdr_lib/add2_and_clip_reg.v",
+   "fpga/usrp2/sdr_lib/add2_and_clip.v",
+   "fpga/usrp2/sdr_lib/round.v",
+   "fpga/usrp2/sdr_lib/clip.v",
+   "fpga/usrp2/sdr_lib/sign_extend.v",
+   "fpga/usrp2/models/MULT18X18S.v"
+  ],
+  "preprocessing": "none (MULT18X18S behavioural model is Ettus' own GPL file in fpga/usrp2/models)",
+  "parameters": "WIDTH=18 (default)",
+  "non_data_inputs": [
+   "clk",
+   "rst",
+   "bypass",
+   "run",
+   "stb_in"
+  ],
+  "data_inputs": [
+   "data_in"
+  ],
+  "cycles_per_transaction": 8,
+  "protocol": "bypass=0, run=1; rst=1 for 20 cycles (RTL sim needs it to flush unreset registers); stb_in=1 one cycle in every 4; one output (stb_out) per 2 inputs = 8 cycles",
+  "reference": "repo hb_dec_tb.v drives small_hb_dec from input.dat (not run by us). Our impulse test reproduces taps [A,B,B,A]=[-2672,18952,18952,-2672]/65536 and centre 0.5; gate-level identical to RTL",
+  "risks": "round_sd error-feedback rounding (stateful, non-linear); several registers without reset",
+  "synth_ok": true,
+  "lut4": 884,
+  "carry": 220,
+  "dff": 330,
+  "runtime_s": 1.7,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/synth/small_hb_dec"
+ },
+ {
+  "name": "ibex_multdiv_slow",
+  "status": "pick",
+  "rank": 6,
+  "category": "iterative arithmetic (radix-2 multiplier/divider, shared ALU adder)",
+  "author": "lowRISC (Ibex RISC-V core)",
+  "url": "https://github.com/lowRISC/ibex",
+  "commit": "f4515520c0045bb8ef1e72d46ed82499a6ac5f18",
+  "license": "Apache-2.0",
+  "top": "ibex_md_top (benchmark wrapper)",
+  "files": [
+   "rtl/ibex_pkg.sv",
+   "rtl/ibex_alu.sv",
+   "rtl/ibex_multdiv_slow.sv",
+   "rtl/ibex_multdiv_fast.sv",
+   "rtl/ibex_ex_block.sv",
+   "vendor/lowrisc_ip/ip/prim/rtl/prim_assert.sv",
+   "../wrap/ibex_md_top.sv (ours)"
+  ],
+  "preprocessing": "sv2v v0.0.13 -DSYNTHESIS -DYOSYS -> conv/ibex_md_top.v; wrapper adds the two 34-bit imd_val registers that ibex_id_stage.sv:445-452 normally provides and ties off ALU/branch inputs",
+  "parameters": "RV32M=RV32MSlow, RV32B=RV32BNone, BranchTargetALU=0",
+  "non_data_inputs": [
+   "clk_i",
+   "rst_ni",
+   "md_op_i",
+   "signed_mode_i",
+   "mult_en_i",
+   "div_en_i",
+   "data_ind_timing_i"
+  ],
+  "data_inputs": [
+   "op_a_i",
+   "op_b_i"
+  ],
+  "cycles_per_transaction": {
+   "MULL/MULH": 33,
+   "DIV/REM": 37
+  },
+  "protocol": "data_ind_timing_i=1; fix md_op_i/signed_mode_i per run; hold mult_en_i (MUL) or div_en_i (DIV) at 1; change op_a_i/op_b_i every 33 (MUL) or 37 (DIV) cycles; valid_o once per period at a fixed offset",
+  "reference": "RISC-V M semantics; our TB: 200 handshake ops + 60 strictly periodic ops (incl. div-by-0, INT_MIN/-1) match a Python model, RTL and gate-level",
+  "risks": "needs sv2v and a 30-line wrapper (imd_val registers live in ibex_id_stage upstream); with data_ind_timing_i=0 MUL and div-by-zero exit early (ibex_multdiv_slow.sv:194,210,222,255) - must be tied to 1",
+  "synth_ok": true,
+  "lut4": 1049,
+  "carry": 36,
+  "dff": 143,
+  "runtime_s": 1.8,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/synth/ibex_md_top"
+ },
+ {
+  "name": "bambu_arf",
+  "status": "pick",
+  "rank": 7,
+  "category": "HLS-generated with operator/register sharing",
+  "author": "Bambu HLS (PandA, Politecnico di Milano) generating the ARF benchmark (Jain 1989 / Mukherjee 1996) from PandA example arf_res_sharing",
+  "url": "https://github.com/ferrandi/PandA-bambu",
+  "commit": "c2ba6936ca2ed63137095fea0b630a1c66e20e63",
+  "license": "input C: PandA-bambu repo (GPL-3.0); generated library components tagged PANDA_LGPLv3",
+  "top": "arf",
+  "files": [
+   "gen_shared/arf.v (generated)",
+   "src/examples/arf_res_sharing/module.c (input)",
+   "wrap/constraints_ui_mult1.xml (ours)"
+  ],
+  "preprocessing": "Bambu 2024.10 AppImage (revision c2ba6936): bambu module.c --top-fname=arf constraints_ui_mult1.xml --generate-interface=INFER (constraint limits ui_mult_expr_FU to 1; the upstream XML names mult_expr_FU, which no longer binds because 2024.10 canonicalises the products to unsigned)",
+  "parameters": "1 multiplier, 11 shared registers (Bambu: 11 registers, LB 6), 15 states",
+  "non_data_inputs": [
+   "clock",
+   "reset",
+   "start_port"
+  ],
+  "data_inputs": [
+   "i1",
+   "i2",
+   "i3",
+   "i4",
+   "i5",
+   "i6",
+   "G1",
+   "G2",
+   "G3",
+   "G4",
+   "GG1",
+   "GG2"
+  ],
+  "cycles_per_transaction": 16,
+  "protocol": "reset (active-low) then start_port=1 for one cycle every 16 cycles; inputs held for the whole period (read in several states); o1..o4 are combinational and valid only when o*_vld (offsets 3,1,12,13); done_port at offset 13 (15-cycle latency per Bambu)",
+  "reference": "C source in repo; our TB: 20 handshake + 20 periodic vectors match the C semantics (32-bit wrap), RTL and gate-level",
+  "risks": "tool-generated (Bambu version must be cited); G3/G4 unused; outputs not registered",
+  "synth_ok": true,
+  "lut4": 2270,
+  "carry": 242,
+  "dff": 336,
+  "runtime_s": 3.4,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/bambu_arf/synth/arf_mult1"
+ },
+ {
+  "name": "oc_fixedpoint:qdiv",
+  "status": "pick",
+  "rank": 8,
+  "category": "iterative arithmetic (fixed-point shift-subtract divider)",
+  "author": "Tom Burke (extending Sam Skalicky), OpenCores/freecores",
+  "url": "https://github.com/freecores/verilog_fixed_point_math_library",
+  "commit": "a94eb0b2b1e4117e942e4a93fc3773bc78607c28",
+  "license": "LGPL-2.1 (License.txt)",
+  "top": "qdiv",
+  "files": [
+   "qdiv.v"
+  ],
+  "preprocessing": "none",
+  "parameters": "Q=15, N=32 (defaults)",
+  "non_data_inputs": [
+   "i_clk",
+   "i_start"
+  ],
+  "data_inputs": [
+   "i_dividend",
+   "i_divisor"
+  ],
+  "cycles_per_transaction": 48,
+  "protocol": "i_start=1 one cycle every 48 cycles; operands sampled only at start; o_complete rises 47 cycles later",
+  "reference": "repo TestDiv*.v (not run). Our check: 100 handshake + 20 periodic random divisions; output equals the ideal Q15 quotient with bit 0 forced to 0 (upstream defect: reg_quotient is copied before the last quotient bit is set, qdiv.v:92-99); ideal division mismatches 52/100. Gate-level identical to RTL",
+  "risks": "no reset (initial values; iCE40 power-up semantics); LSB defect documented above",
+  "synth_ok": true,
+  "lut4": 520,
+  "carry": 227,
+  "dff": 265,
+  "runtime_s": 1.1,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qdiv"
+ },
+ {
+  "name": "oc_cordic",
+  "status": "alternate (license unclear)",
+  "category": "iterative CORDIC (DSP/arithmetic)",
+  "author": "Dale Drinkard (OpenCores verilog_cordic_core)",
+  "url": "https://github.com/freecores/verilog_cordic_core",
+  "commit": "c1e99960d63aad28c55d1f5acec35cac74ac0af9",
+  "license": "none stated (no header; OpenCores license field empty)",
+  "top": "cordic",
+  "files": [
+   "cordic.v (patched copy conf/cordic_iterate.v)"
+  ],
+  "preprocessing": "2 patches: select author's ITERATE option instead of PIPELINE (lines 129-130); replace variable-bound for-loop in signed_shifter (line 178) by D >>> i (Yosys cannot unroll it; equivalence checked on 200k random cases)",
+  "parameters": "ITERATE, ROTATE, RADIAN_16, 16 iterations",
+  "non_data_inputs": [
+   "clk",
+   "rst",
+   "init"
+  ],
+  "data_inputs": [
+   "x_i",
+   "y_i",
+   "theta_i"
+  ],
+  "cycles_per_transaction": 17,
+  "protocol": "init=1 one cycle, outputs valid 16 cycles later; init also asynchronously clears the iteration counter",
+  "reference": "repo tb_cordic.v (91 angles); with patches max |error| 2.6e-4 vs math.sin/cos",
+  "risks": "no explicit license; init used as async reset of iteration counter; needs two source patches",
+  "synth_ok": true,
+  "lut4": 527,
+  "carry": 114,
+  "dff": 55,
+  "runtime_s": 0.7,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_cordic/synth/cordic"
+ },
+ {
+  "name": "ettus_hbdec:hb_dec",
+  "status": "alternate",
+  "category": "folded DSP (halfband decimator, 2 multipliers x 4 phases, SRL memories)",
+  "author": "Ettus Research",
+  "url": "https://github.com/EttusResearch/uhd",
+  "commit": "d1be63490e3f3df22ff2f4ea1315f9aada468562",
+  "license": "GPL-3.0-or-later",
+  "top": "hb_dec",
+  "files": [
+   "sdr_lib/hb_dec.v + round_sd, add2_and_clip(_reg), round, clip, sign_extend, acc",
+   "control_lib/srl.v",
+   "models/MULT18X18S.v",
+   "wrap/SRL16E_behav.v (ours)"
+  ],
+  "preprocessing": "own 6-line behavioural SRL16E model (Ettus ships Xilinx' unisim SRL16E with assign/deassign)",
+  "parameters": "WIDTH=24 default",
+  "non_data_inputs": [
+   "clk",
+   "rst",
+   "bypass",
+   "run",
+   "cpi",
+   "stb_in"
+  ],
+  "data_inputs": [
+   "data_in"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "not characterised (expected: stb_in every cpi cycles)",
+  "reference": "repo hb_dec_tb.v (not run)",
+  "risks": "SRL16E model is ours; addressable shift-register memories",
+  "synth_ok": true,
+  "lut4": 2078,
+  "carry": 225,
+  "dff": 818,
+  "runtime_s": 6.7,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/synth/hb_dec"
+ },
+ {
+  "name": "present_saiedhk",
+  "status": "alternate (same algorithm as oc_present)",
+  "category": "cipher",
+  "author": "Saied H. Khayat",
+  "url": "https://github.com/saiedhk/PresentCryptoEngine",
+  "commit": "a6676633a04e48719d67fc625fe8fc28888388bd",
+  "license": "MIT",
+  "top": "PRESENT_ENCRYPT",
+  "files": [
+   "present_encrypt.v (patched copy)",
+   "present_encrypt_pbox.v",
+   "present_encrypt_sbox.v"
+  ],
+  "preprocessing": "comment out `define PRINT_TEST_VECTORS (sim-only $display with $time aborts Yosys 0.33 in kernel/fmt.cc:454)",
+  "non_data_inputs": [
+   "clk",
+   "load"
+  ],
+  "data_inputs": [
+   "idat",
+   "key"
+  ],
+  "cycles_per_transaction": 32,
+  "protocol": "load every 32 cycles (expected from RTL; not simulated by us)",
+  "reference": "repo present_encrypt_tb.v prints vectors (not run)",
+  "risks": "needs 1-line patch",
+  "synth_ok": true,
+  "lut4": 281,
+  "carry": 3,
+  "dff": 152,
+  "runtime_s": 0.9,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/present_saiedhk/synth/PRESENT_ENCRYPT"
+ },
+ {
+  "name": "oc_sha3:f_permutation",
+  "status": "alternate (size)",
+  "category": "cipher/hash permutation (Keccak-f[1600], round-iterative)",
+  "author": "Homer Hsing (OpenCores sha3, low_throughput_core)",
+  "url": "https://github.com/freecores/sha3",
+  "commit": "c25a5befc75e8f8392fdbff040165428b2f54bfd",
+  "license": "Apache-2.0",
+  "top": "f_permutation",
+  "files": [
+   "low_throughput_core/rtl/f_permutation.v",
+   "round.v",
+   "rconst.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "reset",
+   "in_ready"
+  ],
+  "data_inputs": [
+   "in"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "in_ready pulse; 24 rounds, one-hot round counter (expected ~25 cycles; not simulated)",
+  "reference": "testbench/test_f_permutation.v with Keccak-f vectors (not run)",
+  "risks": "4448 LUT4 / 1625 FF, above the sweet spot",
+  "synth_ok": true,
+  "lut4": 4448,
+  "carry": 0,
+  "dff": 1625,
+  "runtime_s": 5.9,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_sha3/synth/f_permutation"
+ },
+ {
+  "name": "oc_aes_core",
+  "status": "alternate (size)",
+  "category": "cipher (AES-128 round-iterative)",
+  "author": "Rudolf Usselmann (OpenCores aes_core)",
+  "url": "https://github.com/freecores/aes_core",
+  "commit": "0d81d6e0758c634c8db7c8348d7653fa20c58639",
+  "license": "OpenCores BSD-style notice",
+  "top": "aes_cipher_top",
+  "files": [
+   "rtl/verilog/aes_cipher_top.v",
+   "aes_key_expand_128.v",
+   "aes_sbox.v",
+   "aes_rcon.v",
+   "timescale.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "rst",
+   "ld"
+  ],
+  "data_inputs": [
+   "key",
+   "text_in"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "ld pulse, dcnt 11->0 (expected ~12-13 cycles; not simulated)",
+  "reference": "bench/verilog/test_bench_top.v (not run)",
+  "risks": "5588 LUT4 (20 S-boxes as LUT logic)",
+  "synth_ok": true,
+  "lut4": 5588,
+  "carry": 4,
+  "dff": 562,
+  "runtime_s": 33.2,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_aes_core/synth/aes_cipher_top"
+ },
+ {
+  "name": "secworks_aes",
+  "status": "rejected (size)",
+  "category": "cipher (AES, word-serial SubBytes)",
+  "author": "Joachim Strömbergson (secworks)",
+  "url": "https://github.com/secworks/aes",
+  "commit": "80dc4718e1dcbbdb4b0dd1bdb393d8f7b98981dc",
+  "license": "BSD-2-Clause",
+  "top": "aes_core",
+  "files": [
+   "src/rtl/aes_core.v",
+   "aes_encipher_block.v",
+   "aes_decipher_block.v",
+   "aes_key_mem.v",
+   "aes_sbox.v",
+   "aes_inv_sbox.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "reset_n",
+   "encdec",
+   "init",
+   "next",
+   "keylen"
+  ],
+  "data_inputs": [
+   "key",
+   "block"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "init (key expansion) then next; AES-128 encipher = 1+10x(4+1) cycles per aes_encipher_block.v FSM (not simulated)",
+  "reference": "src/tb (NIST vectors, not run)",
+  "risks": "9204 LUT4/2476 FF full core; encrypt-only AES-128 wrapper (encdec=1,keylen=0) still 4570 LUT4/2209 FF because the 15x128-bit round-key memory becomes FFs",
+  "synth_ok": true,
+  "lut4": 9204,
+  "carry": 8,
+  "dff": 2476,
+  "runtime_s": 29.4,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/secworks_aes/synth/aes_core"
+ },
+ {
+  "name": "secworks_aes:aes128_enc_top",
+  "status": "rejected (size)",
+  "category": "cipher",
+  "author": "Joachim Strömbergson (secworks)",
+  "url": "https://github.com/secworks/aes",
+  "commit": "80dc4718e1dcbbdb4b0dd1bdb393d8f7b98981dc",
+  "license": "BSD-2-Clause",
+  "top": "aes128_enc_top (our wrapper)",
+  "files": [
+   "wrap/aes128_enc_top.v + aes_core files"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "reset_n",
+   "init",
+   "next"
+  ],
+  "data_inputs": [
+   "key",
+   "block"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "see secworks_aes",
+  "reference": "see secworks_aes",
+  "risks": "2209 FF",
+  "synth_ok": true,
+  "lut4": 4570,
+  "carry": 4,
+  "dff": 2209,
+  "runtime_s": 14.6,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/secworks_aes/synth/aes128_enc_top"
+ },
+ {
+  "name": "secworks_siphash",
+  "status": "alternate (same author as Maggie SHA-256)",
+  "category": "keyed hash (ARX, round-iterative)",
+  "author": "Joachim Strömbergson (secworks)",
+  "url": "https://github.com/secworks/siphash",
+  "commit": "25f5482f4ecbf1ab60a7b5e5dd7e2d7f56b0aa6c",
+  "license": "BSD-2-Clause",
+  "top": "siphash_core",
+  "files": [
+   "src/rtl/siphash_core.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "reset_n",
+   "initalize",
+   "compress",
+   "finalize",
+   "long",
+   "compression_rounds",
+   "final_rounds"
+  ],
+  "data_inputs": [
+   "key",
+   "mi"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "not characterised",
+  "reference": "src/tb + model (not run)",
+  "risks": "secworks already represented in the paper (SHA-256 via Maggie)",
+  "synth_ok": true,
+  "lut4": 1235,
+  "carry": 260,
+  "dff": 462,
+  "runtime_s": 1.6,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/secworks_siphash/synth/siphash_core"
+ },
+ {
+  "name": "secworks_chacha",
+  "status": "alternate (same author)",
+  "category": "stream cipher (ARX, double-round iterative)",
+  "author": "Joachim Strömbergson (secworks)",
+  "url": "https://github.com/secworks/chacha",
+  "commit": "7eaba360df9fed9fc2db98d5f3df81cf01e5b604",
+  "license": "BSD-2-Clause",
+  "top": "chacha_core",
+  "files": [
+   "src/rtl/chacha_core.v",
+   "src/rtl/chacha_qr.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "reset_n",
+   "init",
+   "next",
+   "keylen",
+   "rounds"
+  ],
+  "data_inputs": [
+   "key",
+   "iv",
+   "ctr",
+   "data_in"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "not characterised",
+  "reference": "src/tb (not run)",
+  "risks": "1100 FF",
+  "synth_ok": true,
+  "lut4": 3240,
+  "carry": 1049,
+  "dff": 1100,
+  "runtime_s": 4.5,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/secworks_chacha/synth/chacha_core"
+ },
+ {
+  "name": "secworks_sha256",
+  "status": "already in use",
+  "category": "hash",
+  "author": "Joachim Strömbergson (secworks)",
+  "url": "https://github.com/secworks/sha256",
+  "commit": "837c5cc396f001d18f2c765721c585716eb439ae",
+  "license": "BSD-2-Clause",
+  "top": "sha256_core",
+  "files": [
+   "src/rtl/sha256_core.v",
+   "sha256_k_constants.v",
+   "sha256_w_mem.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "reset_n",
+   "init",
+   "next",
+   "mode"
+  ],
+  "data_inputs": [
+   "block"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "n/a",
+  "reference": "src/tb",
+  "risks": "Maggie artifact's sha256 is secworks (Klix et al., arXiv 2312.06195 App. C) and the paper's RQ1 already uses it",
+  "synth_ok": true,
+  "lut4": 2784,
+  "carry": 378,
+  "dff": 1034,
+  "runtime_s": 3.7,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/secworks_sha256/synth/sha256_core"
+ },
+ {
+  "name": "oc_sha_core:sha256",
+  "status": "alternate",
+  "category": "hash",
+  "author": "marsgod",
+  "url": "https://github.com/freecores/sha_core",
+  "commit": "f90e67a6040d7dd5de54188ed0b8b7ec05d4ac85",
+  "license": "OpenCores BSD-style notice",
+  "top": "sha256",
+  "files": [
+   "rtl/sha256.v"
+  ],
+  "non_data_inputs": [
+   "clk_i",
+   "rst_i",
+   "cmd_i",
+   "cmd_w_i"
+  ],
+  "data_inputs": [
+   "text_i"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "as sha1 (not characterised)",
+  "reference": "repo bench/test_sha256.v fails under Icarus (same TB race); not re-verified",
+  "risks": "SHA-256 already in paper (different implementation)",
+  "synth_ok": true,
+  "lut4": 2419,
+  "carry": 375,
+  "dff": 1103,
+  "runtime_s": 4.6,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_sha_core/synth/sha256"
+ },
+ {
+  "name": "oc_fixedpoint:qmults",
+  "status": "alternate",
+  "category": "iterative arithmetic (shift-add multiplier)",
+  "author": "Tom Burke",
+  "url": "https://github.com/freecores/verilog_fixed_point_math_library",
+  "commit": "a94eb0b2b1e4117e942e4a93fc3773bc78607c28",
+  "license": "LGPL-2.1",
+  "top": "qmults",
+  "files": [
+   "qmults.v"
+  ],
+  "non_data_inputs": [
+   "i_clk",
+   "i_start"
+  ],
+  "data_inputs": [
+   "i_multiplicand",
+   "i_multiplier"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "start, 33 iterations (from RTL; not simulated)",
+  "reference": "TestMultS.v (not run)",
+  "risks": "same author as qdiv",
+  "synth_ok": true,
+  "lut4": 183,
+  "carry": 108,
+  "dff": 192,
+  "runtime_s": 0.6,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qmults"
+ },
+ {
+  "name": "bambu_arf:icrc1",
+  "status": "alternate (small)",
+  "category": "HLS-generated fixed-trip-count loop",
+  "author": "Bambu HLS on PowerStone icrc1 (PandA example crc)",
+  "url": "https://github.com/ferrandi/PandA-bambu",
+  "commit": "c2ba6936ca2ed63137095fea0b630a1c66e20e63",
+  "license": "GPL-3.0 input / PANDA_LGPLv3 library",
+  "top": "icrc1",
+  "files": [
+   "gen_icrc1/icrc1.v (generated)",
+   "wrap/icrc1_extract.c (icrc1 copied verbatim from examples/crc/spec.c; spec.c itself fails to compile due to host math.h)"
+  ],
+  "preprocessing": "bambu icrc1_extract.c --top-fname=icrc1 -O1 -fno-unroll-loops",
+  "non_data_inputs": [
+   "clock",
+   "reset",
+   "start_port"
+  ],
+  "data_inputs": [
+   "crc",
+   "onech"
+  ],
+  "cycles_per_transaction": 9,
+  "protocol": "start, done 9 cycles later (8 loop iterations)",
+  "reference": "our TB: 50/50 vs Python model",
+  "risks": "tiny (69 LUT4)",
+  "synth_ok": true,
+  "lut4": 69,
+  "carry": 30,
+  "dff": 52,
+  "runtime_s": 0.6,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/bambu_arf/synth/icrc1_loop"
+ },
+ {
+  "name": "hace_vivado:gaussian",
+  "status": "alternate (long transaction)",
+  "category": "HLS-generated (Vivado HLS 2019.1, non-pipelined loop nest, 1 multiplier)",
+  "author": "Vivado HLS output shipped by HACE (ETHZ-DYNAMO)",
+  "url": "https://github.com/ETHZ-DYNAMO/hace",
+  "commit": "a8d16f766191e1abb9b6d5bb421be1185a8baf91",
+  "license": "GPL-3.0 (repo)",
+  "top": "gaussian",
+  "files": [
+   "tests/benchmarks/non-pipelined/gaussian/gaussian.vivado.v",
+   "wrap/gaussian_mul_model.v (ours)"
+  ],
+  "preprocessing": "re-created 5-stage gaussian_mul_32s_32s_32_5_1 (HACE omits Vivado's multiplier submodule)",
+  "non_data_inputs": [
+   "ap_clk",
+   "ap_rst",
+   "ap_start"
+  ],
+  "data_inputs": [
+   "c_q0",
+   "A_q0"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "ap_start; triple loop N=16 (~1.6k inner iterations; not simulated)",
+  "reference": "gaussian.c in repo",
+  "risks": "multiplier model ours; memory-port protocol; transaction >10k cycles (estimate)",
+  "synth_ok": true,
+  "lut4": 1542,
+  "carry": 95,
+  "dff": 400,
+  "runtime_s": 2.7,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/hace_vivado/synth/gaussian_vivado"
+ },
+ {
+  "name": "hace_vivado:matrix",
+  "status": "rejected (transaction length)",
+  "category": "HLS-generated",
+  "author": "Vivado HLS via HACE",
+  "url": "https://github.com/ETHZ-DYNAMO/hace",
+  "commit": "a8d16f766191e1abb9b6d5bb421be1185a8baf91",
+  "license": "GPL-3.0 (repo)",
+  "top": "matrix",
+  "files": [
+   "non-pipelined/matrix/matrix.vivado.v",
+   "wrap/matrix_mul_model.v"
+  ],
+  "non_data_inputs": [
+   "ap_clk",
+   "ap_rst",
+   "ap_start"
+  ],
+  "data_inputs": [
+   "in_a_q0",
+   "in_b_q0"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "32x32x32 loop nest (~3e5 cycles estimated)",
+  "reference": "matrix.c",
+  "risks": "transaction far too long; multiplier model ours",
+  "synth_ok": true,
+  "lut4": 1474,
+  "carry": 77,
+  "dff": 378,
+  "runtime_s": 3.0,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/hace_vivado/synth/matrix_vivado"
+ },
+ {
+  "name": "hace_vivado:gsum",
+  "status": "rejected (no FU sharing, size)",
+  "category": "HLS-generated",
+  "author": "Vivado HLS via HACE",
+  "url": "https://github.com/ETHZ-DYNAMO/hace",
+  "commit": "a8d16f766191e1abb9b6d5bb421be1185a8baf91",
+  "license": "GPL-3.0 (repo)",
+  "top": "gsum",
+  "files": [
+   "non-pipelined/gsum/gsum.vivado.v",
+   "wrap/gsum_mul_model.v"
+  ],
+  "non_data_inputs": [
+   "ap_clk",
+   "ap_rst",
+   "ap_start"
+  ],
+  "data_inputs": [
+   "a_q0"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "1000 iterations x 27 states",
+  "reference": "gsum.c",
+  "risks": "4 separate multipliers (no sharing); 5722 LUT4",
+  "synth_ok": true,
+  "lut4": 5722,
+  "carry": 275,
+  "dff": 913,
+  "runtime_s": 13.7,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/hace_vivado/synth/gsum_vivado"
+ },
+ {
+  "name": "hace_legup",
+  "status": "rejected",
+  "category": "HLS-generated (LegUp 5.0)",
+  "author": "LegUp output via HACE",
+  "url": "https://github.com/ETHZ-DYNAMO/hace",
+  "commit": "a8d16f766191e1abb9b6d5bb421be1185a8baf91",
+  "license": "LegUp header: research/academic use only",
+  "top": null,
+  "files": [
+   "*.legup.v"
+  ],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "instantiates LegUp library modules (legup_mult_*) not shipped; clk2x/clk1x_follower ports; not synthesised",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "oc_des",
+  "status": "already in use / does not elaborate",
+  "category": "cipher (DES, round-iterative, external roundSel)",
+  "author": "Rudolf Usselmann",
+  "url": "https://github.com/freecores/des",
+  "commit": "6f7865564a0cad10868ccd1d9988043c938fec6b",
+  "license": "OpenCores BSD-style notice",
+  "top": "des",
+  "files": [
+   "rtl/verilog/area_opt/des.v",
+   "area_opt/key_sel.v",
+   "common/*.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "decrypt",
+   "roundSel"
+  ],
+  "data_inputs": [
+   "desIn",
+   "key"
+  ],
+  "cycles_per_transaction": 16,
+  "protocol": "n/a",
+  "reference": "bench (not run)",
+  "risks": "paper's DES (no control registers, external round-select) appears to be this core; upstream area_opt/key_sel.v declares module key_selh, so des does not elaborate unmodified (not patched)",
+  "synth_ok": false,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": 0.1,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/oc_des/synth/des"
+ },
+ {
+  "name": "picorv32_pcpi_div",
+  "status": "screened, not a new pick (same repo/author as pcpi_mul already in use)",
+  "category": "iterative arithmetic",
+  "author": "Claire Wolf / YosysHQ",
+  "url": "https://github.com/YosysHQ/picorv32",
+  "commit": "ef203c2b0a3fb793280f5114941416c425c5b461",
+  "license": "ISC",
+  "top": "picorv32_pcpi_div",
+  "files": [
+   "picorv32.v"
+  ],
+  "non_data_inputs": [
+   "clk",
+   "resetn",
+   "pcpi_valid",
+   "pcpi_insn"
+  ],
+  "data_inputs": [
+   "pcpi_rs1",
+   "pcpi_rs2"
+  ],
+  "cycles_per_transaction": null,
+  "protocol": "not characterised",
+  "reference": "none",
+  "risks": "same source as pcpi_mul",
+  "synth_ok": true,
+  "lut4": 673,
+  "carry": 214,
+  "dff": 200,
+  "runtime_s": 0.8,
+  "synth_dir": "/home/jiahao/hal/build/bench_candidates/picorv32_pcpi_div/synth/picorv32_pcpi_div"
+ },
+ {
+  "name": "secworks_gift",
+  "status": "rejected",
+  "category": "cipher",
+  "author": "secworks",
+  "url": "https://github.com/secworks/gift",
+  "commit": "9a40b25231375694e687f9a0cfdf29007b7b0dff",
+  "license": "BSD-2-Clause",
+  "top": "gift_core",
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "README: 'Just started. Not completed. Does not work. Do Not Use.'; not synthesised",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "simon_speck",
+  "status": "rejected",
+  "category": "cipher",
+  "author": "Calvin McCoy",
+  "url": "https://github.com/inmcm/Simon_Speck_Ciphers",
+  "commit": "9eec98160fa27e73a6f3938c1af988caddb158a9",
+  "license": "MIT",
+  "top": null,
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "HDL is VHDL only (Verilog files are Xilinx AXI BFM testbenches); ghdl not installed",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "ascon_kandi",
+  "status": "rejected",
+  "category": "cipher",
+  "author": "Aneesh Kandi et al.",
+  "url": "https://github.com/aneeshkandi14/ascon-hw-public",
+  "commit": "b5f2752e1026ee4f551c2cacfce1de0b78c6a1fa",
+  "license": "none (no LICENSE file)",
+  "top": null,
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": "testbench/ + run.py",
+  "risks": "no license; bit-serial wrapper; Permutation takes the round counter as an input; not synthesised",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "tm_fir_diesmo",
+  "status": "rejected",
+  "category": "folded DSP (3-tap)",
+  "author": "Dwight Diesmo",
+  "url": "https://github.com/DwightDiesmo/Verilog-Time-Multiplexed-FIR-Filter",
+  "commit": "dc9b8ddc08166f9fd63e17e11b2859be780ba419",
+  "license": "MIT",
+  "top": "TimeMultiplexed_FIR",
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "schedule (muxSel/enables) is supplied from outside, no controller; DFF.v uses 'always @(posedge CLK, EN)' plus a separate 'always @(RST)' driver; MUX3IN infers a latch; toy size; not synthesised",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "multi_iir",
+  "status": "rejected",
+  "category": "folded DSP (time-multiplexed IIR bank)",
+  "author": "Del Hatch",
+  "url": "https://github.com/delhatch/Multi_IIR",
+  "commit": "fa1efe2e6509c04c054acfa45cbd30b28e4ed009",
+  "license": "none found",
+  "top": null,
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "Vivado project with blk_mem_gen IP (BRAM netlists), AXI interfaces, no license; not synthesised",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "vexriscv_muldiv",
+  "status": "rejected (not cloned)",
+  "category": "iterative arithmetic",
+  "author": "SpinalHDL/VexRiscv",
+  "url": "https://github.com/SpinalHDL/VexRiscv",
+  "commit": null,
+  "license": "MIT",
+  "top": null,
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "MulDiv plugin exists only inside generated full-CPU Verilog; schedule is instruction-driven; not verified",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ },
+ {
+  "name": "serv",
+  "status": "rejected (not cloned)",
+  "category": "bit-serial CPU",
+  "author": "Olof Kindgren",
+  "url": "https://github.com/olofk/serv",
+  "commit": null,
+  "license": "ISC",
+  "top": null,
+  "files": [],
+  "non_data_inputs": null,
+  "data_inputs": null,
+  "cycles_per_transaction": null,
+  "protocol": null,
+  "reference": null,
+  "risks": "instruction-driven schedule (branches, variable shift counts) -> not a fixed-schedule datapath; not verified",
+  "synth_ok": null,
+  "lut4": null,
+  "carry": null,
+  "dff": null,
+  "runtime_s": null,
+  "synth_dir": null
+ }
+]
