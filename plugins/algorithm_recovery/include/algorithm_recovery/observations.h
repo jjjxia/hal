@@ -22,6 +22,9 @@ namespace hal::algorithm_recovery
     public:
         OriginalCircuit(const std::filesystem::path& source, z3::context& context);
         z3::expr function(PhysicalBit bit);
+        // Same interpretation with the given nets fixed to constants (memoised per call);
+        // used by the guided fallback to build control-specialised equations from the original netlist.
+        z3::expr function_with(PhysicalBit bit, const std::map<PhysicalBit, bool>& fixed, std::map<PhysicalBit, z3::expr>& memo);
         z3::expr word(const std::vector<PhysicalBit>& bits);
         std::vector<PhysicalBit> dependencies(PhysicalBit bit) const;
         std::set<PhysicalBit> support(PhysicalBit bit) const;

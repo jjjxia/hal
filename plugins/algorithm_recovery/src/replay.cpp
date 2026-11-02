@@ -77,7 +77,7 @@ namespace hal::algorithm_recovery
             require(trace.pre.size() == trace.post.size() && trace.pre.size() == trace.metadata.at("frames"), "incomplete replay observations");
             require(!analysis.windows.empty(), "no guided extraction windows");
             for (const auto& proof : analysis.report.at("proofs"))
-                require(proof.at("result") == "UNSAT" && artifacts::file_hash(proof.at("query").get<std::string>()) == proof.at("sha256"), "guided proof identity changed");
+                require((proof.at("result") == "UNSAT" || proof.at("result") == "CONGRUENCE") && artifacts::file_hash(proof.at("query").get<std::string>()) == proof.at("sha256"), "guided proof identity changed");
         }
         void check_saved_model(const FoldGraph& graph, const Json& model)
         {

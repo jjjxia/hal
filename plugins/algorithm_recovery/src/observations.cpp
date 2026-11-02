@@ -146,6 +146,32 @@ namespace hal::algorithm_recovery
         }
         value = value.simplify(); m_visiting.erase(bit); m_functions.emplace(bit, value); return value;
     }
+    z3::expr OriginalCircuit::function_with(PhysicalBit bit, const std::map<PhysicalBit, bool>& fixed, std::map<PhysicalBit, z3::expr>& memo)
+    {
+        if (bit < 0) { require(bit >= -2, "unknown constant in original function"); return m_ctx.bool_val(bit == -2); }
+        if (auto it = fixed.find(bit); it != fixed.end()) return m_ctx.bool_val(it->second);
+        if (auto it = memo.find(bit); it != memo.end()) return it->second;
+        if (!combinational(bit)) return function(bit);
+        const auto& cell = m_comb.at(bit); const auto& pins = cell.at("connections");
+        auto value = m_ctx.bool_val(false);
+        if (cell.at("type") == "SB_CARRY")
+        {
+            const auto a = function_with(physical_bit(pins.at("I0")[0]), fixed, memo), b = function_with(physical_bit(pins.at("I1")[0]), fixed, memo),
+                       c = function_with(physical_bit(pins.at("CI")[0]), fixed, memo);
+            value = (a && b) || (a && c) || (b && c);
+        }
+        else
+        {
+            const auto table = binary_parameter(cell.at("parameters").at("LUT_INIT"), 16, "LUT_INIT");
+            std::function<z3::expr(int, unsigned)> tree = [&](int i, unsigned position) -> z3::expr {
+                if (i < 0) return m_ctx.bool_val((table >> position) & 1);
+                auto lo = tree(i - 1, position), hi = tree(i - 1, position + (1u << i));
+                return z3::eq(lo, hi) ? lo : z3::ite(function_with(physical_bit(pins.at("I" + std::to_string(i))[0]), fixed, memo), hi, lo);
+            };
+            value = tree(3, 0);
+        }
+        value = value.simplify(); memo.emplace(bit, value); return value;
+    }
     z3::expr OriginalCircuit::word(const std::vector<PhysicalBit>& bits)
     {
         require(!bits.empty(), "empty original word"); z3::expr_vector values(m_ctx);

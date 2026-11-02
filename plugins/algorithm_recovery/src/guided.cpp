@@ -110,7 +110,7 @@ namespace hal::algorithm_recovery
                 }
                 return cone_cache.at(root);
             };
-            Json proofs = Json::array(); unsigned calls = 0, cache_hits = 0, ff_count = 0;
+            Json proofs = Json::array(); unsigned calls = 0, cache_hits = 0, ff_count = 0, original_fallbacks = 0, sse_skipped = 0;
             for (auto word = grouped.at("words").begin(); word != grouped.at("words").end(); ++word)
             {
                 auto* module = nl->get_module_by_id(word.value().at("module_id")); require(module, "missing DANA module");
@@ -146,6 +146,7 @@ namespace hal::algorithm_recovery
                 std::sort(ordered_controls.begin(), ordered_controls.end(), [](auto a, auto b) { return std::to_string(a) < std::to_string(b); });
                 std::map<std::vector<int>, z3::expr> variants;
                 std::set<PhysicalBit> concretized;
+                bool smt_unknown_seen = false;
                 for (auto t : times)
                 {
                     std::vector<int> key;
@@ -159,22 +160,37 @@ namespace hal::algorithm_recovery
                         // Every included gate is combinational; FF/RAM endpoints
                         // are cut. Use one normalized snapshot time (0), retaining
                         // the real observation index and conditions in the proof.
-                        auto values = unwrap(sse::get_word_values_at_z3(targets, std::vector<u32>(targets.size(), 0), bitmap, {known_values(t)}, {}, false, ctx));
-                        ++calls; std::map<u32, z3::expr> terms;
-                        for (size_t i = 0; i < targets.size(); ++i) terms.emplace(targets[i].second->get_id(), normalized(values.at(i)));
-                        std::vector<z3::expr> bits;
-                        for (auto d : dnets) { const auto [group, index] = net_to_group.at(d); bits.push_back(terms.at(group->get_id()).extract(index, index)); }
-                        auto expression = pack(ctx, bits).simplify(); z3::expr_vector hypotheses(ctx), obligations(ctx);
+                        ++calls; z3::expr_vector hypotheses(ctx), obligations(ctx);
                         Json conditions = Json::array();
                         for (size_t i = 0; i < key.size(); ++i) if (key[i] >= 0)
                         { hypotheses.push_back(original.function(ordered_controls[i]) == ctx.bool_val(key[i] != 0)); conditions.push_back({bit_json(ordered_controls[i]), key[i]}); }
-                        for (unsigned i = 0; i < row.d.size(); ++i) obligations.push_back((expression.extract(i, i) == 1) == original.function(row.d[i]));
                         // Keep unconditional proof receipts explicit as true.
                         const auto condition = hypotheses.empty() ? ctx.bool_val(true) : z3::mk_and(hypotheses);
-                        z3::solver proof(ctx); proof.set("timeout", 60000u);
-                        proof.add(condition); proof.add(!z3::mk_and(obligations));
-                        const auto file = out / "proofs" / ("sse_" + std::to_string(calls) + ".smt2"); artifacts::write(file, proof.to_smt2());
-                        const auto status = proof.check();
+                        // Proof strategy only (both branches below are sound): once a word's
+                        // whole-word query was UNKNOWN, or when the query is very large, go
+                        // straight to the congruence construction instead of waiting for the
+                        // solver timeout, which on LUT multipliers also costs gigabytes. In
+                        // that case HAL's SSE expression would be discarded, so it is not built.
+                        const auto file = out / "proofs" / ("sse_" + std::to_string(calls) + ".smt2");
+                        std::string smt_attempt = "UNKNOWN";
+                        auto status = z3::unknown;
+                        auto expression = ctx.bv_val(0, 1);
+                        if (smt_unknown_seen) { smt_attempt = "SKIPPED_AFTER_UNKNOWN_IN_WORD"; ++sse_skipped; }
+                        else
+                        {
+                            auto values = unwrap(sse::get_word_values_at_z3(targets, std::vector<u32>(targets.size(), 0), bitmap, {known_values(t)}, {}, false, ctx));
+                            std::map<u32, z3::expr> terms;
+                            for (size_t i = 0; i < targets.size(); ++i) terms.emplace(targets[i].second->get_id(), normalized(values.at(i)));
+                            std::vector<z3::expr> bits;
+                            for (auto d : dnets) { const auto [group, index] = net_to_group.at(d); bits.push_back(terms.at(group->get_id()).extract(index, index)); }
+                            expression = pack(ctx, bits).simplify();
+                            for (unsigned i = 0; i < row.d.size(); ++i) obligations.push_back((expression.extract(i, i) == 1) == original.function(row.d[i]));
+                            z3::solver proof(ctx); proof.set("timeout", 60000u);
+                            proof.add(condition); proof.add(!z3::mk_and(obligations));
+                            artifacts::write(file, proof.to_smt2());
+                            if (std::filesystem::file_size(file) > (4u << 20)) { smt_attempt = "SKIPPED_QUERY_SIZE"; smt_unknown_seen = true; }
+                            else { status = proof.check(); if (status == z3::unknown) smt_unknown_seen = true; }
+                        }
                         require(status != z3::sat, "conditional original-LUT equivalence refuted: " + word.key());
                         z3::solver sanity(ctx); sanity.set("timeout", 60000u); sanity.add(condition);
                         require(sanity.check() == z3::sat, "vacuous or UNKNOWN control assumptions");
@@ -182,17 +198,26 @@ namespace hal::algorithm_recovery
                             proofs.push_back({{"word", word.key()}, {"time", t}, {"conditions", conditions}, {"query", file.string()}, {"sha256", artifacts::file_hash(file)}, {"result", "UNSAT"}, {"condition_satisfiable", true}});
                         else
                         {
-                            // Whole-word query UNKNOWN: discharge each output bit separately.
+                            // Whole-word query UNKNOWN (e.g. LUT multipliers built differently by
+                            // HAL and by the independent interpreter). Use the independent
+                            // interpretation instead, with each concretized control net replaced
+                            // by its value: under the condition this is equal to the original
+                            // function by congruence (no SMT needed). The values are fixed at the
+                            // net level, not by syntactic subterm matching (which simplification
+                            // can defeat), so every occurrence of a concretized control is replaced.
                             std::filesystem::remove(file);
+                            std::map<PhysicalBit, bool> fixed; std::map<PhysicalBit, z3::expr> memo;
+                            for (size_t i = 0; i < key.size(); ++i) if (key[i] >= 0) fixed.emplace(ordered_controls[i], key[i] != 0);
+                            std::vector<z3::expr> replaced;
                             for (unsigned i = 0; i < row.d.size(); ++i)
-                            {
-                                z3::solver bit(ctx); bit.set("timeout", 120000u); bit.add(condition); bit.add(!obligations[i]);
-                                const auto bit_file = out / "proofs" / ("sse_" + std::to_string(calls) + "_b" + std::to_string(i) + ".smt2");
-                                artifacts::write(bit_file, bit.to_smt2());
-                                require(bit.check() == z3::unsat, "conditional original-LUT equivalence not proven: " + word.key() + " bit " + std::to_string(i));
-                                proofs.push_back({{"word", word.key()}, {"time", t}, {"bit", i}, {"conditions", conditions}, {"query", bit_file.string()},
-                                                  {"sha256", artifacts::file_hash(bit_file)}, {"result", "UNSAT"}, {"condition_satisfiable", true}});
-                            }
+                                replaced.push_back(z3::ite(original.function_with(row.d[i], fixed, memo), ctx.bv_val(1, 1), ctx.bv_val(0, 1)));
+                            const auto congruence = out / "proofs" / ("congruence_" + std::to_string(calls) + ".json");
+                            artifacts::write(congruence, Json{{"word", word.key()}, {"time", t}, {"conditions", conditions},
+                                {"rule", "the original interpretation is rebuilt with each listed control net replaced by its value; under the conditions each such net equals that value, so by induction over the acyclic cone the rebuilt function equals the original one"}}.dump(2) + '\n');
+                            proofs.push_back({{"word", word.key()}, {"time", t}, {"conditions", conditions}, {"query", congruence.string()}, {"sha256", artifacts::file_hash(congruence)},
+                                              {"result", "CONGRUENCE"}, {"condition_satisfiable", true}, {"whole_word_smt", smt_attempt},
+                                              {"equation_source", "ORIGINAL_INTERPRETER_CONTROL_SUBSTITUTION"}});
+                            expression = pack(ctx, replaced).simplify(); ++original_fallbacks;
                         }
                         variants.emplace(key, expression);
                     }
@@ -301,7 +326,7 @@ namespace hal::algorithm_recovery
             result.report = {{"status", "HAL_GUIDED_EQUATIONS_ORIGINAL_LUT_CHECKED"}, {"groups", result.words.size()}, {"FF_bits", ff_count},
                 {"HAL_calls", calls}, {"cache_hits", cache_hits}, {"RAM_instances", base.memories.size()}, {"RAM_port_proofs", ram_proofs}, {"windows", windows}, {"proofs", proofs},
                 {"observation_files", trace.metadata.at("files")}, {"window_length", window_length},
-                {"concretization", taint ? "PROTOCOL_TAINT" : "TRACE_VALUES_OF_ALL_FF_CONTROLS"},
+                {"concretization", taint ? "PROTOCOL_TAINT" : "TRACE_VALUES_OF_ALL_FF_CONTROLS"}, {"original_interpreter_equations", original_fallbacks}, {"variants_without_HAL_SSE", sse_skipped},
                 {"complete_update_words", std::count_if(result.words.begin(), result.words.end(), [](const auto& w) { return !w.second.complete_update.empty(); })},
                 {"manual_semantic_inputs", trace.metadata.value("manual_semantic_inputs", Json::array())}, {"scope", "Observed primitive-control conditions, nonvacuous universal original-LUT checks; RAM ports unconditional. No global schedule/whole-device claim."}};
             artifacts::write(out / "sse_report.json", result.report.dump(2) + '\n');
