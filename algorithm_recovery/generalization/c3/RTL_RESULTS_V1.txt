@@ -1,0 +1,26 @@
+C3 folded RTL backend (emit_rtl.py), results v1 -- 2026-11-02
+Input: the certified event graph used for program recovery (graph_v1; graph_v4 for Bambu ARF; analysis/ for SHA-1, Ascon).
+Output: build/bench2_v1/<case>/rtl_v1/{recovered.v,report.json} (local, ignored).
+Validation: Icarus, module initialised once from the trace register values at the certified origin, then run
+unsynchronised to the end of the trace with the trace's data-pad values; every word register after every cycle and every
+output pad value before every edge is compared with the original-gate trace. Output pad values that are X in the
+trace are counted (out_unknown) and not compared. trace = training trace; variant_trace = fresh data, same protocol.
+Result: no mismatch on any design or trace.
+
+case                P cyc/P origin regs  lines cycles  reg_cmp  out_cmp  out_X mismatch
+present            66    33     74    8    991   4188    33504   268032      0 None  [trace]
+present            66    33     74    8    991   4188    33504   268032      0 None  [variant_trace]
+ascon             150    75    172    9  11092   9515    85635   371085  19030 None  [trace]
+ascon             150    75    172    9  11092   9515    85635   371085  19030 None  [variant_trace]
+sha1              184    92    220   29   4295  11667   338343   408345  11667 None  [trace]
+sha1              184    92    220   29   4295  11667   338343   408345  11667 None  [variant_trace]
+fir_decim          20    10     96   20   3215   1233    24660    33291      0 None  [trace]
+fir_decim          20    10     96   20   3215   1233    24660    33291      0 None  [variant_trace]
+small_hb_dec_r2    16     8    102   23   5972    992    22816    18848      0 None  [trace]
+small_hb_dec_r2    16     8    102   23   5972    992    22816    18848      0 None  [variant_trace]
+ibex_mul           66    33     72   15  38141   4189    62835   138237      0 None  [trace]
+ibex_mul           66    33     72   15  38141   4189    62835   138237      0 None  [variant_trace]
+qdiv               96    48    196   10   2099   6047    60470   199551   6047 None  [trace]
+qdiv               96    48    196   10   2099   6047    60470   199551   6047 None  [variant_trace]
+bambu_arf          32    16     60   11  60257   2019    22209   268527      0 None  [trace]
+bambu_arf          32    16     60   11  60257   2019    22209   268527      0 None  [variant_trace]
