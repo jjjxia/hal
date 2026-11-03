@@ -126,9 +126,6 @@ def run(samples):
 
 
 per_tx = len(cycles)
-T = 16
-assert run([0] * (per_tx * T)) == [0] * T, "zero input from zero state must give zero output"
-responses = {}
 # E5 designs: a reference module c3/e5_refs/<case>.py may define STREAM with the keys of the RTL entries above
 import importlib.util as _ilu, os as _os
 _ref = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "e5_refs", f"{case}.py")
@@ -136,6 +133,11 @@ if case not in RTL and _os.path.exists(_ref):
     _spec = _ilu.spec_from_file_location(f"e5ref_{case}", _ref); _m = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_m)
     if hasattr(_m, "STREAM"):
         RTL[case] = _m.STREAM
+# impulse window (E5 amendment k): 16 transactions, or enough to read out every tap of the reference filter plus
+# latency; 16 for the frozen filters (6 and 7 taps), 20 for hb_dec's 31 taps
+T = max(16, len(RTL.get(case, {}).get("coefficients", [])) // per_tx + 5)
+assert run([0] * (per_tx * T)) == [0] * T, "zero input from zero state must give zero output"
+responses = {}
 amplitude = RTL.get(case, {}).get("impulse", 1)
 for pos in range(per_tx):
     x = [0] * (per_tx * T); x[pos] = amplitude

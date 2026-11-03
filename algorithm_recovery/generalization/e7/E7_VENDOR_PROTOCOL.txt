@@ -1,0 +1,51 @@
+E7 Vendor-synthesized netlist -- protocol, written 2026-11-03 BEFORE any E7 recovery run
+=======================================================================================
+Requested by the user on 2026-11-03 (option 1 of the TCHES risk list, "补一个厂商工具链网表的完整案例"; "我授权了").
+Question: does the unchanged chain (frontend, certificate, inverse folding, program, end-to-end check, folded RTL)
+work on a netlist produced by a commercial synthesis tool, and how does it compare with Yosys on the same RTL?
+
+Netlist (third party, not produced by us)
+-----------------------------------------
+Maggie artifact (Klix et al., CCS 2024), benchmarks/papers/P01/netlists/netlists/lattice/sha256_lattice.v,
+sha256 83a8e93c4b67c7db6dfbc14be9145fa96b71c9df54097f130cfeb9770bca584f: "Written by Synplify Pro, Product Version
+L-2016.09L+ice40, Mapper maplat Build 1612R", 2023-07-10. Design: secworks/sha256 @ 837c5cc (the same commit as E5
+sha256_sw, which used the core sha256_core and Yosys synth_ice40), top `sha256` with its register interface
+(cs, we, address[7:0], write_data[31:0], read_data[31:0], error). 3,935 SB_LUT4, 1,858 SB_DFFER, 512 SB_DFFE, 7 SB_DFFR,
+1 SB_DFFES, 346 SB_CARRY, 76 SB_IO, 1 SB_GB_IO, 5 SB_GB, 4 GND, 4 VCC. Names are kept in the file; the chain anonymizes
+pads, cells and nets as for every other design.
+
+Preparation (benchmark side; no logic cell changed)
+---------------------------------------------------
+1. Yosys 0.33: read port-only blackbox stubs of the iCE40 cells, read the netlist, hierarchy -top sha256, flatten.
+2. e7/e7_lower.py: SB_IO (PIN_TYPE 000001 simple input / 011001 simple output, no IO registers, D_IN_1 unused),
+   SB_GB_IO (clock pad) and SB_GB become wires; GND/VCC become constants. The bits 2..0 of write_data are given the
+   port name write_data_ctl (pads are bits; the netlist is unchanged), so that V1 pad protocols can mark them non-data.
+3. e7/e7_check.py: the lowered netlist (Icarus, Yosys iCE40 cells_sim.v) and the secworks RTL are simulated side by
+   side on the register interface; read_data must agree in every cycle and every digest must equal a Python SHA-256
+   compression. Result before any recovery: 20 transactions with free polling, 1,881 of 1,881 known cycles equal (cycle 0
+   is X in the RTL before reset), 20/20 digests correct; with the fixed schedule below, 12/12 correct, and reading one
+   cycle earlier (83) gives 0/12, so 84 is the first cycle with a valid digest.
+
+Protocol (PAD_PROTOCOL_V1, unchanged chain)
+-------------------------------------------
+Non-data: clk, reset_n, cs, we, address, write_data_ctl. Data: write_data[31:3] (29 pads), fresh random every cycle.
+Prefix: 2 cycles reset_n = 0. Period 92 cycles: cycles 0..15 write block word j to address 0x10+j (cs = we = 1,
+write_data_ctl = 0); cycle 16 writes the control word (address 0x08, write_data_ctl = 0b101: init, SHA-256 mode);
+cycles 17..83 idle (cs = we = 0, address 0); cycles 84..91 read digest word i at address 0x20+i (cs = 1, we = 0).
+Observation: read_data at cycles 84..91. Consequence, stated as a limitation: V1 classifies pads, not pad-cycles, so the
+three low bits of every block word are fixed to 0 by the protocol (the program's inputs are the 29 high bits of each
+of the 16 words). Reference: FIPS 180-4 compression of the written block from H(0) (c3/e5_refs/sha256_sw.py functions).
+
+Run and metrics
+---------------
+bench2/e5_run_case.sh unchanged (frozen pipeline, hal-recover graph, decompile, reference on 2,000 fresh inputs,
+close_chain, emit_rtl, E2.1 oracle against the RTL word-level elaboration of the same secworks sources) and the E5
+metrics M1-M7. Expected structure: as E5 sha256_sw (64-round loop; K table), plus the register file and read mux.
+Budget: each stage <= 3 h and <= 6 GiB, as E5 (7.7 GB RAM). Exceeding it is reported; a rerun with a larger memory
+budget, if the user provides more swap, is reported as a separate run. Comparison with E5 sha256_sw (Yosys, core only)
+on certificate, graph, program and oracle metrics. Any change to recovery code after an E7 result is recorded here and
+makes E7 development data.
+Oracle mapping: names as in E2.1 (synthesized-netlist names to RTL register names). Synplify renames array registers
+(block_reg_0_ for block_reg[0]) and may replicate registers; no name normalization is added, so unmapped registers and
+events are reported as such. The oracle's RTL is the four secworks sources copied unmodified to
+build/e7/sha256_lattice/src (synth.ys lists them, as the E5 synthesis scripts do).

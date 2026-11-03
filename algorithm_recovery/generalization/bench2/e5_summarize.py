@@ -49,8 +49,10 @@ elif G and G.get("available"):
     out["outcome"] = "graph; program refused"
 ref = j(f"{D}/program/reference_check.json")
 if ref:
-    out["reference"] = {"status": ref.get("status"), "trials": ref.get("fresh_random_trials"), "mismatches": ref.get("mismatches"),
-                        "compared": ref.get("compared_values")}
+    out["reference"] = {"status": ref.get("status"), "trials": ref.get("fresh_random_trials", ref.get("fresh_random_transactions")),
+                        "mismatches": ref.get("mismatches"), "compared": ref.get("compared_values"),
+                        "kind": ref.get("reference_kind", "documented algorithm"),
+                        "coefficients_match": ref.get("coefficients_match")}
 cc = j(f"{D}/close_chain.json")
 if cc:
     out["close_chain"] = {os.path.basename(p["program"]): {"closed": p["closed"], "writes": p["writes"], "outputs": p["outputs"]}

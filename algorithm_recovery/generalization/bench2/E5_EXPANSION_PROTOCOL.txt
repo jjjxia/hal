@@ -120,3 +120,14 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      bit; names with a single cell map exactly as before. Checked before the fix: no register name of the frozen eight
      (E2.1, paper Table 2) or of any other finished E5 design denotes more than one cell, so only aes_oc's score can
      change; aes_oc is rescored, and unaffected designs are rescored to confirm identical metrics.
+ Note to (h): sha256_oc, run after the amendment, also certifies (PROTOCOL_SCHEDULE_CERTIFIED, origin 36, period 158
+     events, 1,103 FFs, 25.2 s) and then fails only in the separate state backend (analyze exit 1: the C++ compile of
+     the state-replay program fails, state_replay/compile.log); it continues under the amended gate, and the failure is
+     reported.
+ (k) Evaluation tool, 2026-11-03 (recovery unchanged): c3/check_stream.py read the impulse response over 16
+     transactions. hb_dec (31 taps, decimation 2, latency 2) needs 17 outputs to show its last tap, so the readout ended
+     at tap 28 and coefficients_match was false (status FAIL), while the bit-exact RTL sample model matched the program on
+     all 2,000 fresh transactions. The window is now max(16, taps / samples-per-transaction + 5) transactions: 16 for
+     the frozen fir_decim and small_hb_dec (unchanged), 20 for hb_dec. Only hb_dec's reference stage is rerun.
+ Note to (h): aes_sw128 likewise certifies (origin 38, period 136 events, 2,209 FFs, 46.8 s) and fails only in the
+     separate state backend (state replay: child process timed out); it continues under the amended gate.

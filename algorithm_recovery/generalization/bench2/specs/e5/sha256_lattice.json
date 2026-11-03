@@ -1,0 +1,185 @@
+{
+ "synth": "/home/jiahao/hal/build/e7/sha256_lattice/sha256_lattice.json",
+ "top": "sha256",
+ "source": {
+  "url": "Maggie artifact (Klix et al., CCS 2024) benchmarks/papers/P01/netlists/netlists/lattice/sha256_lattice.v",
+  "commit": "secworks/sha256 837c5cc396f001d18f2c765721c585716eb439ae (RTL); netlist sha256 83a8e93c4b67c7db",
+  "license": "BSD-2-Clause (RTL)",
+  "author": "J. Stroembergson (RTL); netlist by Synplify Pro L-2016.09L+ice40 (third party)",
+  "category": "hash (vendor-synthesized netlist)",
+  "parameters": "top sha256 register interface; see e7/E7_VENDOR_PROTOCOL.txt"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset_n",
+  "cs",
+  "we",
+  "address",
+  "write_data_ctl"
+ ],
+ "defaults": {
+  "reset_n": 1,
+  "cs": 0,
+  "we": 0,
+  "address": 0,
+  "write_data_ctl": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset_n": 0
+   }
+  }
+ ],
+ "period": 92,
+ "schedule": {
+  "0": {
+   "cs": 1,
+   "we": 1,
+   "address": 16,
+   "write_data_ctl": 0
+  },
+  "1": {
+   "cs": 1,
+   "we": 1,
+   "address": 17,
+   "write_data_ctl": 0
+  },
+  "2": {
+   "cs": 1,
+   "we": 1,
+   "address": 18,
+   "write_data_ctl": 0
+  },
+  "3": {
+   "cs": 1,
+   "we": 1,
+   "address": 19,
+   "write_data_ctl": 0
+  },
+  "4": {
+   "cs": 1,
+   "we": 1,
+   "address": 20,
+   "write_data_ctl": 0
+  },
+  "5": {
+   "cs": 1,
+   "we": 1,
+   "address": 21,
+   "write_data_ctl": 0
+  },
+  "6": {
+   "cs": 1,
+   "we": 1,
+   "address": 22,
+   "write_data_ctl": 0
+  },
+  "7": {
+   "cs": 1,
+   "we": 1,
+   "address": 23,
+   "write_data_ctl": 0
+  },
+  "8": {
+   "cs": 1,
+   "we": 1,
+   "address": 24,
+   "write_data_ctl": 0
+  },
+  "9": {
+   "cs": 1,
+   "we": 1,
+   "address": 25,
+   "write_data_ctl": 0
+  },
+  "10": {
+   "cs": 1,
+   "we": 1,
+   "address": 26,
+   "write_data_ctl": 0
+  },
+  "11": {
+   "cs": 1,
+   "we": 1,
+   "address": 27,
+   "write_data_ctl": 0
+  },
+  "12": {
+   "cs": 1,
+   "we": 1,
+   "address": 28,
+   "write_data_ctl": 0
+  },
+  "13": {
+   "cs": 1,
+   "we": 1,
+   "address": 29,
+   "write_data_ctl": 0
+  },
+  "14": {
+   "cs": 1,
+   "we": 1,
+   "address": 30,
+   "write_data_ctl": 0
+  },
+  "15": {
+   "cs": 1,
+   "we": 1,
+   "address": 31,
+   "write_data_ctl": 0
+  },
+  "16": {
+   "cs": 1,
+   "we": 1,
+   "address": 8,
+   "write_data_ctl": 5
+  },
+  "84": {
+   "cs": 1,
+   "we": 0,
+   "address": 32
+  },
+  "85": {
+   "cs": 1,
+   "we": 0,
+   "address": 33
+  },
+  "86": {
+   "cs": 1,
+   "we": 0,
+   "address": 34
+  },
+  "87": {
+   "cs": 1,
+   "we": 0,
+   "address": 35
+  },
+  "88": {
+   "cs": 1,
+   "we": 0,
+   "address": 36
+  },
+  "89": {
+   "cs": 1,
+   "we": 0,
+   "address": 37
+  },
+  "90": {
+   "cs": 1,
+   "we": 0,
+   "address": 38
+  },
+  "91": {
+   "cs": 1,
+   "we": 0,
+   "address": 39
+  }
+ },
+ "data_mode": "cycle",
+ "case": "sha256_lattice",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261104
+}
