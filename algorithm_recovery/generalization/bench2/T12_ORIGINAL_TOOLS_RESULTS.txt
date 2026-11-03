@@ -1,0 +1,24 @@
+T1.2 original-tool results (protocol T12_NATIVE_FAMILIES_PROTOCOL.txt, amendment 3 and its correction) -- 2026-11-03
+Tools: unmodified Daikon 5.9.0 (FunctionBinary enabled, -Xmx3g) and the original Trace2Model CLI with CVC4 1.8, run
+with the user's permission (bash build/t12_run_original_tools.sh); judged here with bench2/t12_daikon.py judge and
+bench2/t12_trace2model.py import. accepted = training-consistent translatable equations; refuted = rejected by the
+certificate (not reported for Index, see the correction); confirmed = a fresh trace contradicts the accepted
+equation at an event the certified equation predicts (amendment 2). Per-file details in build/bench2_v1/stats_t12_orig/.
+
+Daikon       ascon              targets   226  accepted   121  refuted     27  confirmed   0  untranslatable 26605  no_result 0
+Daikon       fir_decim          targets    25  accepted     8  refuted      0  confirmed   0  untranslatable 282  no_result 0
+Daikon       index_controller   targets  2595  accepted  2553  refuted    n/r  confirmed  13  untranslatable 2219  no_result 0
+Daikon       index_headset      targets  2675  accepted  2601  refuted    n/r  confirmed  21  untranslatable 3393  no_result 0
+Daikon       present            targets    33  accepted     0  refuted      0  confirmed   0  untranslatable 378  no_result 0
+Daikon       qdiv               targets   145  accepted    74  refuted     72  confirmed   1  untranslatable 939  no_result 0
+Daikon       seqcordic          targets   120  accepted    68  refuted      1  confirmed   0  untranslatable 2091  no_result 0
+Daikon       small_hb_dec_r2    targets    38  accepted    14  refuted      0  confirmed   0  untranslatable 1388  no_result 0
+Trace2Model  index_controller   targets  2787  accepted  2621  refuted    n/r  confirmed   7  untranslatable 47  no_result 119
+Trace2Model  index_headset      targets  2851  accepted  2660  refuted    n/r  confirmed  14  untranslatable 59  no_result 132
+Trace2Model  qdiv               targets   241  accepted    99  refuted     96  confirmed   2  untranslatable 0  no_result 142
+
+Daikon aborted with an internal error ("at end of add_modified", thrown in daikon/inv/ternary/threeScalar/
+LinearTernaryCore) while reading the traces of sha1, ibex_mul and bambu_arf; per amendment 3 (unmodified tools, the
+earlier study's settings) no reconfigured run was made: reported as tool failures without results.
+Trace2Model was run on qdiv and both Index images (the earlier study's scope for this tool).
+Same wrong update found by several families on qdiv: DANA_module_1 at phase 55 (F1, Daikon, Trace2Model).
