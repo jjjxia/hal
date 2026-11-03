@@ -452,13 +452,17 @@ namespace hal::algorithm_recovery
             tb << "`timescale 1ns/1ps\nmodule test;\nreg [" << pads.size() + clocks.size() - 1 << ":0] stimulus[0:" << event_count - 1 << "];\ninteger i,fd;\n";
             for (auto bit : circuit.inputs) tb << "reg drive_" << bit << "=0;\n";
             std::string connections;
+            std::set<PhysicalBit> declared;  // synthesis can drive two output ports from one net: declare its wire once
             for (auto port = original.at("ports").begin(); port != original.at("ports").end(); ++port)
             {
                 identifier(port.key()); require(port.value().at("bits").size() == 1, "non-scalar pad");
                 const auto q = physical_bit(port.value().at("bits")[0]); std::string net = "drive_" + std::to_string(q);
                 if (port.value().at("direction") != "input")
                 {
-                    net = "pad_" + std::to_string(q); tb << "wire " << net << ";\n";
+                    net = "pad_" + std::to_string(q);
+                    if (!declared.insert(q).second)
+                    { if (!connections.empty()) connections += ','; connections += '.' + port.key() + '(' + net + ')'; continue; }
+                    tb << "wire " << net << ";\n";
                     if (port.value().at("direction") == "inout")
                     {
                         const auto enable = tristates.at(q); const auto expr = enable >= 0 ? "dut." + lookup.at(enable) : "1'b" + bit_json(enable).get<std::string>();

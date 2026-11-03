@@ -48,3 +48,13 @@ variants produce identical outputs on the same 20 random transactions. Yosys 0.3
 N=2: 3,862 LUT4 / 264 CARRY / 362 FF; N=4: 6,266 / 318 / 425 (N=1: 2,270 / 242 / 336).
 Specs bench2/specs/bambu_arf_mult{2,4}.json differ from bambu_arf.json only in the netlist path and case name;
 c3/observe.json reuses the strobe observations of bambu_arf. Runs: build/bench2_e23/bambu_arf_mult{2,4}.
+Part A run notes (2026-11-02): N=2 complete (below). N=4 first failed at the trace stage: synthesis drives two output
+ports (two valid strobes asserted in the same cycle) from one net, and hal-recover trace declared that pad wire
+twice in its testbench (iverilog error). Generic fix in observations.cpp: each pad wire is declared once and both
+ports connect to it. No earlier design has an output net shared by two ports, so their traces are unaffected.
+N=4 was resumed from the trace stage with the same commands; import and grouping were kept.
+N=2: anonymized netlist equivalent (0 mismatches); certificate and graph (period 32 events = 16 cycles, 92 nodes,
+nothing excluded); program PASS (flat 38,709 / rolled 38,709 / lifted 35,179 lines); 2,000 fresh inputs, 16,000
+values, 0 mismatches against module.c; multiplications matched to the same 11 module.c products as N=1 (fitted, proof
+UNKNOWN, as N=1). The full-state export inside `analyze` timed out on one multiplier bit (state_machine.cpp); it is
+not part of the certificate/graph/program path.
