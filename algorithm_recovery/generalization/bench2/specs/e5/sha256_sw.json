@@ -1,0 +1,44 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/secworks_sha256/synth/sha256_core/sha256_core.json",
+ "top": "sha256_core",
+ "source": {
+  "url": "https://github.com/secworks/sha256",
+  "commit": "837c5cc396f001d18f2c765721c585716eb439ae",
+  "license": "BSD-2-Clause",
+  "author": "Joachim Str\u00f6mbergson (Secworks Sweden AB)",
+  "category": "hash",
+  "parameters": "no HDL parameters; mode=1 (SHA-256, not SHA-224) is a fixed non-data pad"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset_n",
+  "init",
+  "next",
+  "mode"
+ ],
+ "defaults": {
+  "reset_n": 1,
+  "init": 0,
+  "next": 0,
+  "mode": 1
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset_n": 0
+   }
+  }
+ ],
+ "period": 66,
+ "schedule": {
+  "0": {
+   "init": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "sha256_sw",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

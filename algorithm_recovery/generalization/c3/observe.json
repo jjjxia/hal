@@ -127,5 +127,81 @@
    "port": "o4",
    "strobe": "o4_vld"
   }
+ ],
+ "sha256_sw": [
+  {
+   "port": "digest",
+   "cycle": 66
+  }
+ ],
+ "sha256_oc": [
+  {
+   "port": "text_o",
+   "cycle": 71
+  },
+  {
+   "port": "text_o",
+   "cycle": 72
+  },
+  {
+   "port": "text_o",
+   "cycle": 73
+  },
+  {
+   "port": "text_o",
+   "cycle": 74
+  },
+  {
+   "port": "text_o",
+   "cycle": 75
+  },
+  {
+   "port": "text_o",
+   "cycle": 76
+  },
+  {
+   "port": "text_o",
+   "cycle": 77
+  },
+  {
+   "port": "text_o",
+   "cycle": 78
+  }
+ ],
+ "siphash_c2d4": [
+  {
+   "port": "siphash_word",
+   "cycle": 11
+  }
+ ],
+ "siphash_c1d3": [
+  {
+   "port": "siphash_word",
+   "cycle": 9
+  }
+ ],
+ "siphash_c4d8": [
+  {
+   "port": "siphash_word",
+   "cycle": 17
+  }
+ ],
+ "chacha_r20": [
+  {
+   "port": "data_out",
+   "cycle": 23
+  }
+ ],
+ "chacha_r12": [
+  {
+   "port": "data_out",
+   "cycle": 15
+  }
+ ],
+ "chacha_r8": [
+  {
+   "port": "data_out",
+   "cycle": 11
+  }
  ]
 }

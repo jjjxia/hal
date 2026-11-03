@@ -1,0 +1,56 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/secworks_siphash/synth/siphash_core/siphash_core.json",
+ "top": "siphash_core",
+ "source": {
+  "url": "https://github.com/secworks/siphash",
+  "commit": "25f5482f4ecbf1ab60a7b5e5dd7e2d7f56b0aa6c",
+  "license": "BSD-2-Clause",
+  "author": "Joachim Str\u00f6mbergson (Secworks Sweden AB)",
+  "category": "keyed hash (ARX)",
+  "parameters": "SipHash-2-4: compression_rounds=2, final_rounds=4, long=0 (64-bit tag) as fixed non-data pads; no HDL parameters"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset_n",
+  "initalize",
+  "compress",
+  "finalize",
+  "long",
+  "compression_rounds",
+  "final_rounds"
+ ],
+ "defaults": {
+  "reset_n": 1,
+  "initalize": 0,
+  "compress": 0,
+  "finalize": 0,
+  "long": 0,
+  "compression_rounds": 2,
+  "final_rounds": 4
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset_n": 0
+   }
+  }
+ ],
+ "period": 11,
+ "schedule": {
+  "0": {
+   "initalize": 1
+  },
+  "1": {
+   "compress": 1
+  },
+  "5": {
+   "finalize": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "siphash_c2d4",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

@@ -1,0 +1,24 @@
+E5 expected structure (ground truth for found/expected), case siphash_c4d8 -- written 2026-11-03 BEFORE any recovery run
+=====================================================================================================================
+Source: secworks/siphash @ 25f5482f4ecbf1ab60a7b5e5dd7e2d7f56b0aa6c (pinned clone
+/home/jiahao/hal/build/bench_candidates/secworks_siphash/src), file src/rtl/siphash_core.v (top siphash_core).
+Same netlist as the other siphash_c*d* cases; this case fixes the non-data pads compression_rounds = 4,
+final_rounds = 8, long = 0. Protocol: initialize (cycle 0), compress ONE word (cycle 1), finalize (cycle 7),
+tag observed at cycle 17 = period.
+
+Expected time loops: 2
+  Both loops use the same counter loop_ctr_reg[3:0] (siphash_core.v:109-113 declaration, :333-346 update) and the
+  same body, one SipRound per cycle (DP_SIPROUND, :294-318).
+  L1  compression loop: loop_ctr reset by compress in CTRL_IDLE (:380-390, loop_ctr_rst :383); CTRL_COMP_LOOP
+      (:404-414) increments it each cycle and exits when loop_ctr_reg == compression_rounds - 1 (:409).
+      Trip count 4 per transaction (one message word; transaction cycles 2..5). Preceded by v3 ^= mi
+      (DP_COMP_START :267-271) and followed by v0 ^= mi_reg in CTRL_COMP_END (:416-424, :273-277).
+  L2  finalization loop: loop_ctr reset by finalize (:392-401, :394) after v2 ^= 0xff (DP_FINAL0_START
+      :279-286); CTRL_FINAL0_LOOP (:426-444) exits when loop_ctr_reg == final_rounds - 1 (:431). Trip count 8
+      per transaction (transaction cycles 8..15); CTRL_FINAL0_END (:446-455) writes
+      siphash_word0_reg <= v0^v1^v2^v3 (:247, :450).
+  Not exercised: CTRL_FINAL1_START/LOOP/END (:457-488, long = 1 only).
+
+Expected table instances: 0
+  The initialization constants (:254-264) and the finalization constants 0xff/0xee/0xdd are scalar constants;
+  the core has no S-box, ROM or round-constant table.

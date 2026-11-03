@@ -1,0 +1,33 @@
+E5 expected structure (ground truth for found/expected), case sha256_oc -- written 2026-11-03 BEFORE any recovery run
+=====================================================================================================================
+Source: freecores/sha_core @ f90e67a6040d7dd5de54188ed0b8b7ec05d4ac85 (pinned clone
+/home/jiahao/hal/build/bench_candidates/oc_sha_core/src), file rtl/sha256.v, top sha256. Protocol: one SHA-256
+compression per 79-cycle transaction (first-block command in cycle 0, read command in cycle 68).
+
+Expected time loops: 2
+  L1  round loop, counter round[6:0] (sha256.v:156; `case (round)` :261-645, round_plus_1 :212).
+      round stays 0 while idle (:263-310, :308); the first-block command (cmd[1], :265) starts it (cycle 1:
+      round 0 loads W0/Wt from text_i (:267-268) and A..H, H0..H7 with the SHA-256 initial value (:272-303)); then round
+      takes the values 1..64 in transaction cycles 2..65 and returns to 0 (:637).
+      Counts the SHA-256 rounds: 64 compression rounds per transaction (round values 1..64), preceded by one
+      load step (round 0). Body phases in the source:
+        rounds 1..15 : separate (unrolled) case items, each latches text_i into W<round>/Wt and performs one
+                       compression round (:311-548);
+        rounds 16..63: one shared case item (:550-626): 16-word window shift W0<=W1 ... W14<=Wt, Wt<=next_Wt
+                       (schedule expansion, :205) and one compression round;
+        round 64     : last compression round fused with the chaining addition A<=next_A+H0 ... (:627-639).
+      A roll-up may report one loop over the round counter (trip 63 or 64 depending on whether the fused
+      round 64 is folded in) or phase-split loops (15 + 48 [+ 1]); any of these counts as finding L1, and the
+      sum of compression rounds must be 64.
+  L2  digest read-out loop, counter read_counter[2:0] (sha256.v:159, :734-770): loaded with 7 by the read
+      command (cmd[0], :743-745), then decremented once per idle cycle down to 0 (:762-763); every idle cycle
+      text_o <= the state word selected by read_counter (:751-760). Trip count 8 per transaction (words A..H,
+      i.e. H0..H7, written at the edges ending cycles 70..77, observed at 71..78). After reaching 0 it holds 0
+      (text_o keeps re-loading word H until busy).
+
+Expected table instances: 1
+  T1  round-constant ROM Kt, `case (round)` in the "Kt generator" (sha256.v:651-729, entries :662-725,
+      default 0 :726): REGISTERED (Kt <= K[round] every clock, so Kt = K[round-1] during round), 64 entries x 32
+      bit plus default 0 for round 64..127, INPUT WIDTH 7 bits (round[6:0]); 1 instance.
+  Not tables: `case (read_counter)` (:751-760) selects among the state registers A..H (data mux, not
+      constants); the initial-value loads (:275-291) are constants on one control path.

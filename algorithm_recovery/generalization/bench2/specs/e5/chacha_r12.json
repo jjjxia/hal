@@ -1,0 +1,46 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/secworks_chacha/synth/chacha_core/chacha_core.json",
+ "top": "chacha_core",
+ "source": {
+  "url": "https://github.com/secworks/chacha",
+  "commit": "7eaba360df9fed9fc2db98d5f3df81cf01e5b604",
+  "license": "BSD-2-Clause",
+  "author": "Joachim Str\u00f6mbergson (Secworks Sweden AB)",
+  "category": "stream cipher (ARX)",
+  "parameters": "ChaCha12: rounds=12, keylen=1 (256-bit key) as fixed non-data pads; no HDL parameters"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset_n",
+  "init",
+  "next",
+  "keylen",
+  "rounds"
+ ],
+ "defaults": {
+  "reset_n": 1,
+  "init": 0,
+  "next": 0,
+  "keylen": 1,
+  "rounds": 12
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset_n": 0
+   }
+  }
+ ],
+ "period": 15,
+ "schedule": {
+  "0": {
+   "init": 1
+  }
+ },
+ "data_mode": "hold",
+ "case": "chacha_r12",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

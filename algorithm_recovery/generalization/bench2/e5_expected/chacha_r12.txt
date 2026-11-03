@@ -1,0 +1,24 @@
+E5 expected structure (ground truth for found/expected), case chacha_r12 -- written 2026-11-03 BEFORE any recovery run
+=====================================================================================================================
+Source: secworks/chacha @ 7eaba360df9fed9fc2db98d5f3df81cf01e5b604 (pinned clone
+/home/jiahao/hal/build/bench_candidates/secworks_chacha/src), files src/rtl/chacha_core.v (top), chacha_qr.v.
+Same netlist as the other chacha_r* cases; this case fixes the non-data pads rounds = 12, keylen = 1 (256-bit key),
+next = 0. Protocol: init in cycle 0, one keystream block XOR data_in, data_out observed at cycle 15 = period.
+
+Expected time loops: 1 (a double-round loop containing a 2-step half-round alternation)
+  L1  double-round loop, counter dr_ctr_reg[3:0] (chacha_core.v:121-125 declaration, :551-567 update): reset in
+      CTRL_INIT (:640-647, dr_ctr_rst :644); in CTRL_ROUNDS (:649-662) it is incremented when qr_ctr_reg == QR1
+      (:653-655) and the loop exits when dr_ctr_reg == rounds[4:1] - 1 (:656). Trip count 6 double rounds per
+      transaction.
+      Inner alternation, counter qr_ctr_reg (1 bit; :115-119, :527-543), incremented every CTRL_ROUNDS cycle:
+      QR0 = column round on (0,4,8,12)(1,5,9,13)(2,6,10,14)(3,7,11,15) (:412-446), QR1 = diagonal round on
+      (0,5,10,15)(1,6,11,12)(2,7,8,13)(3,4,9,14) (:448-482); four chacha_qr instances (:194-240, chacha_qr.v) per
+      cycle, i.e. one ChaCha round per cycle, 12 cycles in total (transaction cycles 2..13).
+      A roll-up counts as finding L1 if it reports a loop of 6 iterations with a 2-cycle body (column, diagonal),
+      or 12 iterations of an alternating body; nested reporting (6 x 2) also counts.
+  Not loops: the 64-bit block counter (block0/1_ctr_reg, :127-132, :575-602) is set from ctr once per transaction
+      (init, :632) and never incremented (next = 0); CTRL_FINALIZE (:664-673, cycle 14) does the single feed-forward
+      addition + XOR with data_in (:496-519).
+
+Expected table instances: 0
+  ARX only; SIGMA/TAU (:72-80, :345-368) are constants selected by the fixed keylen pad, not a table.
