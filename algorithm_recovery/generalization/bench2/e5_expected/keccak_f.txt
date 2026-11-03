@@ -1,0 +1,21 @@
+E5 ground truth (found/expected metric M3) for case keccak_f -- written 2026-11-03 from the source RTL, BEFORE any
+recovery run. Source: freecores/sha3 @ c25a5befc75e8f8392fdbff040165428b2f54bfd, low_throughput_core/rtl/ (paths below
+relative to it). One transaction = reset (cycle 0), absorb 576 bits (in_ready, cycle 1), 24 rounds; period 25 cycles.
+
+EXPECTED TIME LOOPS
+L1  Keccak-f[1600] round loop: the 1600-bit state register `out` (f_permutation.v:24) is written with
+    round(round_in, rc) (combinational round.v:25-163, instance f_permutation.v:61-62) whenever update = calc | accept
+    (f_permutation.v:44, :64-68). Trip count: 24 rounds per transaction (accept edge = round 0, then 23 calc edges;
+    transaction cycles 1..24, result in cycle 25).
+    Iteration state: one-hot round shift register i[22:0] (f_permutation.v:27, :36-38; i <= {i[21:0], accept}) and the
+    busy flag calc (f_permutation.v:40-42, cleared after i[22]). No binary round counter exists: the round index is the
+    one-hot vector {i, accept}.
+    The absorb XOR into lanes 0..8 (f_permutation.v:56) happens once per transaction, in the first iteration only.
+
+EXPECTED TABLE INSTANCES
+T1  Round-constant table rconst (rconst.v:18-33): input = the 24-bit one-hot round vector {i, accept} (rconst instance
+    f_permutation.v:58-59), i.e. a 24-entry ROM indexed by the round number (5-bit index if decoded), output 64 bits of
+    which only bits 0, 1, 3, 7, 15, 31, 63 are nonzero (rconst.v:25-31; applied by iota, round.v:131-140).
+    1 instance.
+S-boxes: none. chi (round.v:120-129) is bitwise logic, theta/rho/pi are XORs and wiring (no tables).
+Total table instances expected: 1 (round constants; one-hot 24-bit input, 24 entries).

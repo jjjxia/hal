@@ -129,6 +129,13 @@ per_tx = len(cycles)
 T = 16
 assert run([0] * (per_tx * T)) == [0] * T, "zero input from zero state must give zero output"
 responses = {}
+# E5 designs: a reference module c3/e5_refs/<case>.py may define STREAM with the keys of the RTL entries above
+import importlib.util as _ilu, os as _os
+_ref = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "e5_refs", f"{case}.py")
+if case not in RTL and _os.path.exists(_ref):
+    _spec = _ilu.spec_from_file_location(f"e5ref_{case}", _ref); _m = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_m)
+    if hasattr(_m, "STREAM"):
+        RTL[case] = _m.STREAM
 amplitude = RTL.get(case, {}).get("impulse", 1)
 for pos in range(per_tx):
     x = [0] * (per_tx * T); x[pos] = amplitude

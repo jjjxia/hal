@@ -203,5 +203,35 @@
    "port": "data_out",
    "cycle": 11
   }
+ ],
+ "aes_oc": [
+  {
+   "port": "text_out",
+   "cycle": 12
+  }
+ ],
+ "aes_sw128": [
+  {
+   "port": "result",
+   "cycle": 68
+  }
+ ],
+ "aes_sw_core": [
+  {
+   "port": "result",
+   "cycle": 68
+  }
+ ],
+ "keccak_f": [
+  {
+   "port": "out",
+   "cycle": 25
+  }
+ ],
+ "hb_dec": [
+  {
+   "port": "data_out",
+   "strobe": "stb_out"
+  }
  ]
 }

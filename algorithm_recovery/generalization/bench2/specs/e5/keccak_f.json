@@ -1,0 +1,43 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/oc_sha3/synth/f_permutation/f_permutation.json",
+ "top": "f_permutation",
+ "source": {
+  "url": "https://github.com/freecores/sha3",
+  "commit": "c25a5befc75e8f8392fdbff040165428b2f54bfd",
+  "license": "Apache-2.0",
+  "author": "H. Hsing (OpenCores sha3, low_throughput_core)",
+  "category": "hash permutation",
+  "parameters": "Keccak-f[1600], 576-bit absorb (rate of SHA3-512/Keccak-512), one round per cycle"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset",
+  "in_ready"
+ ],
+ "defaults": {
+  "reset": 0,
+  "in_ready": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset": 1
+   }
+  }
+ ],
+ "period": 25,
+ "schedule": {
+  "0": {
+   "reset": 1
+  },
+  "1": {
+   "in_ready": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "keccak_f",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

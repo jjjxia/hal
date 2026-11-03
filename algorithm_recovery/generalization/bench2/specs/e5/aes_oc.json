@@ -1,0 +1,40 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/oc_aes_core/synth/aes_cipher_top/aes_cipher_top.json",
+ "top": "aes_cipher_top",
+ "source": {
+  "url": "https://github.com/freecores/aes_core",
+  "commit": "0d81d6e0758c634c8db7c8348d7653fa20c58639",
+  "license": "OpenCores BSD-style notice",
+  "author": "R. Usselmann",
+  "category": "cipher",
+  "parameters": "AES-128 encryption (aes_cipher_top, aes_key_expand_128, aes_sbox, aes_rcon)"
+ },
+ "clock": "clk",
+ "non_data": [
+  "rst",
+  "ld"
+ ],
+ "defaults": {
+  "rst": 1,
+  "ld": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "rst": 0
+   }
+  }
+ ],
+ "period": 12,
+ "schedule": {
+  "0": {
+   "ld": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "aes_oc",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

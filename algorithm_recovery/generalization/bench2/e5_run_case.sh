@@ -32,7 +32,12 @@ st graph "$B/bin/hal_plugins/hal-recover" graph "$D/groups/ordered.hal" "$D/grou
 st program "$PY" "$E/c3/decompile.py" "$D/graph/graph_training.json" "$D/trace" "$D/input/evaluation_contract.json" \
     "$E/c3/observe.json" "$case" "$D/program"
 if [ -s "$D/program/program.py" ]; then
-    st reference "$PY" "$E/c3/check_reference.py" "$D/program" "$D/input/evaluation_contract.json" "$case" 2000
+    if grep -q '^STREAM' "$E/c3/e5_refs/$case.py" 2>/dev/null; then
+        st reference "$PY" "$E/c3/check_stream.py" "$D/program" "$D/input/evaluation_contract.json" "$case" 2000
+        [ -s "$D/program/stream_check.json" ] && cp "$D/program/stream_check.json" "$D/program/reference_check.json"
+    else
+        st reference "$PY" "$E/c3/check_reference.py" "$D/program" "$D/input/evaluation_contract.json" "$case" 2000
+    fi
     st close_chain "$PY" "$E/c3/close_chain.py" "$D/graph/graph_training.json" "$D/input/evaluation_contract.json" \
         "$E/c3/observe.json" "$case" "$D/close_chain.json" "$D/program/program_flat.py" "$D/program/program_rolled.py" "$D/program/program.py"
 fi

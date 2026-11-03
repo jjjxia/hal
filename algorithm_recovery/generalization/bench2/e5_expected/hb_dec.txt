@@ -1,0 +1,31 @@
+E5 ground truth (found/expected metric M3) for case hb_dec -- written 2026-11-03 from the source RTL, BEFORE any
+recovery run. Source: EttusResearch/uhd @ d1be63490e3f3df22ff2f4ea1315f9aada468562, fpga/usrp2/ (paths below relative
+to it). WIDTH = 24 (default). Protocol: cpi = 4, stb_in in cycles 0 and 4 of an 8-cycle transaction; one output per
+transaction (2 input samples per output). Streaming design: state is carried across transactions.
+
+EXPECTED TIME LOOPS
+L1  Folded MAC loop over the odd-phase taps: phase (sdr_lib/hb_dec.v:50, :64-72) runs 1, 2, 3, 4, 0 after every odd-phase
+    sample (set to 1 by stb_rnd & odd, :67-68). Per phase, both multipliers (mult1/mult2, :157-158) compute one product
+    each: coeff1(phase_d1) * (odd tap pair a,b) and coeff2(phase_d1) * (pair c,d) (:113-141), summed (:161) and
+    accumulated in acc (sdr_lib/acc.v:36-41, instance :163-165) with clear = stb_out_pre[3] and acc = |stb_out_pre[6:3]
+    (:102-103). Trip count: 4 iterations per transaction (8 products, 16 odd taps via the pre-adds of symmetric pairs).
+    The loop index is phase (3 bit), delayed copy phase_d1 (:74-75) for the coefficient lookup.
+Not loops (timing/pipeline state): odd (:55-59) alternates even/odd sample per strobe (decimation by 2: 2 samples per
+    transaction); stb_out_pre[15:0] (:77-82) is a strobe delay line (output strobe = stb_out_pre[8], :185).
+Loop-carried state across transactions (streaming): 4 copies of the 16-deep odd-sample SRL (srl_odd_a..d,
+    sdr_lib/hb_dec.v:131-138, control_lib/srl.v:19-38) and the even-sample SRL (:154-155), each 17 bits wide; the
+    error-feedback register of the input rounder round_sd (sdr_lib/round_sd.v:18-21, sdr_lib/add2_and_clip_reg.v:16-20).
+
+EXPECTED TABLE INSTANCES
+T1  coeff1 = f(phase_d1): outer coefficients -107, 445, -1271, 2959 (sdr_lib/hb_dec.v:113-120); 3-bit input, 18-bit output.
+T2  coeff2 = f(phase_d1): inner coefficients -6107, 11953, -24706, 82359 (sdr_lib/hb_dec.v:122-129); 3-bit input, 18-bit.
+T3  addr_odd_a / addr_odd_b = f(phase) (0..3 / 15..12, sdr_lib/hb_dec.v:84-91) and
+T4  addr_odd_c / addr_odd_d = f(phase) (4..7 / 11..8, sdr_lib/hb_dec.v:93-100): SRL read-address tables, 3-bit input,
+    4-bit outputs (4 address functions in 2 case blocks); affine in phase, so they may be recovered as arithmetic
+    instead of tables.
+Constant under the protocol (not counted): addr_even = f(cpi) (sdr_lib/hb_dec.v:146-152) is a registered function of the
+    non-data pad cpi; with cpi = 4 it is the constant 8.
+Not tables: the 5 SRL16E-based shift memories (5 x 17 x 16 bits) are run-time memories with an addressable read port.
+Total constant table instances expected: 2 coefficient tables (input width 3) + 4 address functions (input width 3).
+Expected filter (ground truth for check_stream): 31-tap halfband [A 0 B 0 ... H 0.5 H ... 0 B 0 A] (sdr_lib/hb_dec.v:19),
+    integer taps in units of 2^-18 = ref.COEFFICIENTS (centre 2^17), latency: output k uses newest sample 2k+1.

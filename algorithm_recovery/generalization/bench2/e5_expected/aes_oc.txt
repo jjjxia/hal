@@ -1,0 +1,32 @@
+E5 ground truth (found/expected metric M3) for case aes_oc -- written 2026-11-03 from the source RTL, BEFORE any
+recovery run. Source: freecores/aes_core @ 0d81d6e0758c634c8db7c8348d7653fa20c58639, rtl/verilog/ (paths below are
+relative to that directory). One transaction = one AES-128 block encryption with a fresh key (period 12 cycles).
+
+EXPECTED TIME LOOPS (1 round loop; counters listed for completeness)
+L1  AES round loop over the state register sa00..sa33 (16 x 8 bit), aes_cipher_top.v:119-134 (sa <= ld_r ? text_in_r ^ w
+    : sa_next) with sa_next = MixColumns(ShiftRows(SubBytes(sa))) ^ round key, aes_cipher_top.v:141-176.
+    Per transaction: 1 initial AddRoundKey (edge 2, ld_r) + 9 full rounds (edges 3..11) written to sa; the final round
+    (no MixColumns) is written to text_out at edge 12, aes_cipher_top.v:183-198 (text_out is written every cycle).
+    Expected trip count of the rolled round body: 9 (full rounds 1..9); 10 if the final round is counted (it has no
+    MixColumns and a different destination register).
+L1' Key-schedule recurrence in lock step with L1: aes_key_expand_128.v:73-76, w[0..3] <= kld ? key : f(w, SubWord(RotWord
+    (w3)), rcon); one round key per cycle, K1..K10 at edges 2..11 (10 iterations per transaction).
+Counters (not separate loops, they drive the same iterations):
+  dcnt   aes_cipher_top.v:103-108  4 bit, loaded 11 (4'hb) at ld, decremented to 0; only drives done (aes_cipher_top.v:110).
+         11 decrements per transaction.
+  rcnt   aes_rcon.v:72-74          4 bit, cleared at kld, +1 every cycle otherwise (wraps at 16; 11 increments per
+         12-cycle transaction): selects the round constant via frcon(rcnt_next), rcnt_next = rcnt + 1 (aes_rcon.v:71);
+         out = 01 at kld, then frcon(1..9) = 02..36 for K2..K10.
+
+EXPECTED TABLE INSTANCES
+T1  AES S-box (aes_sbox, aes_sbox.v:64-322, 256-entry case table, 8-bit input -> 8-bit output):
+    20 instances = 16 in the cipher datapath (aes_cipher_top.v:234-249, one per state byte)
+                 + 4 in the key expansion (SubWord, aes_key_expand_128.v:78-81).
+T2  Round constant table frcon (aes_rcon.v:76-91): 4-bit input (rcnt_next), 32-bit output (only bits 31:24 nonzero;
+    entries 0..9 = 01,02,04,08,10,20,40,80,1b,36; others 0). 1 instance, output registered (aes_rcon.v:67-69).
+    Expected lifted as a table only if recovered as a lookup; it is also expressible as the rcon doubling recurrence.
+Total S-box instances expected: 20 (input width 8). Round-constant tables: 1 (input width 4).
+
+NOTES
+* MixColumns xtime (aes_cipher_top.v:216-218) is GF(2^8) arithmetic, not a table.
+* text_out is NOT held: it is only valid in transaction cycle 12 (= cycle 0 of the next transaction).

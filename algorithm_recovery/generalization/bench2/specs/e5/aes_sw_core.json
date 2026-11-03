@@ -1,0 +1,49 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/secworks_aes/synth/aes_core/aes_core.json",
+ "top": "aes_core",
+ "source": {
+  "url": "https://github.com/secworks/aes",
+  "commit": "80dc4718e1dcbbdb4b0dd1bdb393d8f7b98981dc",
+  "license": "BSD-2-Clause",
+  "author": "J. Str\u00f6mbergson (secworks)",
+  "category": "cipher",
+  "parameters": "full aes_core (encipher + decipher, AES-128/256 key memory); mode pads encdec=1 (encipher), keylen=0 (AES-128)"
+ },
+ "clock": "clk",
+ "non_data": [
+  "reset_n",
+  "encdec",
+  "init",
+  "next",
+  "keylen"
+ ],
+ "defaults": {
+  "reset_n": 1,
+  "encdec": 1,
+  "init": 0,
+  "next": 0,
+  "keylen": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset_n": 0
+   }
+  }
+ ],
+ "period": 68,
+ "schedule": {
+  "0": {
+   "init": 1
+  },
+  "15": {
+   "next": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "aes_sw_core",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

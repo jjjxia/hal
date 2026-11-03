@@ -1,0 +1,35 @@
+E5 ground truth (found/expected metric M3) for case aes_sw_core -- written 2026-11-03 from the source RTL, BEFORE any
+recovery run. Source: secworks/aes @ 80dc4718e1dcbbdb4b0dd1bdb393d8f7b98981dc, src/rtl/ (paths below relative to it).
+One transaction = init (AES-128 key expansion of a fresh key) + next (encipher one block); period 68 cycles.
+Protocol: init in cycle 0, next in cycle 15; encdec = 1 (encipher) and keylen = 0 (AES-128) are constant non-data pads.
+
+EXPECTED TIME LOOPS
+L1  Key expansion, aes_key_mem.v CTRL_GENERATE (aes_key_mem.v:405-414): round_ctr_reg (aes_key_mem.v:89, inc at :354-358,
+    cleared in CTRL_INIT :398-403) runs 0..10 while one round key per cycle is written to key_mem[round_ctr_reg]
+    (variable-index write aes_key_mem.v:160-161; round_key_gen aes_key_mem.v:191-307, AES-128 branch :237-258).
+    Trip count: 11 iterations per transaction (iteration 0 stores the key itself, aes_key_mem.v:239-245; iterations
+    1..10 derive K1..K10, :246-257), transaction cycles 2..12. rcon by the xtime recurrence (aes_key_mem.v:316-335).
+L2  Encipher round loop, aes_encipher_block.v encipher_ctrl (aes_encipher_block.v:399-481): round_ctr_reg
+    (aes_encipher_block.v:376-391) counts rounds 1..10; per round CTRL_SBOX (aes_encipher_block.v:445-454) then
+    CTRL_MAIN (:456-474). Trip count: 10 rounds per transaction (9 MAIN_UPDATE :323-330 + 1 FINAL_UPDATE :332-339),
+    preceded by one INIT_UPDATE (AddRoundKey with K0, :283-290, cycle 16).
+L2a Inner word loop (nested in L2): sword_ctr_reg (aes_encipher_block.v:353-368) 0..3, one 32-bit state word through the
+    shared 4-byte S-box per cycle (SBOX_UPDATE, aes_encipher_block.v:292-321). Trip count: 4 per round, 40 per transaction.
+Control FSM: aes_core.v:268-337 (aes_core_ctrl: IDLE/INIT/NEXT).
+Present in the netlist but NOT exercised under this protocol (encdec = 1 means dec_next = 0, aes_core.v:237-258):
+L3  decipher round loop, aes_decipher_block.v dec_ctrl (from :463), round_ctr_reg set/decremented (:426-443), with its own
+    sword_ctr (:398-413). AES-256 key-schedule branch aes_key_mem.v:260-300 (keylen = 0) is likewise not exercised.
+
+EXPECTED TABLE INSTANCES
+T1  AES S-box, aes_sbox.v:51 (256 x 8 table, assigns from :66) looked up 4 times in parallel (aes_sbox.v:57-60):
+    4 table instances, 8-bit input -> 8-bit output; ONE aes_sbox module instance (aes_core.v:172) time-shared between the
+    key expansion (SubWord of w7, aes_key_mem.v:226-229) and SubBytes of the encipher block (word-serial), selected by
+    init_state (aes_core.v:218-228).
+T2  AES inverse S-box, aes_inv_sbox.v:49 (256 x 8 table, assigns from :64) looked up 4 times (aes_inv_sbox.v:55-58);
+    one instance in the decipher block (aes_decipher_block.v:237). 4 table instances, 8-bit input. NOT exercised under
+    encdec = 1 (its result never reaches result), so it is expected to be absent from a recovered encipher program.
+Total constant tables expected: 8 in the netlist (4 S-box + 4 inverse S-box lookups); 4 exercised by the protocol (input width 8).
+Not a table: key_mem[0:14] (aes_key_mem.v:77) is a 15 x 128-bit register file written at run time (variable index) and
+read by round number (aes_key_mem.v:180-183); expected as a MEMORY (11 entries used for AES-128), not as a ROM.
+Netlist note (checked on aes_core.json, evaluation side): 208 flip-flops of dec_block and the prev_key0 register used only by
+AES-256 are present; they are not exercised by this protocol (encdec = 1, keylen = 0 held).
