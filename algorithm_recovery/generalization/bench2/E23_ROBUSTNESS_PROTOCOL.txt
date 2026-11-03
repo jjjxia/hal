@@ -58,3 +58,14 @@ nothing excluded); program PASS (flat 38,709 / rolled 38,709 / lifted 35,179 lin
 values, 0 mismatches against module.c; multiplications matched to the same 11 module.c products as N=1 (fitted, proof
 UNKNOWN, as N=1). The full-state export inside `analyze` timed out on one multiplier bit (state_machine.cpp); it is
 not part of the certificate/graph/program path.
+RESULTS part A (2026-11-02):
+  N=1 (frozen bambu_arf): 11 words; 27 arithmetic nodes; products matched to 11 module.c products, additions to 4.
+  N=2: 11 words, 92 graph nodes, program 38,709 / 38,709 / 35,179 lines; 2,000/2,000 fresh inputs; the same 11 products
+       and 4 additions as N=1 (+5 unmatched nodes); 4 multi-role registers (up to 5 functions).
+  N=4: 58 words (HAL/DANA splits registers into 20 one-bit and many 2-13-bit fragments; N=1/2: mostly 32-bit), 871 graph
+       nodes, program 213,690 / 213,690 / 209,401 lines; 2,000/2,000 fresh inputs; 8 products matched as whole words, 4
+       additions; 10 unmatched nodes, 8 of them proved bilinear functions of 8-bit fragments. PIPE_PARAMETER is 0 in all
+       variants (no pipelined multipliers).
+  Verdict: correctness is robust (every variant passes); the recovered operation structure is robust from N=1 to N=2 and
+  degrades at N=4 because of the word grouping, not the folding. (arf_truth.py now passes 0 for state values a program
+  never needs; check_reference randomises them and the outputs do not depend on them.)

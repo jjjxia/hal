@@ -44,7 +44,7 @@ for t in range(N):
     for pad, ph in iface["pad_reads"]:
         p = inputs[int(pad[3:])]
         pads[(pad, ph)] = (x[p["name"]] >> p["offset"]) & 1
-    outs, _, v = ns["transaction"](pads, {})
+    outs, _, v = ns["transaction"](pads, collections.defaultdict(int))  # unread-state default; outputs do not depend on it (check_reference randomises it)
     op = ops(x)
     for i, a in enumerate(nodes):
         node = a["node"]
