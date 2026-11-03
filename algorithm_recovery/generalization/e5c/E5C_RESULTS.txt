@@ -1,0 +1,59 @@
+E5.C synthetic folding with known ground truth (Theorem 7) -- results, 2026-11-03
+Protocol: bench2/E5_EXPANSION_PROTOCOL.txt (E5.C and amendments 1(a)-(e)). Generator e5c_gen.py (random 8-bit DFGs,
+registered fixed-binding folding with shared units and left-edge register sharing, copy chains for sample delays);
+every generated RTL passes e5c_selfcheck.py (200 samples vs the DFG). Full gate-level pipeline (synth_ice40, frozen
+bench2 C1 pipeline, hal-recover graph); scorer e5c_score.py (per RTL-register slice; operands after copy collapse;
+semantic edges; node function proved by z3). Results in build/e5c/<case>/score.json.
+
+case                 outcome                                  nodes found edges(sem/syn) fn  spur period(ev) merged-words dead-chained
+e5c_s1_n2            exact                                        6     6     6/6        6    0        4/4      2 
+e5c_s1_n4            exact                                        9     9     9/9        9    0        8/8      3 
+e5c_s1_n4_chain      exact                                        9     9     9/9        9    0        8/8      2 
+e5c_s1_n4_rotate     exact                                       18    18    18/18      18    0      16/16      2 
+e5c_s1_n8            exact                                        9     9     9/9        9    0      16/16      2 
+e5c_s2_n2            exact                                        6     6     6/6        6    0        4/4      1 
+e5c_s2_n4            exact                                       11    11    11/11      11    0        8/8      4 
+e5c_s2_n4_chain      exact                                       10    10    10/10      10    0        8/8      3 n0
+e5c_s2_n4_rotate     exact                                       22    22    22/22      22    0      16/16      2 
+e5c_s2_n8            exact                                        6     6     6/6        6    0      16/16      3 
+e5c_s3_n2            exact                                        8     8     8/8        8    0        4/4      2 
+e5c_s3_n4            exact                                       15    15    15/15      15    0        8/8      3 
+e5c_s3_n4_chain      exact                                       14    14    14/14      14    0        8/8      4 n14
+e5c_s3_n4_rotate     exact                                       30    30    30/28      30    0      16/16      3 
+e5c_s3_n8            grouping                                    13    12    12/12      12    7      16/16      2 
+e5c_s4_n2            exact                                        9     9     9/9        9    0        4/4      2 
+e5c_s4_n4            exact                                        7     7     7/7        7    0        8/8      1 
+e5c_s4_n4_chain      exact                                        7     7     7/7        7    0        8/8      2 
+e5c_s4_n4_rotate     exact                                       14    14    14/14      14    0      16/16      1 
+e5c_s4_n8            exact                                        8     8     8/8        8    0      16/16      2 
+e5c_s5_n2            exact                                        7     7     7/7        7    0        4/4      1 
+e5c_s5_n4            exact                                       11    11    11/11      11    0        8/8      4 
+e5c_s5_n4_chain      frontend failure: groups stage
+e5c_s5_n4_rotate     exact                                       22    22    22/22      22    0      16/16      2 
+e5c_s5_n8            frontend failure: groups stage
+e5c_s6_n2            exact                                       12    12    12/12      12    0        4/4      4 
+e5c_s6_n4            exact                                        6     6     6/6        6    0        8/8      3 
+e5c_s6_n4_chain      generator refused (no feasible chain edge)
+e5c_s6_n4_rotate     exact                                       12    12    12/12      12    0      16/16      1 
+e5c_s6_n8            exact                                       10    10    10/10      10    0      16/16      2 
+e5c_s7_n2            exact                                        6     6     6/6        6    0        4/4      2 
+e5c_s7_n4            frontend failure: groups stage
+e5c_s7_n4_chain      frontend failure: groups stage
+e5c_s7_n4_rotate     exact                                       14    14    14/14      14    0      16/16      2 
+e5c_s7_n8            exact                                       15    15    15/15      15    0      16/16      3 
+e5c_s8_n2            exact                                       10    10    10/10      10    0        4/4      2 
+e5c_s8_n4            exact                                       10    10    10/10      10    0        8/8      2 
+e5c_s8_n4_chain      exact                                       10    10    10/10      10    0        8/8      1 
+e5c_s8_n4_rotate     exact                                       20    20    20/20      20    0      16/16      1 
+e5c_s8_n8            exact                                       16    16    16/16      16    0      16/16      5 
+
+In class (8 graphs x N in {2,4,8}): {'exact': 21, 'grouping': 1, 'frontend failure: groups stage': 2}
+  exact among designs whose frontend grouping is clean: 21 / 21
+Rotate control (predicted: period 2N, graph = 2-unfolding, Theorem 6): {'exact': 8}
+Chain control (predicted: chained node carries the producer's operation; dead producer write has no event): {'exact': 5, 'frontend failure: groups stage': 2, 'generator refused (no feasible chain edge)': 1}
+
+Frontend failures (no graph; recovery not reached): groups stage aborted in the HAL plugin's bit-order propagation
+(grouping.cpp:298: 'relaxed propagation changed established strict order' for e5c_s5_n8 and e5c_s5_n4_chain;
+std::bad_alloc for e5c_s7_n4 and e5c_s7_n4_chain). E5.C ran before amendment (f), i.e. under the frozen pipeline's own
+16 GiB virtual-memory limit. Grouping issue e5c_s3_n8: DANA split one RTL register across two words, so one
+node event is missing and 7 slices of the split register are not holds. No recovery code was changed for E5.C.
