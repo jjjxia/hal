@@ -2,7 +2,7 @@
 """Evaluation side: does a recovered transaction program compute the documented algorithm
 on FRESH random inputs (not trace data)? Port names and references are used only here.
 usage: check_reference.py PROGRAM_DIR CONTRACT_JSON CASE [N]"""
-import json, random, sys
+import importlib.util, json, os, random, sys
 
 prog_dir, contract_path, case = sys.argv[1:4]
 N = int(sys.argv[4]) if len(sys.argv) > 4 else 2000
@@ -21,6 +21,14 @@ try:  # decompile.py >= roll-up writes the interface; older program directories 
 except FileNotFoundError:
     reads = sorted(set(re.findall(r"pads\[\('pad(\d+)', (\d+)\)\]", src)))
 M = lambda w: (1 << w) - 1
+# E5 designs: an evaluation-side reference module c3/e5_refs/<case>.py with
+#   trial(rng, contract) -> (per_cycle, expected)   (same conventions as the built-in cases below)
+_ref = os.path.join(os.path.dirname(os.path.abspath(__file__)), "e5_refs", f"{case}.py")
+E5REF = None
+if os.path.exists(_ref):
+    _spec = importlib.util.spec_from_file_location(f"e5ref_{case}", _ref)
+    E5REF = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(E5REF)
 
 
 def S(x):
@@ -143,6 +151,8 @@ for trial in range(N):
         # rounds 0..15 then latch text_i, so word j is sampled in cycle 1 + j.
         per_cycle = {1 + j: {"text_i": block[j]} for j in range(16)}
         expected = {("text_o", k): v for k, v in enumerate(sha1_compress(block))}
+    elif E5REF is not None:
+        per_cycle, expected = E5REF.trial(rng, contract)
     else:
         raise SystemExit("no reference for " + case)
     pads = {}
