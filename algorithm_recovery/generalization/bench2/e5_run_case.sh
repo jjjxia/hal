@@ -26,7 +26,11 @@ mkdir -p "$D"
 # frozen C1 pipeline under the E5 budget: an outer hard limit of 6 GiB (the pipeline's own `ulimit -v 16777216` then
 # cannot raise it) and its own 3 h per stage
 [ -e "$D/stages.jsonl" ] || ( ulimit -v 6291456; bash "$E/bench2/run_bench2.sh" "$D" ) > /dev/null 2>&1
-grep -q '"stage":"analyze","exit":0' "$D/stages.jsonl" || { echo "$case: C1 pipeline failed: $(tail -n 2 "$D/stages.jsonl" | tr '\n' ' ')"; exit 0; }
+# gate (amendment h): a certified schedule. analyze's exit status also covers the separate state-machine export (used
+# only for the RAM-backed Index programs), so a certified design whose state export failed continues.
+grep -q '"stage":"analyze","exit":0' "$D/stages.jsonl" || \
+    grep -q '"status": *"PROTOCOL_SCHEDULE_CERTIFIED"' "$D/analysis/certificate/certificate.json" 2>/dev/null || \
+    { echo "$case: C1 pipeline failed: $(tail -n 2 "$D/stages.jsonl" | tr '\n' ' ')"; exit 0; }
 win=$(python3 -c "import json;print(len(json.load(open('$D/input/stimulus.json'))['windows']['training']))")
 st graph "$B/bin/hal_plugins/hal-recover" graph "$D/groups/ordered.hal" "$D/groups/groups.json" "$D/input/recovered.json" \
     "$D/trace" "$D/graph" --window "$win" --profiles training --protocol "$D/input/protocol.json"

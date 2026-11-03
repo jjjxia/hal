@@ -95,3 +95,28 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      the groups stage after 23 min and was stopped (kept as bench2_e5/siphash_c1d3.uncapped_partial, no result).
      e5_run_case.sh now runs prepare and run_bench2.sh under an outer hard 6 GiB limit; stages exceeding it fail and
      are reported as over budget.
+ (g) Evaluation tool, 2026-11-03 (recovery unchanged): bench2/c2_oracle.py raised MemoryError on qdiv_n64 when its
+     word-level simulator evaluated a $shift/$shiftx with a large negative (signed) shift amount as an unbounded Python
+     left shift. The left shift is now guarded like the existing $shl/$shr cases (amount >= 4096 gives 0); since every
+     result is masked to its Y width (< 4096), no non-crashing evaluation can change. Only qdiv_n64's oracle stage was
+     rerun; later designs use the guarded tool.
+ (h) Runner gate, 2026-11-03 (recovery unchanged): e5_run_case.sh required `analyze` to exit 0 before the graph stage.
+     On sha256_sw, analyze certified the schedule (PROTOCOL_SCHEDULE_CERTIFIED, period 132 events, 1,034 FFs, 50.6 s)
+     and wrote the graph, then exited 1 because its separate state-machine export (used only for the RAM-backed Index
+     programs) timed out on one bit (STATE_EXPORT_FAILED). The gate now also accepts a certified schedule. No other E5
+     design has a failed analyze stage, so the change affects sha256_sw only; it is rerun after the queue, and the
+     state-export timeout is reported.
+ Note (2026-11-03 13:16): the machine restarted (WSL VM restart) while sha256_oc was in prepare (equivalence
+     simulation, started 12:28). The partial directory is kept as bench2_e5/sha256_oc.interrupted_reboot; sha256_oc is
+     rerun from the start, then hb_dec, aes_sw128, aes_sw_core and the remaining stages of sha256_sw (amendment h).
+ (i) Evaluation tool, 2026-11-03 (recovery and metrics unchanged): c2_oracle.py can additionally write every producer
+     mismatch (truth and recovered producer sets per event) when E5_ORACLE_DUMP is set, to classify the mismatches of
+     aes_oc (exact 0.645), pcpi_div (0.920), qdiv_n16 and qdiv_n64; the reported metrics are computed as before.
+ (j) Evaluation tool bug, 2026-11-03 (recovery unchanged): c2_oracle.py mapped every netlist bit whose name denotes
+     several RTL register cells to the first cell of that name (its comment intended "the cell whose Q has this bit").
+     aes_oc's text_out is written byte by byte in 16 always blocks (16 cells named text_out): all 128 bits went to one
+     cell, so that cell's producer sets were supersets (12 events) and the other 15 cells' sets were empty (180 events);
+     these are all 192 producer mismatches of aes_oc (dump of amendment i). Bits now map to the cell holding the RTL
+     bit; names with a single cell map exactly as before. Checked before the fix: no register name of the frozen eight
+     (E2.1, paper Table 2) or of any other finished E5 design denotes more than one cell, so only aes_oc's score can
+     change; aes_oc is rescored, and unaffected designs are rescored to confirm identical metrics.

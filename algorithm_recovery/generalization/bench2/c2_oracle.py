@@ -6,7 +6,7 @@ usage: c2_oracle.py CASE_DIR RTL_WORDLEVEL_JSON TOP SYNTH_JSON GRAPH_JSON OUT_JS
 The RTL word-level netlist (Yosys proc/flatten/memory) is simulated with the case's own pad
 stimulus; truth write events and producers come from this simulation alone. The recovered event
 graph is mapped to RTL registers through the synthesized netlist's names and scored."""
-import collections, json, random, sys
+import os, collections, json, random, sys
 
 case_dir, rtl_path, top, synth_path, graph_path, out_path = sys.argv[1:7]
 NT = int(sys.argv[7]) if len(sys.argv) > 7 else 6
@@ -138,7 +138,7 @@ def eval_cell(c, vals):
     elif t in ("$shift", "$shiftx"):
         b = sval(B, bw, bsg)
         a = sx(A, aw, asg, max(aw, 1)) if t == "$shift" else A
-        y = (a >> b) if b >= 0 else (a << -b)
+        y = (a >> b) if b >= 0 else ((a << -b) if -b < 4096 else 0)   # guard as for $shl/$shr (E5 amendment g)
         if t == "$shiftx" and b >= aw:
             y = 0
     else:
@@ -475,13 +475,29 @@ for nm, d in stop["netnames"].items():
 rtl_reg_by_name = collections.defaultdict(set)
 for n in regs:
     rtl_reg_by_name[reg_name[n]].add(n)
+# E5 amendment (j): a name can denote several RTL register cells (e.g. text_out written byte by byte in 16 always
+# blocks); map each netlist bit (name, index) to the cell whose Q holds that RTL bit. Names with one cell map as before.
+rtl_bit_cell = {}
+for n, c in regs.items():
+    for b in c["connections"]["Q"]:
+        if isinstance(b, int) and b in names:
+            rtl_bit_cell[names[b]] = n
+
+
+def cell_of(nm):
+    """RTL register cells for a netlist bit name (name, index)."""
+    if nm in rtl_bit_cell and len(rtl_reg_by_name.get(nm[0], ())) > 1:
+        return {rtl_bit_cell[nm]}
+    return rtl_reg_by_name.get(nm[0], set()) if nm else set()
+
+
 word_regs = {}
 for w, d in G["words"].items():
     rs = set()
     for b in d["bits"]:
         nm = sname.get(int(b[1:]))
         if nm and nm[0] in rtl_reg_by_name:
-            rs |= rtl_reg_by_name[nm[0]]
+            rs |= cell_of(nm)
     word_regs[w] = rs
 Pg, origin = G["period"], G["origin"]
 assert Pg == period_ev or period_ev % Pg == 0, "graph period vs transaction"
@@ -552,8 +568,7 @@ for w, d in G["words"].items():
     for i, b in enumerate(d["bits"]):
         nm = sname.get(int(b[1:]))
         if nm and nm[0] in rtl_reg_by_name:
-            regs_ = rtl_reg_by_name[nm[0]]
-            # a name may denote several cells only for memories; take the cell whose Q has this bit index
+            regs_ = cell_of(nm)   # amendment (j): the cell whose Q has this bit (was: the first cell of the name)
             bit_reg[(w, i)] = sorted(regs_)[0]
 pred = collections.defaultdict(dict)  # (reg, rel_event) -> producers
 pred_written = set()
@@ -636,4 +651,12 @@ res = {"case": contract["case"], "z3_confirmations": dict(z3_stats), "rtl_regist
             "recovered": sorted(str(reg_name.get(x[0], x)) for x in pred[k])}
            for k in sorted(hit) if {x for x in truth[k] if x[0] != "port"} != {x for x in pred[k] if x[0] != "port"}][:6]}
 json.dump(res, open(out_path, "w"), indent=1)
+if os.environ.get("E5_ORACLE_DUMP"):   # E5 amendment (i): optional dump of every producer mismatch; metrics unchanged
+    json.dump([{"event": (reg_name[k[0]], k[1]),
+                "truth": sorted(str(reg_name.get(x[0], x)) for x in truth[k] if x[0] != "port"),
+                "recovered": sorted(str(reg_name.get(x[0], x)) for x in pred[k] if x[0] != "port"),
+                "truth_port": any(x[0] == "port" for x in truth[k]), "recovered_port": any(x[0] == "port" for x in pred[k])}
+               for k in sorted(hit) if {x for x in truth[k] if x[0] != "port"} != {x for x in pred[k] if x[0] != "port"}
+               or any(x[0] == "port" for x in truth[k]) != any(x[0] == "port" for x in pred[k])],
+              open(os.environ["E5_ORACLE_DUMP"], "w"), indent=1)
 print(json.dumps({k: v for k, v in res.items() if not k.endswith("examples") and k != "unmapped_rtl_registers"}))

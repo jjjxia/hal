@@ -1,0 +1,75 @@
+E6 Inverse-folding scaling from supplied word equations -- protocol, written 2026-11-03 BEFORE any E6 run
+==========================================================================================================
+Requested by the user on 2026-11-03 after E5 showed that the HAL frontend (grouping) is the first stage to exceed the
+budget ("如果先拿hal得到方程呢 我们只测方程到invfold这个阶段 不管HAL前端 ... 我点头了 cpp需要的话你就去写").
+Question: how do time and memory of inverse folding itself scale with design size (up to netlists of about a million
+generic gates, the size range of Sisco et al., PLDI 2026), and is the recovered graph still exact at that size?
+Scope: equations -> event graph only. The gate-level frontend, the schedule certificate and program recovery are NOT
+measured; the equations are supplied from RTL, not certified from a netlist. The paper must state this.
+
+Designs (generator e6/e6_gen.py, the E5.C model at scale)
+---------------------------------------------------------
+Random single-rate DFGs with K nodes, 8-bit add/sub/xor/and/constant-multiply (constants 3..15 odd), inputs x0, x1,
+operands drawn as in E5.C (25 % delayed by 1 or 2 samples from a node in slots 0..N-2, 60 % same-sample from an earlier
+slot, preferring unconsumed nodes, otherwise an input). Slots uniform in 0..N-1. Outputs: every node without a reader
+(one 8-bit port each). Folding exactly as E5.C: per op type as many units as the busiest slot needs, random binding
+within a slot, left-edge register sharing (lowest free register), every result written to its register at the end of
+its slot, delayed operands through copy registers shifted at slot N-1. Constant-from-reset nodes are not rejected:
+data registers start from unknown values in the equations (below), so no node is a constant.
+Grid: K in {100, 1,000, 10,000, 100,000} x N in {4, 16, 64}, seed 1: 12 designs.
+Ground-truth validity: each RTL passes an Icarus self-check against the DFG (random samples:
+200 samples for K <= 10,000, 20 for K = 100,000) before any equation is produced.
+Size for comparison: Yosys 0.33 `proc; flatten; opt; techmap; opt -fast; stat` cell count (generic gates and
+DFF bits, no ABC), reported as "generic gates".
+
+Equations (harness e6/e6_equations.py, from RTL only; it does not read the generator's truth file)
+-----------------------------------------------------------------------------------------------------
+Yosys `proc; flatten; opt_clean` word-level JSON of the RTL. Data registers = registers whose next-state cone depends,
+transitively through registers, on a data input (x0, x1); the others (cycle counter) are control. Control registers are
+simulated concretely from reset (rst = 1 for 2 cycles, then 0); data registers and inputs are symbolic, time-normalized
+cut symbols (one symbol per word for its value before the event, as the gate-level chain's SSE cutpoints). One event per
+clock cycle (word-level RTL has no separate falling-edge event). Per cycle, each data register's next-state function is
+evaluated with the concrete control substituted; identical next-state function = hold, otherwise a full write. The window
+starts at the first cycle after reset release in which the control state equals the reset-release control state
+(slot 0) and has length 5N.
+
+Inverse folding (driver e6/e6_fold.cpp, C++)
+--------------------------------------------
+fold_observed() of plugins/algorithm_recovery/src/folding.cpp, i.e. the implementation of every E1-E5 graph
+(git 50b855fdf67, md5 3b3b0e2b5f76c2df171ca5200a05cea5), compiled unchanged into the driver; the period is found
+from the equations (no period supplied, period_multiple = 0). Words are supplied directly (each data register a word;
+x0, x1 input words): this replaces DANA grouping. Timed separately: JSON/SMT parsing into FoldInput, fold_observed, dump.
+Pre-declared variant (run only if the original exceeds the budget on some design): translate() substitutes physical
+bit symbols using the full from/to vectors of all bits for every equation, which is linear in the total bit count per
+call. Variant "local": the same substitution restricted to the bit symbols occurring in the equation; no other change.
+Its graphs must be identical (same JSON) to the original's on every design where the original finishes.
+
+Scoring (e6/e6_score.py)
+------------------------
+Uses the generator's truth: every DFG node v must have exactly one recovered event (reg(v), slot(v)); with copy-register
+events collapsed (identity moves, delays accumulated), each source of that event must resolve to v's operand producer
+and sample delay, and v's recovered function must be proved equal to the DFG node function by z3 with operands as
+symbols; no other non-copy event may exist. "exact" iff all hold; per-node accuracy is also reported. Graph coordinates
+equal transaction coordinates because the window starts at slot 0 (Theorem 5 with zero retiming); the scorer checks
+graph origin mod N = 0.
+Mutation control (before scoring the grid, on K = 1,000, N = 16): one wrong delay and one wrong producer injected into
+the recovered graph must be rejected.
+
+Budget and reporting
+--------------------
+Each stage <= 3 h wall time and <= 24 GiB virtual memory (7.7 GB RAM; the user added 33 GiB swap). Runs are serial and
+start after the E5 queue (or alongside it only for K <= 1,000). Reported per design: K, N, generic gates, words, write
+events per period, distinct equations, equation AST size, time and peak RSS of each stage, outcome (exact / mismatch /
+out of budget with the stage). Every design is reported. Any change to the folding code after a result is recorded here.
+
+Amendment 1 (2026-11-03 10:40, after the six K <= 1,000 designs, before any K >= 10,000 run): K = 10,000 also runs
+alongside the E5 queue (K = 1,000 peaks at 61 MB in fold and 86 MB in Yosys; one of 32 cores), K = 100,000 only after
+the E5 queue. Observed so far: fold time grows about quadratically (0.01 s at K = 100, 0.8 s at K = 1,000), as expected
+from the full-vector substitution in translate(); the pre-declared "local" variant is built now and run only under its
+pre-declared condition. Mutation control (K = 1,000, N = 16): the injected delay and producer errors are both rejected.
+
+Amendment 2 (2026-11-03, after s1_k10000_n4, before any K >= 30,000 run): the grid adds K = 30,000 x N in {4, 16, 64},
+seed 1 (about one million generic gates at the measured ~32 gates per node), so that the million-gate point is
+measured with the unchanged implementation. K = 30,000 and K = 100,000 run serially after the E5 queue, to keep the
+two experiments from competing for the 7.7 GB of RAM. Observed on s1_k10000_n4: fold 100.7 s (K = 1,000: 0.8 s),
+peak 271 MB; Yosys proc of the RTL 79 s, 834 MB.
