@@ -64,3 +64,13 @@ M5 compaction (Loop Rerolling): gzip -9 bytes of the final program and of the an
 M6 time and peak memory per stage.
 M7 folded RTL: c3/emit_rtl.py cycle-by-cycle validation on the training and fresh-data traces.
 Reporting: every E5 design appears in the results, including failures; numbers are not tuned between designs.
+
+Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, before scoring the E5.C set):
+ (a) Generator: DFGs in which some node is constant over all runs from the zero reset state (e.g. a multiplicative
+     self-recursion from 0, or an AND with a zero-initialised history) are rejected and regenerated (64 random samples
+     must give >= 2 values per node). Such nodes are certified constants, so they carry no data edges; the calibration
+     design had three (n8, n9, n12) and showed exactly that. The recovery pipeline is unchanged.
+ (b) Scorer granularity: DANA groups registers with identical enables into one word (e.g. the four copy registers
+     written at slot N-1). As in the E2.1 oracle, recovered events are mapped to RTL registers at bit level: each
+     register's slice of a word event is scored separately; a register split across words or a word bit without an
+     RTL register name remains a grouping failure. Merged words are reported (words_merging_registers).
