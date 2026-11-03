@@ -1,0 +1,28 @@
+HACE (FPGA'26) on gate-level netlists -- record, 2026-11-02 (run with the user's permission to run third-party code)
+
+Tool: github.com/ETHZ-DYNAMO/hace tag hace-v1.0.0 (a8d16f7), Python deps lark 1.2.2, networkx 3.7, z3-solver (version string 5.3.3).
+Only CDFG extraction was run (hace/_1.py parse + hace/flow.py); its honggfuzz/MLIR verification flow was not run.
+Inputs: HACE's own LegUp benchmarks gsum and mvt (tests/benchmarks/non-pipelined), synthesized with Yosys 0.33.
+legup_mult_1 kept as a named black box (legup_mult_1_bb.v), because HACE maps that module name to a multiplication
+and the LegUp library is not shipped. All names that Yosys keeps (ports, cur_state_* bits) are kept: this is more
+favourable to HACE than a reverse-engineering input. Every normalisation step below was proved equivalent by Yosys
+(equiv_make; equiv_simple -seq 2; equiv_induct; equiv_status -assert).
+
+variant  netlist                                                   gsum                                   mvt
+V0       original LegUp RTL                                        CDFG, 2.6 s                            CDFG, 13.1 s
+V1a      Yosys proc;flatten;opt (word level)                       parse error: Yosys function helpers    same
+V1a2     + pmuxtree                                                graph build: concatenation on LHS      same
+V1bb     synth -flatten (generic gates)                            parse error: 32'sd32 parameter         same
+V2bb     synth_ice40 -flatten (LUT/carry cells)                    parse error: 32'sd32 parameter         same
+V1s      V1bb + splitnets + parameter literal fix                  graph build: bit-select LHS on ports   same
+V1p      + output-port bits as signals (split_port_bits.py)        instance argument is a concatenation   same
+V1q      + named multiplier connections (name_instance_args.py)    "Did not find a state as a candidate   "Expected to find nodes which
+                                                                   for the starting state ... States: {}" determine the Data Flow []"
+                                                                   84.5 s, 1.31 GB                        121.3 s, 2.00 GB
+V1n      V1q with synth -nofsm (binary state encoding kept)        same as V1q (no state found), 81.8 s   --
+V3       our anonymized Bambu ARF iCE40 netlist                    parsed; "Module SB_LUT4 is not defined in external_modules"
+
+Conclusion: after all syntactic obstacles are removed by equivalence-proved rewrites, HACE finds no FSM state (gsum)
+or no data-flow-determining nodes (mvt) in gate-level versions of its own benchmarks, with names kept; it does not
+model iCE40 primitives at all. Its RTL inputs are handled as documented.
+Commands: run_hace.sh VARIANT_DIR NAME.legup.v (paths inside are for this machine); Yosys commands as in the table.
