@@ -71,13 +71,25 @@ events = {(n["name"], n["phase"]): n for n in G["nodes"]}
 nphases = len(next(iter(G["words"].values()))["certified_known_lsb_first"])
 
 
+# chain control: if the chained producer u has no other reader and is not an output, its write is dead (v overwrites the
+# same register in the same slot), so u has no event of its own -- predicted merged into v
+DEAD = set()
+if control == "chain" and T["chain_edge"]:
+    _u, _v = T["chain_edge"]
+    _other = [w for w, nd in nodes.items() for src, d in nd["operands"] if src == _u and not (w == _v and d == 0)]
+    _clash = [w for w in nodes if w != _u and nodes[w]["reg"] == nodes[_u]["reg"] and nodes[w]["slot"] == nodes[_u]["slot"]]
+    if not _other and _u not in T["outputs"] and _clash:
+        DEAD.add(_u)
+result["dead_chained_producer"] = sorted(DEAD)
+
+
 def reg_of(v, j):
     return nodes[v]["reg_odd"] if (control == "rotate" and j == 1) else nodes[v]["reg"]
 
 
 def owner_of_result(r, c):
     j, s = divmod(c, N)
-    hits = [v for v in nodes if reg_of(v, j) == r and nodes[v]["slot"] == s]
+    hits = [v for v in nodes if reg_of(v, j) == r and nodes[v]["slot"] == s and v not in DEAD]
     return (hits[0], j) if len(hits) == 1 else None
 
 
@@ -223,6 +235,15 @@ def equal(a, b):
     return s.check() == z3.unsat
 
 
+def depends(expr, key):
+    """Does expr change when the value symbol `key` alone changes (z3)?"""
+    x = [v for v in free_vars(expr) if str(v) == key][0]
+    y = z3.BitVec(key + "|alt", x.size())
+    sv = z3.Solver(); sv.set("timeout", 60000)
+    sv.add(expr != z3.substitute(expr, (x, y)))
+    return sv.check() != z3.unsat
+
+
 def value_keys(expr):
     return {str(x) for x in free_vars(z3.simplify(expr)) if str(x).startswith(("V|", "U|", "C|"))}
 
@@ -235,6 +256,8 @@ for (wname, ph), ev in events.items():
 per_node, matched = [], set()
 for j in range(J):
     for v in sorted(nodes):
+        if v in DEAD:
+            continue
         r, c = reg_of(v, j), j * N + nodes[v]["slot"]
         evs = reg_events.get((r, c), [])
         rec = {"node": v, "copy": j, "found": len(evs) == 1}
@@ -249,9 +272,11 @@ for j in range(J):
             rec.update(edges=False, function=False, note="slice incomplete"); per_node.append(rec); continue
         rec["function"] = equal(rx, tx)
         got, exp = value_keys(rx), value_keys(tx)
-        rec["edges"] = got == exp
-        if not rec["edges"]:
-            rec["got"] = sorted(got); rec["expected"] = sorted(exp)
+        rec["edges_syntactic"] = got == exp
+        sem = {k for k in got if depends(rx, k)}       # operands whose value can change the node's value
+        rec["edges"] = sem == exp
+        if not rec["edges"] or not rec["edges_syntactic"]:
+            rec["got"] = sorted(got); rec["got_semantic"] = sorted(sem); rec["expected"] = sorted(exp)
         per_node.append(rec)
 # events on result registers that are not DFG node writes must be holds (the register's previous value)
 def hold_value(r, c):
@@ -276,6 +301,7 @@ result.update({
     "period_as_predicted": P == result["expected_period_events"],
     "nodes_scored": len(per_node), "nodes_found": sum(x["found"] for x in per_node),
     "nodes_edges_exact": sum(bool(x.get("edges")) for x in per_node),
+    "nodes_edges_syntactic_exact": sum(bool(x.get("edges_syntactic")) for x in per_node),
     "nodes_function_proved": sum(bool(x.get("function")) for x in per_node),
     "nodes_exact": exact_nodes, "unresolved_reads": len(UNRESOLVED), "spurious_result_events": len(spurious),
     "exact": exact_nodes == len(per_node) and P == result["expected_period_events"] and not grouping and not UNRESOLVED

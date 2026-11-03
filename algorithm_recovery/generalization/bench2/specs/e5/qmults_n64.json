@@ -1,0 +1,36 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qmults_n64/qmults.json",
+ "top": "qmults",
+ "source": {
+  "url": "https://github.com/freecores/verilog_fixed_point_math_library",
+  "commit": "a94eb0b2b1e4117e942e4a93fc3773bc78607c28",
+  "license": "LGPL-2.1",
+  "author": "T. Burke",
+  "category": "iterative arithmetic",
+  "parameters": "Q=31, N=64 (chparam, synth tag qmults_n64)"
+ },
+ "clock": "i_clk",
+ "non_data": [
+  "i_start"
+ ],
+ "defaults": {
+  "i_start": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {}
+  }
+ ],
+ "period": 66,
+ "schedule": {
+  "0": {
+   "i_start": 1
+  }
+ },
+ "data_mode": "hold",
+ "case": "qmults_n64",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

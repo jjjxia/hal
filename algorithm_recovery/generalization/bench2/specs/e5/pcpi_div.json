@@ -1,0 +1,43 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/picorv32_pcpi_div/synth/picorv32_pcpi_div/picorv32_pcpi_div.json",
+ "top": "picorv32_pcpi_div",
+ "source": {
+  "url": "https://github.com/YosysHQ/picorv32",
+  "commit": "ef203c2b0a3fb793280f5114941416c425c5b461",
+  "license": "ISC",
+  "author": "C. Wolf / YosysHQ",
+  "category": "iterative arithmetic",
+  "parameters": "picorv32.v module picorv32_pcpi_div (no parameters); pcpi_insn fixed to DIVU a0, a0, a1 = 0x02b55533"
+ },
+ "clock": "clk",
+ "non_data": [
+  "resetn",
+  "pcpi_valid",
+  "pcpi_insn"
+ ],
+ "defaults": {
+  "resetn": 1,
+  "pcpi_valid": 1,
+  "pcpi_insn": 45438259
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "resetn": 0,
+    "pcpi_valid": 0
+   }
+  }
+ ],
+ "period": 38,
+ "schedule": {
+  "37": {
+   "pcpi_valid": 0
+  }
+ },
+ "data_mode": "hold",
+ "case": "pcpi_div",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

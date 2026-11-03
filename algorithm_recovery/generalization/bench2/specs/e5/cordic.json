@@ -1,0 +1,40 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/oc_cordic/synth/cordic/cordic.json",
+ "top": "cordic",
+ "source": {
+  "url": "https://github.com/freecores/verilog_cordic_core",
+  "commit": "c1e99960d63aad28c55d1f5acec35cac74ac0af9",
+  "license": "none stated (no header; OpenCores license field empty)",
+  "author": "D. Drinkard (OpenCores)",
+  "category": "iterative CORDIC",
+  "parameters": "ITERATE, ROTATE, RADIAN_16, XY_BITS=THETA_BITS=16 (+sign), 16 iterations; bench patches: ITERATE selected instead of PIPELINE (cordic.v:129-130), signed_shifter loop replaced by D >>> i (cordic.v:178); patched copy bench_candidates/oc_cordic/conf/cordic_iterate.v"
+ },
+ "clock": "clk",
+ "non_data": [
+  "rst",
+  "init"
+ ],
+ "defaults": {
+  "rst": 0,
+  "init": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "rst": 1
+   }
+  }
+ ],
+ "period": 17,
+ "schedule": {
+  "0": {
+   "init": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "cordic",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

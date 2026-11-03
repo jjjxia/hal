@@ -80,3 +80,13 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      converted to transaction coordinates with the retiming of c3/decompile.py (delay + rho(phase) - rho(source phase),
      Theorem 5), which the first version omitted (all delays across the graph origin were off by one). The two injected
      graph mutations (one delay, one producer phase) are still rejected after both fixes.
+ (d) Scorer, after the E5.C batch (recovery unchanged): edges are compared on semantic dependence -- an operand counts
+     if changing its value alone can change the node's value (z3) -- because e5c_s3_n4_rotate's node n11 keeps a
+     syntactic read of n12 that does not affect its proved-equal function. Syntactic edge counts are reported as well
+     (nodes_edges_syntactic_exact). All E5.C designs were rescored; the injected mutations are still rejected.
+ (e) Chain-control prediction, corrected after the batch (recovery and generator unchanged): when the chained producer u
+     has no other reader and is not an output, the generator's allocation gives u and v the same register in the same
+     slot, so u's write is dead and u has no event; the predicted structure is v with u's operation inlined and no node
+     for u. The scorer now predicts this (dead_chained_producer); it applied to e5c_s2_n4_chain and e5c_s3_n4_chain.
+     Refinement of (e) on the next design: the dead write arises whenever another node (v or any other) shares u's
+     register in u's slot (e5c_s3_n4_chain: n14 and n5 both in r5 at slot 2); the condition now covers any such node.

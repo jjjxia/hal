@@ -1,0 +1,12 @@
+E5 found/expected ground truth for case qdiv_n64 (qdiv, N=64, Q=31), written from the source RTL BEFORE any recovery
+run (2026-11-03). RTL: bench_candidates/oc_fixedpoint/src/qdiv.v at a94eb0b2 (unpatched).
+
+Expected time loops: 1
+  L1  restoring shift-subtract division loop. Counter reg_count (reg [N-1:0], qdiv.v:46), set to N+Q-1 = 94 at
+      start (:75), decremented every step (:88, :104); stop condition reg_count == 0 (:97). Each step compares and
+      subtracts (:91-94), sets quotient bit reg_count (:92) and shifts the divisor right (:87).
+      Trip count per transaction: N+Q = 95 steps (reg_count = 94..0), after 1 start step (cycle 0); the
+      last step also copies the quotient and tests overflow (:97-101).
+
+Expected table instances: 0
+  Not tables: the variable-index write reg_working_quotient[reg_count] (:92) is a decoder, not a constant table.

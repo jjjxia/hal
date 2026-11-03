@@ -1,0 +1,36 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/present_saiedhk/synth/PRESENT_ENCRYPT/PRESENT_ENCRYPT.json",
+ "top": "PRESENT_ENCRYPT",
+ "source": {
+  "url": "https://github.com/saiedhk/PresentCryptoEngine",
+  "commit": "a6676633a04e48719d67fc625fe8fc28888388bd",
+  "license": "MIT",
+  "author": "S. H. Khayat",
+  "category": "cipher",
+  "parameters": "PRESENT-80 encryption, one round per cycle; bench patch: `define PRINT_TEST_VECTORS commented out (present_encrypt.v:26, simulation-only $display aborts Yosys 0.33); patched copy bench_candidates/present_saiedhk/conf/present_encrypt.v"
+ },
+ "clock": "clk",
+ "non_data": [
+  "load"
+ ],
+ "defaults": {
+  "load": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {}
+  }
+ ],
+ "period": 32,
+ "schedule": {
+  "0": {
+   "load": 1
+  }
+ },
+ "data_mode": "cycle",
+ "case": "present_saiedhk",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

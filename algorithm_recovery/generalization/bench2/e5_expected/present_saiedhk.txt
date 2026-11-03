@@ -1,0 +1,17 @@
+E5 found/expected ground truth for case present_saiedhk, written from the source RTL BEFORE any recovery run
+(2026-11-03). RTL: bench_candidates/present_saiedhk/conf/present_encrypt.v (upstream present_encrypt.v at a6676633
+with line 26 commented out; line numbers identical), present_encrypt_sbox.v, present_encrypt_pbox.v.
+
+Expected time loops: 1
+  L1  PRESENT round loop. Counter `round` (reg [4:0], present_encrypt.v:39) set to 1 by load (:96-97) and
+      incremented on every clock edge without load (:98-99); it is XORed into the key schedule (:52). One round datapath
+      (addRoundKey :46, 16 S-boxes :59-64, pLayer :67, key update :50-53, :70) is reused every cycle.
+      Trip count per transaction: 31 rounds (round = 1..31, edges 2..32), after 1 load step (cycle 0).
+      The final addRoundKey with K32 is the combinational output odat = dreg ^ kreg[79:16] (:46-47), read in
+      cycle 32 (round == 0 then, as in the author's PRINT_TEST_VECTORS block :115-119).
+
+Expected table instances: 17 (all the same 4-bit PRESENT S-box, PRESENT_ENCRYPT_SBOX, present_encrypt_sbox.v)
+  T1-T16  data-path S-boxes, generate loop sbox_loop (present_encrypt.v:59-64), input width 4 bits each
+          (dat1[i+3:i], i = 0, 4, ..., 60).
+  T17     key-schedule S-box USBOXKEY (present_encrypt.v:70), input width 4 bits (kdat1[79:76]).
+  Not a table: the pLayer PRESENT_ENCRYPT_PBOX (present_encrypt_pbox.v) is pure wiring.

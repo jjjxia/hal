@@ -1,0 +1,20 @@
+E5 found/expected ground truth for case cordic, written from the source RTL BEFORE any recovery run (2026-11-03).
+RTL: bench_candidates/oc_cordic/conf/cordic_iterate.v (= upstream cordic.v at c1e99960 with the two bench patches;
+line numbers are identical in both files).
+
+Expected time loops: 1
+  L1  CORDIC micro-rotation loop. Counter `iteration` (reg [4:0], cordic_iterate.v:367), cleared asynchronously
+      by init and incremented every clock (cordic_iterate.v:372-374); it indexes the shift amount
+      (signed_shifter, :171-180, instances :212-213) and the arctan table (:375). One rotator instance
+      (:187-253, instance :375) is reused for every step.
+      Trip count per transaction: 16 rotation steps (iteration = 0..15, cycles 1..16; `ITERATIONS 16, :114),
+      preceded by 1 load step (init, cycle 0, rotator :229-233). The counter is free-running: it reaches 16 at
+      the observation cycle 17 and is cleared by the next transaction's init; with period 17 no step >= 16 is
+      ever applied to an observed result.
+
+Expected table instances: 1
+  T1  arctan table, function tanangle (cordic_iterate.v:280-302, RADIAN_16 branch), one call site (:375).
+      Input width 4 bits (function input [3:0]; the 5-bit counter is truncated), 16 entries, output 17 bits
+      (largest entry 25735, i.e. 15 significant bits). Values: 25735 15192 8027 4075 2045 1024 512 256 128 64
+      32 16 8 4 2 1.
+  Not tables: the two signed_shifter barrel shifters (:171-180) and the add/subtract selection on z < 0 (:236).

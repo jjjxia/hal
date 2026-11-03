@@ -1,0 +1,40 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/bambu_arf/synth/icrc1_loop/icrc1.json",
+ "top": "icrc1",
+ "source": {
+  "url": "https://github.com/ferrandi/PandA-bambu (examples/crc/spec.c, function icrc1)",
+  "commit": "c2ba6936ca2ed63137095fea0b630a1c66e20e63",
+  "license": "GPL-3.0 input; PANDA_LGPLv3 library",
+  "author": "PandA-Bambu 2024.10 HLS (PoliMi) on PowerStone/Numerical Recipes icrc1",
+  "category": "HLS fixed-trip loop",
+  "parameters": "bambu icrc1_extract.c --top-fname=icrc1 -O1 -fno-unroll-loops (icrc1 copied verbatim from examples/crc/spec.c; bench_candidates/bambu_arf/wrap/icrc1_extract.c); generated bench_candidates/bambu_arf/gen_icrc1/icrc1.v"
+ },
+ "clock": "clock",
+ "non_data": [
+  "reset",
+  "start_port"
+ ],
+ "defaults": {
+  "reset": 1,
+  "start_port": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset": 0
+   }
+  }
+ ],
+ "period": 10,
+ "schedule": {
+  "0": {
+   "start_port": 1
+  }
+ },
+ "data_mode": "hold",
+ "case": "icrc1",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261103
+}

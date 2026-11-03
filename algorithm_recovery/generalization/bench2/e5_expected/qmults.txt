@@ -1,0 +1,15 @@
+E5 found/expected ground truth for case qmults (qmults, N=32, Q=15), written from the source RTL BEFORE any recovery
+run (2026-11-03). RTL: bench_candidates/oc_fixedpoint/src/qmults.v at a94eb0b2 (unpatched).
+
+Expected time loops: 1
+  L1  shift-and-add multiplication loop. Counter reg_count (reg [N-1:0], qmults.v:40), cleared at start (:61),
+      incremented every step (:78); stop condition reg_count == N (:81). Each step conditionally adds the
+      shifted multiplier (:74-75, selected by multiplicand bit reg_count) and shifts the multiplier (:77).
+      Trip count per transaction: 33 steps (reg_count = 0..32; ReadMe.txt: "N+1 clocks"), after 1 start
+      step (cycle 0). Steps 0..31 are add/shift steps (step 31 never adds: multiplicand bit N-1 is 0
+      after the sign is dropped, :67); step 32 is the completion step (o_complete, overflow test :83) and, in the
+      synthesized netlist, may add once more (out-of-range select reg_multiplicand_temp[N]; see ref.py/README).
+
+Expected table instances: 0
+  Not tables: the variable bit select reg_multiplicand_temp[reg_count] (:74) is a multiplexer, not a constant
+  table.

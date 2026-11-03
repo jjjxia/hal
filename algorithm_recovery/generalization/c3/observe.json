@@ -233,5 +233,87 @@
    "port": "data_out",
    "strobe": "stb_out"
   }
+ ],
+ "cordic": [
+  {
+   "port": "x_o",
+   "cycle": 17
+  },
+  {
+   "port": "y_o",
+   "cycle": 17
+  },
+  {
+   "port": "theta_o",
+   "cycle": 17
+  }
+ ],
+ "present_saiedhk": [
+  {
+   "port": "odat",
+   "cycle": 32
+  }
+ ],
+ "qmults": [
+  {
+   "port": "o_result_out",
+   "cycle": 34
+  },
+  {
+   "port": "o_overflow",
+   "cycle": 34
+  }
+ ],
+ "qmults_n16": [
+  {
+   "port": "o_result_out",
+   "cycle": 18
+  },
+  {
+   "port": "o_overflow",
+   "cycle": 18
+  }
+ ],
+ "qmults_n64": [
+  {
+   "port": "o_result_out",
+   "cycle": 66
+  },
+  {
+   "port": "o_overflow",
+   "cycle": 66
+  }
+ ],
+ "qdiv_n16": [
+  {
+   "port": "o_quotient_out",
+   "cycle": 24
+  },
+  {
+   "port": "o_overflow",
+   "cycle": 24
+  }
+ ],
+ "qdiv_n64": [
+  {
+   "port": "o_quotient_out",
+   "cycle": 96
+  },
+  {
+   "port": "o_overflow",
+   "cycle": 96
+  }
+ ],
+ "pcpi_div": [
+  {
+   "port": "pcpi_rd",
+   "cycle": 36
+  }
+ ],
+ "icrc1": [
+  {
+   "port": "return_port",
+   "cycle": 9
+  }
  ]
 }

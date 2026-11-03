@@ -1,0 +1,14 @@
+E5 found/expected ground truth for case pcpi_div, written from the source RTL BEFORE any recovery run (2026-11-03).
+RTL: picorv32.v at ef203c2b (unpatched), module picorv32_pcpi_div (picorv32.v:2420-2510). Fixed instruction DIVU.
+
+Expected time loops: 1
+  L1  restoring shift-subtract division loop, controlled by the one-hot mask quotient_msk (reg [31:0],
+      picorv32.v:2460) instead of a binary counter: set to 1 << 31 at start (:2478), shifted right every step
+      (:2506); the loop runs while running && quotient_msk != 0 (:2480). Each step compares and subtracts
+      (:2498-2501) and shifts the divisor (:2502).
+      Trip count per transaction: 32 steps (quotient_msk = 2^31 .. 2^0, cycles 3..34), preceded by the start step
+      (operand load, :2472-2478, cycle 2) and followed by 1 completion step (quotient_msk == 0, :2480-2496,
+      writes pcpi_rd and pcpi_ready for cycle 36). Handshake/decode registers instr_divu, pcpi_wait, pcpi_wait_q
+      (:2438-2455) form no loop.
+
+Expected table instances: 0
