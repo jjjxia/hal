@@ -7,6 +7,11 @@ H=/home/jiahao/hal; E=$H/algorithm_recovery/generalization; B=$H/build
 case=e5c_s${seed}_n${N}$([ "$control" = none ] || echo _$control)
 D=$B/e5c/$case; G=$D/gen
 [ -e "$D/score.json" ] && { echo "$case: done"; exit 0; }
+if [ -s "$D/case/graph/graph_training.json" ]; then   # pipeline already done: score only
+    ( ulimit -v 4194304; timeout 3600 "$B/c3_venv/bin/python" "$E/e5c/e5c_score.py" "$D/case" "$G/truth.json" "$G/fold_top.json" \
+        "$D/case/graph/graph_training.json" "$D/score.json" ) > "$D/score.log" 2>&1
+    echo "$case: $(tail -n 1 "$D/score.log" | cut -c1-400)"; exit 0
+fi
 mkdir -p "$G"
 python3 "$E/e5c/e5c_gen.py" "$seed" "$N" "$G" --control "$control" > "$G/gen.json" || { echo "$case: generator refused"; exit 0; }
 python3 "$E/e5c/e5c_selfcheck.py" "$G" > "$G/selfcheck.json" || { echo "$case: SELF-CHECK FAILED"; exit 1; }

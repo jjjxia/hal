@@ -65,6 +65,8 @@ result["words_merging_registers"] = merged
 
 shift = (contract["first_event"] - G["origin"]) % P
 cycle_of = lambda phase: ((phase - shift) % P) // 2
+rho = lambda phase: -1 if phase < shift else 0     # graph -> transaction sample coordinates (Theorem 5), as c3/decompile.py
+tdelay = lambda ev_phase, src: src["delay"] + rho(ev_phase) - rho(src["phase"])
 events = {(n["name"], n["phase"]): n for n in G["nodes"]}
 nphases = len(next(iter(G["words"].values()))["certified_known_lsb_first"])
 
@@ -125,7 +127,17 @@ def val_sym(key):
 UNRESOLVED = []
 
 
+MEMO_RV, MEMO_SV = {}, {}
+
+
 def register_value(wname, phase, delay, r, depth=0):
+    key = (wname, phase, delay, r)
+    if key not in MEMO_RV:
+        MEMO_RV[key] = _register_value(wname, phase, delay, r, depth)
+    return MEMO_RV[key]
+
+
+def _register_value(wname, phase, delay, r, depth=0):
     """Value of register r as read through a source record (word, phase, delay): a value symbol of the DFG node copy
     that wrote it, or, for a copy register, the value its copy event moved (delays add up)."""
     if r.startswith("r"):
@@ -142,8 +154,21 @@ def register_value(wname, phase, delay, r, depth=0):
 
 
 def slice_value(ev, r, outer_delay=0, depth=0):
+    key = (ev["name"], ev["phase"], r, outer_delay)
+    if key not in MEMO_SV:
+        MEMO_SV[key] = _slice_value(ev, r, outer_delay, depth)
+    return MEMO_SV[key]
+
+
+SPEC = {}
+
+
+def _slice_value(ev, r, outer_delay=0, depth=0):
     """Register r's new value written by event ev, with every source replaced by DFG-level value symbols."""
-    e = specialise(parse(ev["smt2"]), ev["phase"])
+    k = (ev["name"], ev["phase"])
+    if k not in SPEC:
+        SPEC[k] = specialise(parse(ev["smt2"]), ev["phase"])
+    e = SPEC[k]
     by_symbol = {s["symbol"]: s for s in ev["sources"]}
     subs = []
     for var in free_vars(e):
@@ -160,7 +185,7 @@ def slice_value(ev, r, outer_delay=0, depth=0):
                 if o is None or o[0] in ("cyc", "odd"):
                     bits.append(z3.BitVec(f"C|{s['name']}|{len(bits)}", 1))
                 else:
-                    rv = register_value(s["name"], s["phase"], outer_delay + s["delay"], o[0], depth)
+                    rv = register_value(s["name"], s["phase"], outer_delay + tdelay(ev["phase"], s), o[0], depth)
                     bits.append(z3.Extract(o[1], o[1], rv))
             subs.append((var, z3.Concat(*reversed(bits)) if len(bits) > 1 else bits[0]))
     e = z3.substitute(e, *subs) if subs else e

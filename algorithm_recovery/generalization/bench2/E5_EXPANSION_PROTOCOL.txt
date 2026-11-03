@@ -74,3 +74,8 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      written at slot N-1). As in the E2.1 oracle, recovered events are mapped to RTL registers at bit level: each
      register's slice of a word event is scored separately; a register split across words or a word bit without an
      RTL register name remains a grouping failure. Merged words are reported (words_merging_registers).
+ (c) Scorer fixes found while scoring the first two designs, applied before scoring the rest (recovery unchanged):
+     memoised copy-chain expansion (exponential recursion through merged copy words); graph-coordinate delays are
+     converted to transaction coordinates with the retiming of c3/decompile.py (delay + rho(phase) - rho(source phase),
+     Theorem 5), which the first version omitted (all delays across the graph origin were off by one). The two injected
+     graph mutations (one delay, one producer phase) are still rejected after both fixes.
