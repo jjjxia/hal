@@ -49,3 +49,11 @@ excluded words, histories; registers split into >=2 write events; FIT_PROVED/raw
 periodic and whole-state replay; stage times. Algorithm-level readability (E3.3) and
 C2 structural oracles (E2.1) are scored separately and later; their oracle construction
 must be written down before scoring.
+
+Status changes under the rule above (recorded 2026-11-02):
+  small_hb_dec  -> development data: its grouping failure led to a general frontend fix (rerun as small_hb_dec_r2).
+  ascon         -> development data: its first import failed on constant-driven output pads (bdo_type[3]); the
+                   frontend now drops and records such pads (hal 980dcbbd919). Decided under the research plan
+                   NetNotary reviews/publication-plan-20261101/RESEARCH_PLAN_20261102.md (D1).
+  Held out: present, sha1, fir_decim, ibex_mul, qdiv, bambu_arf (six designs, six authors/organisations, four
+  categories). All eight frozen designs are still reported, development ones marked as such.
