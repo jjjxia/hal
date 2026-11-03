@@ -1,0 +1,66 @@
+E5 expanded benchmark evaluation -- protocol, written 2026-11-03 BEFORE any E5 recovery run
+=========================================================================================
+Requested by the user on 2026-11-03 ("多找点benchmark ... 学 Sisco 的 Fungible Memory PLDI26 和 Loop Rerolling
+两篇找 benchmark 的思路以及 metric"). Method borrowed from:
+  * Sisco et al., Loop Rerolling for Hardware Decompilation (PLDI 2023): modules taken from a standard component
+    library (BaseJump STL) "without regard to their original SystemVerilog code containing loops"; every module in
+    small/medium/large parameterizations; found/expected loops, phase times, gzip artifact compaction, failures
+    (timeouts) reported.
+  * Sisco et al., Fungible Memories (PLDI 2026): micro-benchmarks from open-source suites (BaseJump STL, OPDB),
+    Yosys netlists with ABC, ground truth from the source (expected memory dimensions and ports), comparison with
+    baseline inference tools, larger case studies, per-phase timing.
+
+E5.A Library sweep (selection fixed now, independent of expected success)
+--------------------------------------------------------------------------
+Population: every candidate of the 2026-11-01 screening (screening/candidates.json, written before any recovery
+run) that synthesized (synth_ok) and is neither in the frozen eight nor development data:
+  oc_cordic (cordic), ettus_hbdec:hb_dec, present_saiedhk (PRESENT_ENCRYPT), oc_sha3:f_permutation,
+  oc_aes_core (aes_cipher_top), secworks_aes (aes_core), secworks_aes:aes128_enc_top, secworks_siphash,
+  secworks_chacha, secworks_sha256, oc_sha_core:sha256, oc_fixedpoint:qmults, bambu_arf:icrc1,
+  hace_vivado:gaussian, hace_vivado:matrix, hace_vivado:gsum, picorv32_pcpi_div          (17 netlists)
+Excluded with reason: oc_des (development data; does not elaborate); candidates that never synthesized
+(hace_legup, secworks_gift, simon_speck, ascon_kandi, tm_fir_diesmo, multi_iir, vexriscv_muldiv, serv) are listed
+as screened-out, as Loop Rerolling lists unsupported BaseJump modules.
+Netlists: the existing screening syntheses (Yosys 0.33 synth_ice40 -nobram; ABC inside synth_ice40), unchanged.
+Protocol characterisation (the only per-design work allowed before recovery): an RTL testbench measures one
+transaction (start strobe to result); the spec fixes non-data pads, period and output read time. The recovery
+pipeline (bench2/run_bench2.sh, hal-recover graph --protocol, c3/decompile.py, c3/emit_rtl.py) is used unchanged.
+Budget (pre-declared): transaction <= 4,096 cycles measured on the RTL; each stage <= 3 h and <= 6 GiB virtual memory
+(this machine has 7.7 GB). A design over budget is reported as "out of budget" with the measured quantity.
+Any recovery-code change made after seeing an E5 result turns that design into development data (recorded here).
+
+E5.B Parameter sweep (small/medium/large, as in Loop Rerolling)
+------------------------------------------------------------------
+  qdiv  N = 16 / 32 / 64 (Q = 7 / 15 / 31)      qmults N = 16 / 32 / 64 (same Q)
+  chacha rounds = 8 / 12 / 20 (non-data input)   siphash (c, d) = (1, 3) / (2, 4) / (4, 8) (non-data inputs)
+qdiv N=32 is the frozen held-out netlist and is reused, not re-synthesized. New netlists use the screening script.
+
+E5.C Synthetic folding with known ground truth (Theorem 7)
+------------------------------------------------------------
+Generator (written and frozen before scoring): random single-rate DFGs (8-bit add/sub/xor/and/constant-multiply
+nodes, 6-16 nodes, sample delays 0-2 on edges, inputs and outputs), folded with a registered fixed-binding schedule
+in the style of Parhi's folding: N in {2, 4, 8}, random unit binding and slot order, every node result written to
+its bound register, operands routed through explicit delay registers. 8 graphs x 3 folding factors = 24 designs,
+plus two out-of-class controls per graph family: (i) one unregistered chained edge (predicted: two DFG nodes merge
+into one event), (ii) binding rotating between transactions (predicted: graph period = 2 transactions, program
+refused). Each design goes through the full gate-level pipeline. Scorer: the generator's (register, slot) -> DFG node
+map; a recovered event graph, with identity moves collapsed, is "exact" iff it is isomorphic to the DFG with every
+operand's producer and sample delay equal. Reported: exact designs / total, per-edge producer and delay accuracy.
+
+Metrics (all E5 designs where applicable)
+------------------------------------------
+M1 outcome: certified (origin/period, goals, time) / refused by the pipeline (stage and reason) / out of budget /
+   tool failure.
+M2 structure vs RTL oracle: bench2/c2_oracle.py with the E2.1 definitions, unchanged (write-event recall and
+   precision, producer exact match, delay accuracy, multi-role registers).
+M3 found / expected (Loop Rerolling style): expected time loops and trip counts (round/iteration counters in the
+   source) and expected table instances (S-box/ROM in the source) are written in E5_EXPECTED.txt BEFORE the run;
+   found = roll-up loops and lifted tables.
+M4 correctness: end-to-end check (c3/close_chain.py) for flat/rolled/lifted programs; held-out trace comparison
+   (decompile validation); documented algorithm on 2,000 fresh inputs where a reference model exists (written before
+   the run; missing references are reported as such).
+M5 compaction (Loop Rerolling): gzip -9 bytes of the final program and of the anonymous netlist Verilog; lines
+   flat / rolled / lifted.
+M6 time and peak memory per stage.
+M7 folded RTL: c3/emit_rtl.py cycle-by-cycle validation on the training and fresh-data traces.
+Reporting: every E5 design appears in the results, including failures; numbers are not tuned between designs.
