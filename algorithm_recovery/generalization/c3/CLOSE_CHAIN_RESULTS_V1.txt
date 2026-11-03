@@ -1,0 +1,42 @@
+End-to-end translation validation of the recovered programs (c3/close_chain.py) -- results v1, 2026-11-02
+Reference: the event graph's certified word equations, specialised with the certificate's per-phase constants and
+executed with register semantics over one transaction (graph producer resolution NOT used). Program: the generated
+Python text, executed symbolically (data pads and loop-carried values free; every v[(word, phase)] write recorded and
+replaced by a cut symbol shared with the reference). z3 proves each write, observation and next-state value equal to
+the reference for all values; by induction the program equals the certified equations over one transaction.
+Run: build/run_close_chain.sh (serial, ulimit -v 6 GiB). Output: build/bench2_v1/close_chain_v2/ (local).
+Correction: a first run (close_chain_v1) left Bambu ARF and the flat/rolled Ascon outputs open because the checker
+compared symbolic booleans by object identity (Python `==` without __eq__); fixed before this run, all designs rerun.
+depth = number of reference-definition levels assumed (c_k = ref(k)); 0 means proved with cut symbols alone.
+
+case           program            writes outs state depth>0  exec_s prove_s closed
+present        program_flat.py        95    1     0       0     4.8     0.0 True
+present        program_rolled.py      96    1     0       0     3.1     0.0 True
+present        program.py             96    1     0       0     1.6     3.1 True
+ascon          program_flat.py       213   16     3       0    60.1     0.1 True
+ascon          program_rolled.py     219   16     3       0    86.9     0.1 True
+ascon          program.py            219   16     3       0    87.5     0.1 True
+sha1           program_flat.py      1098    5     0       0    37.1     0.1 True
+sha1           program_rolled.py    1140    5     0       0    28.3     0.1 True
+sha1           program.py           1140    5     0       0     9.6   313.6 True
+fir_decim      program_flat.py        16    2     5       0     0.8     0.0 True
+fir_decim      program_rolled.py      16    2     5       0     0.8     0.0 True
+fir_decim      program.py             16    2     5       0     0.1     1.6 True
+small_hb_dec   program_flat.py        22    2     9       1     1.4     0.0 True
+small_hb_dec   program_rolled.py      22    2     9       1     1.3     0.0 True
+small_hb_dec   program.py             22    2     9       1     1.1     0.1 True
+ibex_mul       program_flat.py        94    2     0       0     0.9     0.0 True
+ibex_mul       program_rolled.py      96    2     0       0     1.0     0.0 True
+ibex_mul       program.py             96    2     0       0     0.3     0.4 True
+qdiv           program_flat.py       185    2     0       0     5.9     0.8 True
+qdiv           program_rolled.py     189    2     0       0    10.0     0.8 True
+qdiv           program.py            189    2     0       0     7.3     0.8 True
+bambu_arf      program_flat.py        19    8     0       0    10.4     8.0 True
+bambu_arf      program_rolled.py      19    8     0       0    10.1    27.5 True
+bambu_arf      program.py             19    8     0       0    10.0    21.1 True
+
+Mutation control (PRESENT; each defect must leave the chain open):
+  m1_wrong_producer.py   {'node_proved': 94, 'node_depth_0': 94, 'node_refuted': 1, 'output_proved': 1} closed=False
+  m2_table.py            {'node_proved': 33, 'node_depth_0': 33, 'node_refuted': 9, 'node_refuted_at_depth': 54, 'output_proved': 1} closed=False
+  m3_route.py            {'node_proved': 65, 'node_depth_0': 65, 'node_refuted': 4, 'node_refuted_at_depth': 27, 'output_proved': 1} closed=False
+  m4_output.py           {'node_proved': 96, 'node_depth_0': 96, 'output_refuted_at_depth': 1} closed=False
