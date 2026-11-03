@@ -59,7 +59,8 @@ M3 found / expected (Loop Rerolling style): expected time loops and trip counts 
 M4 correctness: end-to-end check (c3/close_chain.py) for flat/rolled/lifted programs; held-out trace comparison
    (decompile validation); documented algorithm on 2,000 fresh inputs where a reference model exists (written before
    the run; missing references are reported as such).
-M5 compaction (Loop Rerolling): gzip -9 bytes of the final program and of the anonymous netlist Verilog; lines
+M5 compaction (Loop Rerolling): gzip -9 bytes of the final program relative to the flat program (same representation
+   before and after roll-up/lifting, as Loop Rerolling compares rerolled and non-rerolled code), netlist for scale; lines
    flat / rolled / lifted.
 M6 time and peak memory per stage.
 M7 folded RTL: c3/emit_rtl.py cycle-by-cycle validation on the training and fresh-data traces.

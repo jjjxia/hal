@@ -68,7 +68,10 @@ if orc:
 # M5 compaction (gzip -9 bytes)
 def gz(p):
     return len(gzip.compress(open(p, "rb").read(), 9)) if os.path.exists(p) else None
+# as in Loop Rerolling: the same representation before and after roll-up/lifting (flat vs final program); netlist for scale
 net = gz(f"{D}/input/recovered.v")
+flat = gz(f"{D}/program/program_flat.py")
 prog = gz(f"{D}/program/program.py")
-out["compaction"] = {"netlist_gzip": net, "program_gzip": prog, "ratio": round(prog / net, 3) if net and prog else None}
+out["compaction"] = {"netlist_gzip": net, "flat_program_gzip": flat, "program_gzip": prog,
+                     "program_vs_flat": round(prog / flat, 3) if flat and prog else None}
 print(json.dumps(out, indent=1))
