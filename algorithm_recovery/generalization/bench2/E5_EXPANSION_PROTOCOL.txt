@@ -90,3 +90,8 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      for u. The scorer now predicts this (dead_chained_producer); it applied to e5c_s2_n4_chain and e5c_s3_n4_chain.
      Refinement of (e) on the next design: the dead write arises whenever another node (v or any other) shares u's
      register in u's slot (e5c_s3_n4_chain: n14 and n5 both in r5 at slot 2); the condition now covers any such node.
+ (f) Budget enforcement (2026-11-03, before any E5.A/B result): the frozen run_bench2.sh sets its own `ulimit -v 16 GiB`,
+     so the declared 6 GiB stage budget was not enforced on its stages; a first siphash_c1d3 run reached 4.9 GB RSS in
+     the groups stage after 23 min and was stopped (kept as bench2_e5/siphash_c1d3.uncapped_partial, no result).
+     e5_run_case.sh now runs prepare and run_bench2.sh under an outer hard 6 GiB limit; stages exceeding it fail and
+     are reported as over budget.

@@ -20,11 +20,12 @@ st() {   # st NAME CMD...  (6 GiB, 3 h)
     return $rc
 }
 if [ ! -e "$D/input" ]; then
-    python3 "$E/bench2/prepare_bench2.py" "$spec" "$D" > "$B/bench2_e5/$case.prepare.log" 2>&1 || { echo "$case: prepare failed"; exit 1; }
+    ( ulimit -v 6291456; timeout 10800 python3 "$E/bench2/prepare_bench2.py" "$spec" "$D" ) > "$B/bench2_e5/$case.prepare.log" 2>&1 || { echo "$case: prepare failed (see $case.prepare.log)"; exit 0; }
 fi
 mkdir -p "$D"
-# frozen C1 pipeline (its own 16 GiB/3 h caps; this machine has 7.7 GB, so its memory failures are reported as such)
-[ -e "$D/stages.jsonl" ] || bash "$E/bench2/run_bench2.sh" "$D" > /dev/null 2>&1
+# frozen C1 pipeline under the E5 budget: an outer hard limit of 6 GiB (the pipeline's own `ulimit -v 16777216` then
+# cannot raise it) and its own 3 h per stage
+[ -e "$D/stages.jsonl" ] || ( ulimit -v 6291456; bash "$E/bench2/run_bench2.sh" "$D" ) > /dev/null 2>&1
 grep -q '"stage":"analyze","exit":0' "$D/stages.jsonl" || { echo "$case: C1 pipeline failed: $(tail -n 2 "$D/stages.jsonl" | tr '\n' ' ')"; exit 0; }
 win=$(python3 -c "import json;print(len(json.load(open('$D/input/stimulus.json'))['windows']['training']))")
 st graph "$B/bin/hal_plugins/hal-recover" graph "$D/groups/ordered.hal" "$D/groups/groups.json" "$D/input/recovered.json" \
