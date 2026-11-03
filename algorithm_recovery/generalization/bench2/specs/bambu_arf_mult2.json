@@ -1,0 +1,40 @@
+{
+ "synth": "/home/jiahao/hal/build/bench_candidates/bambu_arf/synth/arf_mult2/arf.json",
+ "top": "arf",
+ "source": {
+  "url": "https://github.com/ferrandi/PandA-bambu (examples/arf_res_sharing/module.c)",
+  "commit": "c2ba6936ca2ed63137095fea0b630a1c66e20e63",
+  "license": "GPL-3.0 input; PANDA_LGPLv3 library",
+  "author": "PandA-Bambu 2024.10 HLS (PoliMi)",
+  "category": "HLS resource sharing",
+  "parameters": "constraints_ui_mult2.xml: 2 ui_mult_expr_FU (E2.3 part A variant)"
+ },
+ "clock": "clock",
+ "non_data": [
+  "reset",
+  "start_port"
+ ],
+ "defaults": {
+  "reset": 1,
+  "start_port": 0
+ },
+ "prefix": [
+  {
+   "cycles": 2,
+   "values": {
+    "reset": 0
+   }
+  }
+ ],
+ "period": 16,
+ "schedule": {
+  "0": {
+   "start_port": 1
+  }
+ },
+ "data_mode": "hold",
+ "case": "bambu_arf_mult2",
+ "transactions": 128,
+ "training_transactions": 64,
+ "seed": 20261102
+}

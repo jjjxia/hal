@@ -32,3 +32,13 @@ event exactly, so the event provably lies at the certified phase. Reason: the In
 transaction protocol, so phase alignment is not given by construction. `confirmed_any` keeps the original
 rule. All designs are rerun with this rule (build/bench2_v1/stats_t12_a2/); the earlier results stay in
 stats_t12/ for comparison.
+Amendment 3 (2026-11-02, written before any original-tool run on these designs): ORIGINAL Daikon 5.9.0 and
+Trace2Model (CLI, CVC4 1.8), unmodified, as in the earlier Canny study, on the same targets and samples as F1/F2
+(t12_common.py; t12_daikon.py, t12_trace2model.py). Daikon: one program point per target, source symbols in
+unsigned/signed views (<= 63 bits), FunctionBinary enabled; invariants defining T are translated to n-bit z3
+expressions. Trace2Model: event types e/n, w = current value; synthesised +,-,* expressions translated, ite
+untranslatable. Translations must reproduce the training samples. Judge and confirmation as amendment 2. The user
+runs the third-party tools (run_daikon.sh, run_t2m.sh in each work directory); prepare/judge run here. Index
+targets use the certificate-aligned graphs (period 128), so certified specialisation is sound there; the earlier
+F1/F2 Index run on the period-32 graph counts only confirmed errors, which do not depend on specialisation, and is
+repeated on the aligned graphs.

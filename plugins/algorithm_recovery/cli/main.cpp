@@ -182,7 +182,7 @@ int main(int argc, char** argv)
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
             {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window", "--protocol"}},
             {"state", {"--window", "--profiles", "--protocol"}}, {"certify", {"--horizon"}},
-            {"graph", {"--window", "--profiles", "--protocol", "--ablation-trace-controls"}}};
+            {"graph", {"--window", "--profiles", "--protocol", "--ablation-trace-controls", "--align-certificate"}}};
         const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
         const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
         if (std::string(argv[1]) == "replay-state")
@@ -296,8 +296,15 @@ int main(int argc, char** argv)
             nlohmann::json replays = nlohmann::json::object();
             bool periodic_replay_failed = false;
             hal::algorithm_recovery::ArithmeticRecovery arithmetic;
-            for (const auto& [name, input] : analyzed.get().windows)
+            // --align-certificate 1: unfold the graph to a multiple of the certificate period, so that the
+            // certificate's per-event constants are constants of each graph phase (needed by C3 specialisation).
+            const bool align = options.count("--align-certificate") && options.at("--align-certificate") != "0";
+            if (align && !(certificate && certificate->certified && certificate->period > 0))
+                throw std::runtime_error("--align-certificate needs a certified schedule (--protocol)");
+            for (const auto& [name, window_input] : analyzed.get().windows)
             {
+                auto input = window_input;
+                if (align) input.period_multiple = certificate->period;
                 auto folded = hal::algorithm_recovery::fold_observed(input, ctx);
                 if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
                 const auto& graph = folded.get();

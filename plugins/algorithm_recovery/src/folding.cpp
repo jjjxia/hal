@@ -71,6 +71,12 @@ namespace hal::algorithm_recovery
                 require(quotient <= std::numeric_limits<u64>::max() / period, "observed period LCM overflow");
                 graph.period = quotient * period;
             }
+            if (in.period_multiple)  // unfolding to a multiple of the certificate period (Theorem: period multiples are unfoldings)
+            {
+                auto quotient = graph.period / std::gcd(graph.period, in.period_multiple);
+                require(quotient <= std::numeric_limits<u64>::max() / in.period_multiple, "aligned period overflow");
+                graph.period = quotient * in.period_multiple;
+            }
             if (graph.period > in.length / 4) return OK(std::move(graph));
             const u32 P = static_cast<u32>(graph.period);
             graph.origin = in.start + P;

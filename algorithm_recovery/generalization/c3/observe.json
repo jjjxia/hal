@@ -91,5 +91,41 @@
    "port": "y",
    "cycle": 3
   }
+ ],
+ "bambu_arf_mult2": [
+  {
+   "port": "o1",
+   "strobe": "o1_vld"
+  },
+  {
+   "port": "o2",
+   "strobe": "o2_vld"
+  },
+  {
+   "port": "o3",
+   "strobe": "o3_vld"
+  },
+  {
+   "port": "o4",
+   "strobe": "o4_vld"
+  }
+ ],
+ "bambu_arf_mult4": [
+  {
+   "port": "o1",
+   "strobe": "o1_vld"
+  },
+  {
+   "port": "o2",
+   "strobe": "o2_vld"
+  },
+  {
+   "port": "o3",
+   "strobe": "o3_vld"
+  },
+  {
+   "port": "o4",
+   "strobe": "o4_vld"
+  }
  ]
 }

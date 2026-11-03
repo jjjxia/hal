@@ -25,6 +25,7 @@ namespace hal::algorithm_recovery
         std::map<std::string, WordWindow> words;
         std::map<std::string, std::vector<std::string>> inputs;
         std::map<std::string, MemoryWindow> memories;
+        u64 period_multiple = 0; // if nonzero, the graph period is made a multiple of it (an unfolding)
     };
     enum class SourceKind { signal, input, ram };
     struct Source

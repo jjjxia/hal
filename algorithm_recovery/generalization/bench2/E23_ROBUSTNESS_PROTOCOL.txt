@@ -38,3 +38,13 @@ RESULTS part B (2026-11-02; flow B programs build/bench2_flowb/<case>/program_v1
             32 proven multiply steps. 275 vs 112 lines. 2,000/2,000.
   qdiv      both: loops of 30 and 13 iterations, 3 proven linear steps; 3,153 vs 3,610 lines.
             2,000/2,000.
+
+Part A, before recovery (2026-11-02): the user ran the Bambu 2024.10 AppImage (sha256 verified; extracted, run with
+its bundled libraries on LD_LIBRARY_PATH). gen_mult1/arf.v equals the frozen gen_shared/arf.v except the two header
+comment lines (generation date, path of the bambu executable). RTL simulation with check/tbp.v (Icarus, N=40):
+done_port at cycle 13 (N=1), 7 (N=2), 6 (N=4); o1..o4 valid at cycles 3/1/12/13, 1/0/6/7, 0/0/5/6. All finish
+within 16 cycles, so the protocol of bambu_arf (period 16 cycles) applies unchanged to every variant. The three
+variants produce identical outputs on the same 20 random transactions. Yosys 0.33 synth_ice40 -nobram:
+N=2: 3,862 LUT4 / 264 CARRY / 362 FF; N=4: 6,266 / 318 / 425 (N=1: 2,270 / 242 / 336).
+Specs bench2/specs/bambu_arf_mult{2,4}.json differ from bambu_arf.json only in the netlist path and case name;
+c3/observe.json reuses the strobe observations of bambu_arf. Runs: build/bench2_e23/bambu_arf_mult{2,4}.
