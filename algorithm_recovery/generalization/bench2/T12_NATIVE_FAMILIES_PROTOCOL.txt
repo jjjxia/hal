@@ -42,3 +42,8 @@ runs the third-party tools (run_daikon.sh, run_t2m.sh in each work directory); p
 targets use the certificate-aligned graphs (period 128), so certified specialisation is sound there; the earlier
 F1/F2 Index run on the period-32 graph counts only confirmed errors, which do not depend on specialisation, and is
 repeated on the aligned graphs.
+Correction to amendment 3 (2026-11-02, after the aligned rerun): on the period-128 Index graphs no target has the
+required 4 training samples (the 512-event window holds 3 periods after the graph origin), so no F1/F2 targets
+exist there (stats_t12_a2/index_*_aligned.json). Index results therefore remain confirmed-only on the period-32
+graphs, where confirmation does not depend on specialisation; refutation counts are not reported for Index. The
+original-tool runs use the same period-32 Index graphs and the same confirmed-only reporting.
