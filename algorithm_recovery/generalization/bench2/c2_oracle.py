@@ -650,6 +650,20 @@ res = {"case": contract["case"], "z3_confirmations": dict(z3_stats), "rtl_regist
            {"event": (reg_name[k[0]], k[1]), "truth": sorted(str(reg_name.get(x[0], x)) for x in truth[k]),
             "recovered": sorted(str(reg_name.get(x[0], x)) for x in pred[k])}
            for k in sorted(hit) if {x for x in truth[k] if x[0] != "port"} != {x for x in pred[k] if x[0] != "port"}][:6]}
+# E5 amendment (l): scoring coverage, reported next to the metrics (which are unchanged). Data events are truth write
+# events with at least one data producer (a data-carrying register or a data port); control events have none.
+data_hit = [k for k in hit if truth[k]]
+data_exact = sum(1 for k in data_hit if {x for x in truth[k] if x[0] != "port"} == {x for x in pred[k] if x[0] != "port"}
+                 and any(x[0] == "port" for x in truth[k]) == any(x[0] == "port" for x in pred[k]))
+res["coverage"] = {
+    "rtl_registers": len(regs), "rtl_registers_mapped": len(mapped),
+    "truth_write_events_all_registers": len(truth), "truth_write_events_mapped": len(T_ev),
+    "truth_data_events_all_registers": sum(1 for k in truth if truth[k]),
+    "truth_data_events_mapped": sum(1 for k in T_ev if truth[k]),
+    "producer_scored_events": len(hit), "producer_scored_data_events": len(data_hit),
+    "producer_scored_control_events": len(hit) - len(data_hit),
+    "producer_exact_match_data": data_exact / len(data_hit) if data_hit else None,
+    "unmapped_registers_with_data_writes": sorted({reg_name[n] for (n, r) in truth if truth[(n, r)] and n not in mapped})}
 json.dump(res, open(out_path, "w"), indent=1)
 if os.environ.get("E5_ORACLE_DUMP"):   # E5 amendment (i): optional dump of every producer mismatch; metrics unchanged
     json.dump([{"event": (reg_name[k[0]], k[1]),

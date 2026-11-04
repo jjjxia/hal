@@ -1,0 +1,72 @@
+E8 What inverse folding resolves, and what its premises exclude -- protocol, written 2026-11-04 BEFORE any E8 run
+================================================================================================================
+Requested by the user on 2026-11-04 (reviewer question on Theorem 7: "under fixed binding, retained node functions and
+operand occurrences, no inlining across boundaries and no algebraic restructuring, how much non-trivial content is
+left in recovering the original graph? Which difficulties does the method solve and which do the premises exclude?";
+"这个也可以设计实验去测 我授权你下载第三方 授权你自主决定plan").
+
+Claim being tested, stated narrowly: inside the registered fixed-binding class the premises fix the node functions and
+operand occurrences, but NOT where values live or when they are read: storage sharing, operand multiplexing, enable
+decoding, identity-move chains, cross-sample dependence and the origin/period choice remain to be resolved from the
+equations. Outside the class the recovered graph is the implemented graph, not the source graph; how far real HLS output
+is from the class is measured, not assumed.
+
+E8.1 Difficulty census inside the premises (no new runs; existing graphs of the frozen eight, E5.A/B, E5.C, E6)
+---------------------------------------------------------------------------------------------------------------
+Per design, from the event graph and its per-phase write pattern:
+ D1 storage sharing       words with >= 2 non-copy events per period; max events per word; share of non-copy events in
+                          shared words (a register view merges them)
+ D2 operand multiplexing  words whose events read different operand-word sets; number of distinct operand sets per word
+                          (the D-input mux the per-phase specialization resolves)
+ D3 enable decoding       share of (word, phase) pairs that are holds; words written in a strict subset of phases
+ D4 identity moves        copy events; longest copy chain (moves collapsed by Lemma 1, delays accumulated)
+ D5 cross-sample reads    sources with delay >= 1; distinct boundary-history entries; share of sources whose producing
+                          write lies in an earlier period than the read (invisible to a single-period reading)
+ D6 origin dependence     sources whose delay changes when the origin moves by half a period (Theorem 5, rho(u) != rho(v))
+For each, the naive alternative that fails is named (register view: D1, D2; cycle-level reading without periods: D5, D6;
+graph from the D cone without phase specialization: D2, D3).
+
+E8.2 Real algorithm graphs inside the class (ground truth = the kernel's own DFG)
+---------------------------------------------------------------------------------
+Kernels written as dataflow programs in e8/kernels.py from their standard definitions (each also emitted as C and
+checked against the DFG with gcc on random inputs): FIR (8 taps, direct form, constant taps), biquad (direct form II,
+two delays), cascade of two biquads, 4-stage lattice FIR with constant reflection coefficients, Horner polynomial (degree
+6), 4x4 constant matrix-vector product, 8-point DCT-II by its constant-matrix definition, and Bambu's ARF example
+(examples/arf, module.c, transcribed; gcc-checked against the original C). 16-bit words; constant multiplications.
+Each kernel is folded by e8/e8_fold_dfg.py (the E5.C folding rules, reused: registered fixed binding, units per op type
+as the busiest slot needs, left-edge register sharing, copy registers for delays) with N in {2, 4, 8} where N does not
+exceed the number of operations, and with two slot assignments: list scheduling (ASAP within N) and random. Every design
+passes the generator self-check and goes through the unchanged gate-level chain (synth_ice40, bench2 C1, graph); scored by
+the E5.C scorer (exact nodes, producers, sample delays, z3 functions, no spurious events) plus the E8.1 census.
+
+E8.3 Outside the class: a real HLS tool (Bambu 2024.10, already installed; user-authorized)
+--------------------------------------------------------------------------------------------
+The same kernels as C, synthesized by Bambu with a sweep of (a) clock-period constraint {short, medium, long}, which
+controls operation chaining within a cycle (inlining across register boundaries), and (b) resource constraints on
+multipliers {1, 2, unconstrained} (binding and sharing), at -O2. Each Bambu design: protocol characterised on its RTL
+before recovery (start/done handshake as for E5 icrc1), then the unchanged full chain. Metrics:
+ V1 value coverage: share of the kernel's intermediate values (DFG node values, on 200 random samples) that appear as a
+    recovered event value or bit-slice of one (simulated with the recovered flat program)
+ V2 granularity: recovered non-copy events per kernel operation; chained values (source values present only inside an
+    event, not stored)
+ V3 correctness: program vs the kernel's C on 2,000 fresh inputs, end-to-end check (unchanged M4)
+Predictions (written now): coverage falls as the clock period grows (more chaining); resource limits change storage
+sharing (E8.1 counters) but not coverage; programs stay correct in every configuration because correctness does not
+depend on the premises.
+
+Budget and reporting: each stage <= 3 h, <= 6 GiB; every design reported, failures with stage and reason. Any change to
+recovery code after an E8 result is recorded here and makes the affected designs development data.
+
+Amendment 1 (2026-11-04, after generating and self-checking the E8.2 designs, before any recovery run): a registered
+folding needs at least as many slots as the kernel's critical path (plus one when a delayed producer would land in the
+last slot), so N in {2, 4, 8} is infeasible for most kernels. N is N_min (least feasible, from the ASAP schedule) and
+2 N_min, each with the ASAP and the random schedule: 8 kernels x 4 = 32 designs. All 32 pass e8_selfcheck.py (100 samples
+against kernels.evaluate, which is independent of the folding). ARF: module.c has 17 multiplications and 11 additions
+(its header comment says 16 and 12); the transcription follows the code and matches module.c (gcc, 500 samples).
+Amendment 2 (2026-11-04, after the first test design biquad_min_asap, before the batch): the kernels use real
+coefficients, some even (10*w has bit 0 = 0). The certificate knows such constant bits and specialises consumers'
+equations with them, so a consumer (v7 = v4 + v5) is equal to its DFG function on every reachable value but not on
+unreachable ones (z3 counterexample: v5 odd). E5.C never met this because its constants are odd. e8_score.py now also
+compares node functions on the DFG-reachable domain: operand value symbols are replaced by their producers' DFG
+definitions, with iterative deepening over expansion depths 0..3 (inputs free; 60 s z3 limit per check, as before). Both counts are reported (strict and reachable-domain); "exact"
+uses the reachable-domain comparison. The test design is rescored with this rule; nothing in recovery changed.

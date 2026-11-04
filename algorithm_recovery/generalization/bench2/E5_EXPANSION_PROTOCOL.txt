@@ -131,3 +131,15 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      the frozen fir_decim and small_hb_dec (unchanged), 20 for hb_dec. Only hb_dec's reference stage is rerun.
  Note to (h): aes_sw128 likewise certifies (origin 38, period 136 events, 2,209 FFs, 46.8 s) and fails only in the
      separate state backend (state replay: child process timed out); it continues under the amended gate.
+ Note (2026-11-03 21:02, order only): aes_sw128's program stage exceeded 3 h (exit 124 at 11,239 s; certificate, graph
+     and folded RTL passed). To obtain the E6 million-gate and E7 vendor results first, the queue was stopped after
+     aes_sw128 (its oracle stage still running); aes_sw_core and the remaining stages of sha256_sw run after E6 K = 30,000
+     and E7. Every design of the population is still run under the same budget.
+ (l) Evaluation tool, 2026-11-04 (recovery and metrics unchanged): after aes_sw128 scored producers 1.000 on 360 events
+     that are almost all control writes (its four 32-bit encipher state words are named core.enc_new_block in the RTL
+     elaboration and block_w*_reg in the netlist, so they are unmapped), c2_oracle.py reports a coverage block next to
+     the unchanged metrics: RTL registers and mapped registers, truth write events over all registers and over mapped
+     ones, data events (truth producer set non-empty) over all and mapped registers, scored data / control events, the
+     exact-match rate on scored data events, and the unmapped registers that have data writes. All finished E5
+     designs and the frozen eight are rescored with it; aes_sw128 (oracle 3 h) is analysed from its existing output.
+     Name normalization for aliased registers is NOT added (it would be a scoring change made after seeing results).
