@@ -43,7 +43,7 @@ if [ -s "$D/program/program.py" ]; then
     else
         st reference "$PY" "$E/c3/check_reference.py" "$D/program" "$D/input/evaluation_contract.json" "$case" 2000
     fi
-    st close_chain "$PY" "$E/c3/close_chain.py" "$D/graph/graph_training.json" "$D/input/evaluation_contract.json" \
+    st close_chain "$PY" "$E/c3/close_chain_deep.py" "$D/graph/graph_training.json" "$D/input/evaluation_contract.json" \
         "$E/c3/observe.json" "$case" "$D/close_chain.json" "$D/program/program_flat.py" "$D/program/program_rolled.py" "$D/program/program.py"
 fi
 [ -s "$D/graph/graph_training.json" ] && st rtl "$PY" "$E/c3/emit_rtl.py" "$D/graph/graph_training.json" "$D/rtl" "$D/trace" "$D/variant_trace"

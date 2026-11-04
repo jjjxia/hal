@@ -143,3 +143,12 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      exact-match rate on scored data events, and the unmapped registers that have data writes. All finished E5
      designs and the frozen eight are rescored with it; aes_sw128 (oracle 3 h) is analysed from its existing output.
      Name normalization for aliased registers is NOT added (it would be a scoring change made after seeing results).
+ (m) Checker runtime, 2026-11-04 (recovery and checker logic unchanged): close_chain.py failed on sha256_lattice (E7)
+     with Python's RecursionError in its ast visitor (one recursion level per nesting level of an expression in the
+     345,284-line flat program). It now runs through c3/close_chain_deep.py, which calls close_chain.py unchanged with a
+     recursion limit of 2,000,000 and a 1 GiB thread stack. Designs that already closed ran within the default limit,
+     so their reports cannot change; sha256_lattice's close_chain stage is rerun, and later designs use the wrapper.
+ Note to (m): with the deeper limit, close_chain on sha256_lattice's 345,284-line flat program then failed with
+     MemoryError while compiling it under the 6 GiB budget (peak 5.1 GB). The flat program is reported as out of budget
+     for the end-to-end check; the rolled and lifted programs are checked in a separate run of the same checker
+     (each program is checked independently, so this does not change what is checked for them).
