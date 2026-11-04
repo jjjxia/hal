@@ -153,3 +153,5 @@ a partial value: bits held by the read word are exact, the others fresh unconstr
 bits of the read word, so its value is unchanged wherever it was defined before. A split register is a grouping issue,
 so such a design cannot be "exact" either way. All finished E8.2 designs are rescored with the patched scorer and
 compared with their earlier score.json (timing fields ignored); lattice4_2min_random is scored for the first time.
+Result of amendment 4's rescoring: all 15 previously scored E8.2 designs IDENTICAL (timing fields ignored);
+lattice4_2min_random: outcome grouping (register_split_across_words 2), 10 of 16 node functions proved.
