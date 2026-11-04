@@ -155,3 +155,13 @@ so such a design cannot be "exact" either way. All finished E8.2 designs are res
 compared with their earlier score.json (timing fields ignored); lattice4_2min_random is scored for the first time.
 Result of amendment 4's rescoring: all 15 previously scored E8.2 designs IDENTICAL (timing fields ignored);
 lattice4_2min_random: outcome grouping (register_split_across_words 2), 10 of 16 node functions proved.
+Amendment 5 (2026-11-04, scoring rule, after horner6_min_asap and horner6_min_random scored "mismatch"; recovery
+unchanged): both have all 12 nodes found with exact producers and delays and no spurious event; three 16x16
+multiplications (v6, v8, v10) were not proved equal to their DFG functions. Diagnosis (scratch copy of the scorer): z3
+returns unknown (60 s timeout) at expansion depth 0, i.e. no counterexample; fully expanded to the input x the check is
+unsat (proved) within 60 s; 0 of 500 random inputs differ. The reachable-domain comparison of amendment 2 is defined
+by the inputs; its depth bound 0..3 only limits cost, and the Horner chain needs the full depth. e8_score.py now tries,
+after depths 0..3, the full expansion to the inputs (depth = number of DFG nodes), with the same 60 s limit, and reports
+nodes_function_proved_full_expansion_only. This can only turn "not proved" into "proved". All finished E8.2 designs are
+rescored; designs whose outcome changes are listed here, and the earlier count (depths 0..3) remains reportable as
+nodes_function_proved minus that field.

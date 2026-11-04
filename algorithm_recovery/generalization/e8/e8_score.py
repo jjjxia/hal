@@ -281,11 +281,19 @@ def expand(expr, depth):
     return z3.substitute(expr, *subs) if subs else expr
 
 
+FULL_PROOFS = []     # E8 amendment 5: nodes proved only by the full expansion to the inputs
+
+
 def equal_reachable(a, b):
-    """Iterative deepening: one level of producer definitions usually suffices (constant bits of a product)."""
+    """Iterative deepening: one level of producer definitions usually suffices (constant bits of a product).
+    Amendment 5: then the full expansion to the inputs (depth = number of DFG nodes), which is the reachable-domain
+    comparison itself (depths 0..3 only bound its cost); same 60 s per check."""
     for depth in range(0, EXPAND_DEPTH):
         if equal(expand(a, depth), expand(b, depth)):
             return True
+    if equal(expand(a, len(nodes)), expand(b, len(nodes))):
+        FULL_PROOFS.append(1)
+        return True
     return False
 
 
@@ -365,6 +373,7 @@ result.update({
     "failures": [x for x in per_node if not (x["found"] and x["edges"] and x["function"])][:10],
 })
 result["outcome"] = "exact" if result["exact"] else ("grouping" if grouping else "mismatch")
+result["nodes_function_proved_full_expansion_only"] = len(FULL_PROOFS)   # amendment 5
 json.dump(result, open(out_path, "w"), indent=1, default=str)
 print(json.dumps({k: result[k] for k in ("case", "outcome", "graph_period_events", "expected_period_events", "nodes_scored",
                                          "nodes_found", "nodes_edges_exact", "nodes_function_proved", "unresolved_reads", "spurious_result_events",
