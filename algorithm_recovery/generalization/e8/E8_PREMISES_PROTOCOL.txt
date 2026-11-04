@@ -189,3 +189,8 @@ is exact (all nodes found, all edges exact, period as predicted, no spurious eve
 read) and whose unproved functions are all unknown in z3 with 0 random mismatches is reported as "structure exact,
 functions not proved (solver limit)", next to exact / grouping / mismatch; a sat verdict or a random mismatch keeps
 "mismatch". Run on every E8.2 design with unproved functions.
+Amendment 7 diagnosis, arf_min_asap (outcome grouping: 2 split registers, 36 spurious events; 22 of 28 nodes found, all
+22 with exact edges, 7 functions proved): all 15 unproved functions are z3 unknown (60 s) at depth 0 and fully
+expanded, 0 of 500 random inputs differ; none is refuted. Run with the scratch copy used for horner6 (full expansion at
+depth 16 instead of the number of nodes; arf's DAG depth is 8, so the expansion is complete either way). The outcome
+stays "grouping" (amendment 7 applies only to designs whose structure is exact).
