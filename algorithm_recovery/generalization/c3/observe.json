@@ -349,5 +349,39 @@
    "port": "read_data",
    "cycle": 91
   }
+ ],
+ "sha256_yosys_top": [
+  {
+   "port": "read_data",
+   "cycle": 84
+  },
+  {
+   "port": "read_data",
+   "cycle": 85
+  },
+  {
+   "port": "read_data",
+   "cycle": 86
+  },
+  {
+   "port": "read_data",
+   "cycle": 87
+  },
+  {
+   "port": "read_data",
+   "cycle": 88
+  },
+  {
+   "port": "read_data",
+   "cycle": 89
+  },
+  {
+   "port": "read_data",
+   "cycle": 90
+  },
+  {
+   "port": "read_data",
+   "cycle": 91
+  }
  ]
 }

@@ -49,3 +49,12 @@ Oracle mapping: names as in E2.1 (synthesized-netlist names to RTL register name
 (block_reg_0_ for block_reg[0]) and may replicate registers; no name normalization is added, so unmapped registers and
 events are reported as such. The oracle's RTL is the four secworks sources copied unmodified to
 build/e7/sha256_lattice/src (synth.ys lists them, as the E5 synthesis scripts do).
+
+Amendment 1 (2026-11-04, before any E7 recovery run): paired instance. E5 sha256_sw used sha256_core with a full 512-bit
+block, so it is not a like-for-like comparison. E7 adds sha256_yosys_top: the same four secworks sources, the same top
+`sha256`, synthesized by Yosys 0.33 `synth_ice40 -top sha256 -nobram` (3,485 SB_LUT4, 1,807 FFs, 398 SB_CARRY), lowered
+with the same port split, and run with the identical 92-cycle protocol (block-word bits 2..0 fixed to 0), observation and
+reference. e7_check.py with the fixed schedule: 12/12 digests correct on the RTL and on this netlist. The comparison
+criterion is not program text: interface and persistent-state correspondence, recovered round structure and constants,
+certification completeness, M4 results, and the preparation effort (identical here: same spec apart from the netlist).
+The restriction of the input domain (29 free bits per block word) is stated in the main text, not only in limitations.

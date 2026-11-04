@@ -1,0 +1,31 @@
+E7 found/expected ground truth for case sha256_yosys_top, written BEFORE any recovery run (2026-11-03).
+Same RTL as sha256_sw (secworks 837c5cc), top `sha256` instead of `sha256_core`: the expected time loop and table
+of sha256_sw apply unchanged (below); the register interface adds a 16-word block register file written in cycles
+0..15 (no loop: one write per address), a control register and the digest read multiplexer (not a table).
+
+E5 expected structure (ground truth for found/expected), case sha256_sw -- written 2026-11-03 BEFORE any recovery run
+=====================================================================================================================
+Source: secworks/sha256 @ 837c5cc396f001d18f2c765721c585716eb439ae (pinned clone
+/home/jiahao/hal/build/bench_candidates/secworks_sha256/src); files src/rtl/sha256_core.v (top), sha256_w_mem.v,
+sha256_k_constants.v. Protocol: one SHA-256 compression (mode = 1) per 66-cycle transaction, init in cycle 0.
+
+Expected time loops: 1
+  L1  round loop, counter t_ctr_reg[5:0] (sha256_core.v:125-129 declaration, :445-461 update logic).
+      Reset to 0 by init in CTRL_IDLE (sha256_core.v:498-509, t_ctr_rst at :504); incremented once per cycle in
+      CTRL_ROUNDS (:524-528); the loop exits when t_ctr_reg == SHA256_ROUNDS = 63 (:79, :530-534).
+      Counts SHA-256 rounds t = 0..63: trip count 64 per transaction, one round per cycle (transaction cycles 1..64).
+      Body (per iteration): T1/T2 and the a..h update (sha256_core.v:330-362, 424-435), message word w_data from
+      sha256_w_mem (select_w :138-144: rounds 0..15 read w_mem[round[3:0]], rounds 16..63 the expanded word w_new
+      :193, with the 16-word window shift at :216-235 only for round > 15), K from the table below.
+      The body is round-dependent in two phases (t < 16: stored word; t >= 16: schedule expansion + shift);
+      a roll-up may report this as one 64-trip loop with a t<16 select, or as two loops (16 + 48). Either counts
+      as finding L1; trip counts must sum to 64.
+  Not loops: CTRL_IDLE -> CTRL_ROUNDS -> CTRL_DONE (sha256_core.v:493-547) is straight-line control around L1;
+      CTRL_DONE (cycle 65) performs the single digest update H += a..h (:310-321).
+
+Expected table instances: 1
+  T1  round-constant ROM K, module sha256_k_constants (sha256_k_constants.v:59-129, `case(round)` :63-128),
+      instantiated once (sha256_core.v:167-170) with index t_ctr_reg: 64 entries x 32 bit, INPUT WIDTH 6 bits.
+  Not tables: w_mem[round[3:0]] (sha256_w_mem.v:140-141) is a register-file read indexed by the counter, not a
+      constant table; the SHA-224/SHA-256 initial-value selection by `mode` (sha256_core.v:286-307, 388-409) is a
+      2-way constant select on a fixed non-data pad (mode = 1), i.e. constants after propagation.
