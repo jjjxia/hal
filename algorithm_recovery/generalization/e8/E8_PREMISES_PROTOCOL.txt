@@ -140,3 +140,8 @@ retried while analyze was still running, leaving an orphaned 3.6 GB cc1plus besi
 available); the orphan was terminated by PID. The watchdog now also terminates a cc1plus naming a case's state_replay
 whose parent, or whose compiler driver's parent, is init (WSL: /init), i.e. whose output can no longer be read. The live
 compile of a running analyze (driver child of hal-recover) is never touched; no stage, exit status or metric changes.
+Note (same day, final watchdog rule after a third case): lattice4_2min_asap left an orphaned 2.9 GB cc1plus compiling
+the analyze program-replay backend (analysis/program_training/recovered.cpp), outside the state_replay path, so the
+watchdog missed it; it was terminated by PID. Final rule: terminate a cc1plus that names a file under <case>/analysis/
+and whose parent, or whose compiler driver's parent, is init. The "analyze finished" condition was dropped (the orphan
+condition covers all three cases and cannot touch a live compile). No stage, exit status or metric changes.
