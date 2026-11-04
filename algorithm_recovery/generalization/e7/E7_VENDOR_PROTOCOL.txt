@@ -58,3 +58,11 @@ reference. e7_check.py with the fixed schedule: 12/12 digests correct on the RTL
 criterion is not program text: interface and persistent-state correspondence, recovered round structure and constants,
 certification completeness, M4 results, and the preparation effort (identical here: same spec apart from the netlist).
 The restriction of the input domain (29 free bits per block word) is stated in the main text, not only in limitations.
+
+Amendment 2 (2026-11-04, after both E7 oracle scores; recovery unchanged): the E2.1 oracle drove the RTL from the
+contract's port names and offsets. The port split of e7_lower.py renamed write_data bits 2..0 to write_data_ctl and bits
+31..3 to a 29-bit write_data, so the RTL received the data at bits 28..0, never received the control word, and its
+write_data bits 2..0 were treated as data (sha256_yosys_top: write recall 0.499, producer exact 0.110 despite 56 of 57
+registers mapped). c2_oracle.py now reads an optional input/rtl_port_map.json ({"write_data_ctl": ["write_data", 0],
+"write_data": ["write_data", 3]}, written for the two E7 cases) to drive the RTL at the right bits and to restrict the
+data bits to the mapped data port. Designs without the file are unaffected. Both E7 oracle stages are rerun.

@@ -328,10 +328,23 @@ data_ports = set(contract["data_ports"])
 port_of_bit = {b: pn for (pn, i), b in port_bit.items()}
 
 
+# E7 amendment 2: a benchmark may rename bits of an RTL port into a separate netlist port (e7_lower.py --split);
+# input/rtl_port_map.json maps a contract port to (RTL port, bit offset) so the RTL is driven at the right bits.
+import os as _os
+_pm = f"{case_dir}/input/rtl_port_map.json"
+PORT_MAP = json.load(open(_pm)) if _os.path.exists(_pm) else {}
+
+
+def rtl_key(pname, off):
+    if pname in PORT_MAP:
+        return (PORT_MAP[pname][0], off + PORT_MAP[pname][1])
+    return (pname, off)
+
+
 def inputs_at(e, vals):
     for pb, (pname, off) in phys.items():
-        if pb in in_index and (pname, off) in port_bit:
-            vals[port_bit[(pname, off)]] = ev[e][in_index[pb]]
+        if pb in in_index and rtl_key(pname, off) in port_bit:
+            vals[port_bit[rtl_key(pname, off)]] = ev[e][in_index[pb]]
 
 
 # ---- simulate ----------------------------------------------------------------------------
@@ -347,7 +360,9 @@ for n, c in regs.items():
     put(vals, c["connections"]["Q"], 0)
 for n in regs:
     cone_cache[n] = cone(n)
-data_port_bits = {b for (pn, i), b in port_bit.items() if pn in data_ports}
+data_port_bits = {port_bit[rtl_key(p["name"], p["offset"])] for p in contract["port_bits"]
+                  if p["direction"] == "input" and p["name"] in data_ports and rtl_key(p["name"], p["offset"]) in port_bit} \
+    if PORT_MAP else {b for (pn, i), b in port_bit.items() if pn in data_ports}
 taint = {n: False for n in regs}
 truth_write = collections.defaultdict(set)      # (reg, rel_event) -> transactions where written
 truth_prod = collections.defaultdict(dict)       # (reg, rel_event) -> producer -> count
