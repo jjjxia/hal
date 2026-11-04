@@ -93,3 +93,31 @@ nodes and edges):
  A7 period 2N (D7): the graph is the 2-unfolding (Theorem 6): every node appears twice; a design is exact only if N is
     the least period (never, by construction) -- reported as the node-count ratio.
 Reported per design and in total: exact share of DFG nodes for the full method and for A1..A7.
+
+Amendment 3 (2026-11-04, E8.3 tooling after ONE test design, before any other E8.3 configuration is generated or run)
+Tooling: e8_bambu_prepare.py (kernels.to_c without system headers -> Bambu 2024.10 -O2 --generate-interface=INFER with
+the clock-period and ui_mult_expr_FU constraints -> Yosys synth_ice40 -nobram; the protocol is measured on the Bambu RTL
+with Icarus: period = last done cycle + 2, start pulse in cycle 0, inputs held; the RTL is checked against
+kernels.evaluate on 40 transactions at that period) and e8_bambu_run.sh (prepare_bench2 -> the frozen run_bench2 C1
+pipeline -> graph -> decompile with the design's own observe.json, strobe <out>_vld -> close_chain_deep ->
+e8_stream_check.py). Recovery code is unchanged.
+Test design horner6, 10 ns, unconstrained multipliers (development data): certified (38 FFs, origin 4), graph period 12
+events, program and close_chain closed, V3 0 mismatches. The first V1 definition (contiguous 16-bit slices of a recovered
+write) found 0 of 12 values. Inspection: HAL's group words mix control and data bits in no fixed order (DANA_module_0
+holds 28 bits), so contiguous slices cannot match a stored value. V1 is therefore bit-permutation invariant (definition
+in the e8_stream_check.py docstring: a value is found if all its non-constant bits are bits of ONE recovered write, sample
+delay 0 or 1; V1_bit_coverage counts bits found in any write). On the test design: 4 of 12 values (the products v2, v4,
+v6, v8), bit coverage 0.486. V3 now uses 2,000 transactions and V1 200, as specified above (the test first used 300 for
+both). The test design is rerun unchanged in the batch and reported, marked as development data.
+Grid: 8 kernels x clock {5, 10, 20} ns x multiplier limit {1, 2, unconstrained} = 72 configurations. A Bambu-only probe
+made before this amendment (no recovery) showed that Bambu turns constant multiplications into shifts and additions:
+fir8 has no multiplier unit and its Verilog at limit 1 equals its Verilog unconstrained, while horner6 has 1 vs 3
+multiplier instances. Rule: configurations whose Bambu Verilog is identical (sha256 after deleting comment lines) are one
+design, recovered once and reported for each configuration. Bambu, RTL-check or synthesis failures are reported per
+configuration with the reason. V3 starts from the zero state (as c3/check_stream.py, E5); a configuration whose V3 fails
+is reported as failing, with no rerun from another state.
+Order (serial, after the E8.2 queue and before the remaining E5 designs sha256_sw, aes_sw_core): kernels by DFG size
+(biquad 9, horner6 12, fir8 15, lattice4 16, biquad2 18, matvec4 28, arf 28, dct8 120 nodes); within a kernel clock 10,
+5, 20 ns, each with limits unconstrained, 2, 1 (duplicates skipped). Budget unchanged (3 h, 6 GiB per stage).
+Reported per configuration: Bambu cycles, protocol period, LUTs, FFs, certificate status, V1, V1_bit, V2, V3, and the
+stage and reason of any failure. Predictions are those written above (before any E8.3 result).

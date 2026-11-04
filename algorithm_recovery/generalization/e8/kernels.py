@@ -167,7 +167,7 @@ def to_c(name, kern):
         for s, d in nd["operands"]:
             if d > 0:
                 need[s] = max(need.get(s, 0), d)
-    L = ["#include <stdint.h>", f"void {name}(" + ", ".join([f"uint16_t {i}" for i in kern["inputs"]] +
+    L = ["typedef unsigned short uint16_t;   /* no system headers: Bambu compiles for i386 without multilib */", f"void {name}(" + ", ".join([f"uint16_t {i}" for i in kern["inputs"]] +
                                                        [f"uint16_t *{o}" for o in kern["outputs"]]) + ") {"]
     for s, dm in sorted(need.items()):
         for d in range(1, dm + 1):
