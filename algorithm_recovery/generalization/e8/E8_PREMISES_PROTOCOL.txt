@@ -70,3 +70,26 @@ unreachable ones (z3 counterexample: v5 odd). E5.C never met this because its co
 compares node functions on the DFG-reachable domain: operand value symbols are replaced by their producers' DFG
 definitions, with iterative deepening over expansion depths 0..3 (inputs free; 60 s z3 limit per check, as before). Both counts are reported (strict and reachable-domain); "exact"
 uses the reachable-domain comparison. The test design is rescored with this rule; nothing in recovery changed.
+
+E8.4 Ablation by obstruction (written 2026-11-04 before any ablation number; recovery code unchanged)
+------------------------------------------------------------------------------------------------------
+Question: is each resolution step of inverse folding necessary on ground-truth designs, i.e. which share of the DFG is
+lost when exactly one step is removed? Designs: the 11 E6 designs (truth by register name, K = 100 ... 30,000; E5.C and
+E8.2 are added when their mappings are available). Each ablation transforms the CORRECT recovered event graph into what
+the method would output without that step, then the unchanged notion of an exact node is applied (one recovered node,
+producers and sample delays equal; the function is not re-proved, because every ablation below changes only the graph's
+nodes and edges):
+ A1 no write-event splitting (D1): one node per word; its operand set is the union over the word's events. A DFG node
+    is exact iff its register holds no other DFG node and the union equals its own operands.
+ A2 no phase specialization (D2): events keep their word, but each event's operand words are the union over the word's
+    events (the unspecialized D-input cone); exact iff that union equals the node's operand words.
+ A3 no hold detection (D3): every (word, phase) is a write; hold events become spurious nodes (counted); a design is exact
+    only if it has none.
+ A4 no copy collapse (D4): copy events stay nodes; a DFG node is exact iff none of its operands is read through a copy.
+ A5 single-period reading (D5): sources whose producing write lies in an earlier period cannot be resolved; exact iff all
+    of the node's operands have delay 0.
+ A6 origin off by one slot (D6): delays are taken in graph coordinates of an origin shifted by one slot without the
+    Theorem 5 correction; exact iff no operand edge crosses the shifted origin.
+ A7 period 2N (D7): the graph is the 2-unfolding (Theorem 6): every node appears twice; a design is exact only if N is
+    the least period (never, by construction) -- reported as the node-count ratio.
+Reported per design and in total: exact share of DFG nodes for the full method and for A1..A7.
