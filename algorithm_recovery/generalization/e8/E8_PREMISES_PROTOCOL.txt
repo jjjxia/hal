@@ -170,3 +170,7 @@ and 2min_asap (mismatch -> exact; 9 -> 12 of 12 functions, 3 by full expansion e
 scored with the amended rule (exact, 3 by full expansion). Every other design is identical apart from the new field (0).
 Earlier score files are kept as score_pre_a5.json where the outcome changed. matvec4_min_asap: groups stage aborted
 (std::bad_alloc under the 6 GiB limit, 534 s), no graph; reported as a front-end failure.
+Amendment 6 (2026-11-04, scorer runtime budget, while dct8_min_asap's scoring approached its 1 h limit; recovery and
+scoring rules unchanged): e8_run.sh gave the scorer 1 h, less than the 3 h stage budget of this protocol. dct8 has 120
+nodes (two to four z3 checks of up to 60 s each per node). The scorer now gets the 3 h stage budget; a design whose
+scoring exceeded 1 h is rescored separately with 3 h. No result of dct8 had been seen when this was decided.

@@ -32,6 +32,6 @@ export HAL_BASE_PATH=$B LD_LIBRARY_PATH=$B/lib OMP_NUM_THREADS=1
 win=$(python3 -c "import json;print(len(json.load(open('$D/case/input/stimulus.json'))['windows']['training']))")
 ( ulimit -v 6291456; timeout 10800 "$cli" graph "$D/case/groups/ordered.hal" "$D/case/groups/groups.json" "$D/case/input/recovered.json" \
     "$D/case/trace" "$D/case/graph" --window "$win" --profiles training --protocol "$D/case/input/protocol.json" ) > "$D/graph.log" 2>&1
-( ulimit -v 6291456; timeout 3600 "$B/c3_venv/bin/python" "$E/e8/e8_score.py" "$D/case" "$G/truth.json" "$G/fold_top.json" \
+( ulimit -v 6291456; timeout 10800 "$B/c3_venv/bin/python" "$E/e8/e8_score.py" "$D/case" "$G/truth.json" "$G/fold_top.json" \
     "$D/case/graph/graph_training.json" "$D/score.json" ) > "$D/score.log" 2>&1
 echo "$case: $(tail -n 1 "$D/score.log" | cut -c1-400)"
