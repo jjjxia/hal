@@ -164,21 +164,21 @@ def _register_value(wname, phase, delay, r, depth=0):
         ev = events.get((wname, phase))
         if ev is None:
             UNRESOLVED.append((wname, phase, r)); return z3.BitVec(f"U|{wname}|{phase}|{r}", Wd)
-        return slice_value(ev, r, delay, depth + 1)
+        return slice_value(ev, r, delay, depth + 1, partial=True)   # amendment 4: the read bit is in this word
     return z3.BitVec(f"C|{r}|{phase}", Wd)
 
 
-def slice_value(ev, r, outer_delay=0, depth=0):
-    key = (ev["name"], ev["phase"], r, outer_delay)
+def slice_value(ev, r, outer_delay=0, depth=0, partial=False):
+    key = (ev["name"], ev["phase"], r, outer_delay, partial)
     if key not in MEMO_SV:
-        MEMO_SV[key] = _slice_value(ev, r, outer_delay, depth)
+        MEMO_SV[key] = _slice_value(ev, r, outer_delay, depth, partial)
     return MEMO_SV[key]
 
 
 SPEC = {}
 
 
-def _slice_value(ev, r, outer_delay=0, depth=0):
+def _slice_value(ev, r, outer_delay=0, depth=0, partial=False):
     """Register r's new value written by event ev, with every source replaced by DFG-level value symbols."""
     k = (ev["name"], ev["phase"])
     if k not in SPEC:
@@ -209,7 +209,11 @@ def _slice_value(ev, r, outer_delay=0, depth=0):
         if o and o[0] == r:
             out[o[1]] = z3.Extract(j, j, e)
     if any(b is None for b in out):
-        return None
+        if not partial:
+            return None
+        # E8 amendment 4: a copy register split across words, read through one of its words: the bits held by this
+        # word are exact, the others are unconstrained (the reader extracts only bits of this word)
+        out = [b if b is not None else z3.BitVec(f"C|split|{ev['name']}|{ev['phase']}|{r}|{i}", 1) for i, b in enumerate(out)]
     return z3.simplify(z3.Concat(*reversed(out)))
 
 

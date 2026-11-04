@@ -145,3 +145,11 @@ the analyze program-replay backend (analysis/program_training/recovered.cpp), ou
 watchdog missed it; it was terminated by PID. Final rule: terminate a cc1plus that names a file under <case>/analysis/
 and whose parent, or whose compiler driver's parent, is init. The "analyze finished" condition was dropped (the orphan
 condition covers all three cases and cannot touch a live compile). No stage, exit status or metric changes.
+Amendment 4 (2026-11-04, evaluation tool, after lattice4_2min_random's scorer crashed; recovery unchanged): e8_score.py
+resolves a read of a copy register d_* through the copy event of the word it reads. When grouping splits that copy
+register across words, the event holds only some of its bits, slice_value returned None and z3.Extract raised
+(Z3Exception: Third argument must be a Z3 bit-vector expression), so the design had no score. Such nested reads now take
+a partial value: bits held by the read word are exact, the others fresh unconstrained symbols; the reader extracts only
+bits of the read word, so its value is unchanged wherever it was defined before. A split register is a grouping issue,
+so such a design cannot be "exact" either way. All finished E8.2 designs are rescored with the patched scorer and
+compared with their earlier score.json (timing fields ignored); lattice4_2min_random is scored for the first time.
