@@ -165,3 +165,8 @@ after depths 0..3, the full expansion to the inputs (depth = number of DFG nodes
 nodes_function_proved_full_expansion_only. This can only turn "not proved" into "proved". All finished E8.2 designs are
 rescored; designs whose outcome changes are listed here, and the earlier count (depths 0..3) remains reportable as
 nodes_function_proved minus that field.
+Result of amendment 5's rescoring (all 20 scored E8.2 designs): outcome changed only for horner6 min_asap, min_random
+and 2min_asap (mismatch -> exact; 9 -> 12 of 12 functions, 3 by full expansion each); horner6_2min_random was first
+scored with the amended rule (exact, 3 by full expansion). Every other design is identical apart from the new field (0).
+Earlier score files are kept as score_pre_a5.json where the outcome changed. matvec4_min_asap: groups stage aborted
+(std::bad_alloc under the 6 GiB limit, 534 s), no graph; reported as a front-end failure.
