@@ -178,3 +178,14 @@ Correction to amendment 6 (same day): the scoring that approached its 1 h limit 
 variable 16x16 multiplications), not dct8's; the queue order is ... matvec4, arf, dct8, and dct8 had not started. The
 rule is unchanged: the scorer gets the 3 h stage budget, and a design whose scoring exceeded 1 h is rescored with 3 h.
 A stray score.log written into the not-yet-started dct8_min_asap directory by the mis-targeted rescoring was removed.
+Amendment 7 (2026-11-04, reporting only, after arf_min_random scored "mismatch"; recovery, scoring and "exact"
+unchanged): arf_min_random has all 28 nodes found, all edges exact, no spurious event and no grouping issue; 11 of 28
+functions are proved and the 17 unproved are exactly its 17 variable 16x16 multiplications. On arf_min_asap the
+diagnosis gives, for its first unproved products (v0 = GG1*i1, v1 = GG2*i2), z3 unknown (60 s) both at depth 0 and fully
+expanded, and 0 of 500 random inputs differing: equivalence of a synthesized 16x16 multiplier with bvmul is beyond the
+60 s limit, and nothing refutes it. e8_function_diag.py (generated from e8_score.py, identical scoring) records, per
+unproved node, the z3 verdicts at depth 0 and fully expanded and the random-input mismatches. A design whose structure
+is exact (all nodes found, all edges exact, period as predicted, no spurious event, no grouping issue, no unresolved
+read) and whose unproved functions are all unknown in z3 with 0 random mismatches is reported as "structure exact,
+functions not proved (solver limit)", next to exact / grouping / mismatch; a sat verdict or a random mismatch keeps
+"mismatch". Run on every E8.2 design with unproved functions.
