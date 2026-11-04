@@ -128,3 +128,10 @@ written next to the Verilog, and read_verilog elaborated the memory module with 
 simulation now run in the design directory with read_verilog -defer; the 15 configurations were regenerated (all 72
 prepare: 40 distinct designs, none failed). Two designs have no flip-flops (matvec4 at 10 ns, dct8 at 20 ns: one
 combinational cycle, no time multiplexing); they are run and reported like the others.
+Note (2026-11-04, infrastructure, no metric affected): on biquad2_2min_random, analyze's separate state-replay backend
+timed out (STATE_REPLAY_FAILED; analyze exit 1 after 1,537 s; schedule certified, so the design continued and scored
+exact). The timeout ended the driver but not its g++ grandchild, which was reparented to init and still held 4.9 GB
+after the queue had moved on two designs. It was terminated by PID, and e8/orphan_watchdog.sh now terminates any
+cc1plus whose command line names a <case>/analysis/state_replay whose stages.jsonl already records analyze (stage over,
+exit status and metrics written), logging to build/orphan_cleanup.log. It applies equally to the E8.3 and remaining E5
+runs; it changes no stage, exit status or metric.
