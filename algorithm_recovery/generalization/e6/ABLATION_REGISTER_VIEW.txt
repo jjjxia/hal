@@ -1,0 +1,31 @@
+Ablation: the register view versus inverse folding -- protocol, written 2026-11-03 BEFORE computing any number
+=========================================================================================================
+Purpose: answer the reviewer question "is inverse folding a simple corollary of reading the word-level dependency graph
+of the netlist?" by measuring, on the recovered words themselves, what a register-level view (one node per word, an
+edge from every word read) loses. Nothing is re-run; the analysis reads existing event graphs.
+
+Designs: every design with a recovered event graph: E5.C (build/e5c/<case>/case/graph/graph_training.json, all 35 with
+a graph), E6 (build/e6/<design>/graph.json), E5.A/B library designs (build/bench2_e5/<case>/graph/graph_training.json)
+and the frozen eight (the graphs the paper's programs were built from, as listed in c3/run_close_chain.sh).
+
+Definitions, per design (event = graph node; copy event = node whose equation is exactly one source symbol):
+  k(w)          number of events of word w per period (the functions a register view merges into node w)
+  merged words  words with k(w) >= 2 non-copy events, and the share of non-copy events living in such words
+  register-view producer ambiguity: for every signal source (w, phase, delay) of a non-copy event, the register view
+                names only w, i.e. all k(w) events of w; spurious producer candidates = sum over sources of (k(w) - 1),
+                reported with the number of true sources (ratio spurious / true)
+  cycles        register view: words on a cycle (non-trivial SCC or self-loop) of the word graph with an edge for every
+                signal source; event graph: events on a cycle using only delay-0 sources (within-sample) and, separately,
+                using all sources (true recurrences through sample delays)
+  delays        the register view has no sample delay: the share of sources with delay >= 1 that it cannot distinguish
+                from same-sample reads is reported (sources with delay >= 1 / all sources)
+On ground-truth designs (E5.C, E6) the inverse-folding side is the measured exactness of the scorers (unchanged).
+Reporting: per design and aggregated by experiment; every design with a graph is included.
+Amendment (same session, before any number is used): spurious producers are also counted as unique event-to-event
+edges (true resolved edges versus all edges the register view implies from every event of the read word), the unit of
+the paper's earlier divider statement (2,939 spurious to 1,056 true); the per-source count above is kept.
+Amendment 2 (same session): the paper's existing register-view numbers (E2.2, Table/RQ1 text: divider 2,939 spurious to
+1,056 true) come from storage_reuse.py, whose baseline merges the DESTINATION side: one node per word with the union of
+its events' operand words; spurious = union operands absent from an event. For consistency the primary ablation is
+storage_reuse.py itself, unchanged, on every graph (ablation_e22.py; E6 graphs converted to the hal-recover format);
+it reproduces 2,939 / 1,056 on the frozen divider. The source-side counts above are kept as a secondary measure.
