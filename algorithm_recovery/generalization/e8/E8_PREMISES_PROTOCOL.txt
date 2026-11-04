@@ -121,3 +121,10 @@ Order (serial, after the E8.2 queue and before the remaining E5 designs sha256_s
 5, 20 ns, each with limits unconstrained, 2, 1 (duplicates skipped). Budget unchanged (3 h, 6 GiB per stage).
 Reported per configuration: Bambu cycles, protocol period, LUTs, FFs, certificate status, V1, V1_bit, V2, V3, and the
 stage and reason of any failure. Predictions are those written above (before any E8.3 result).
+Note to amendment 3 (2026-11-04, preparation only, before any E8.3 recovery run): the first preparation pass failed in
+Yosys on all 15 configurations of biquad and fir8 it reached (ERROR: Can not open file `array.mem` for $readmemb).
+Bambu maps the kernels' static variables (sample delays) to 1-element memories initialised by $readmemb from files
+written next to the Verilog, and read_verilog elaborated the memory module with its default file name. Synthesis and
+simulation now run in the design directory with read_verilog -defer; the 15 configurations were regenerated (all 72
+prepare: 40 distinct designs, none failed). Two designs have no flip-flops (matvec4 at 10 ns, dct8 at 20 ns: one
+combinational cycle, no time multiplexing); they are run and reported like the others.
