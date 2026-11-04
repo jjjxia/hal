@@ -194,3 +194,8 @@ Amendment 7 diagnosis, arf_min_asap (outcome grouping: 2 split registers, 36 spu
 expanded, 0 of 500 random inputs differ; none is refuted. Run with the scratch copy used for horner6 (full expansion at
 depth 16 instead of the number of nodes; arf's DAG depth is 8, so the expansion is complete either way). The outcome
 stays "grouping" (amendment 7 applies only to designs whose structure is exact).
+Amendment 7 diagnosis, arf_min_random (e8_function_diag.py; build/e8/fold/arf_min_random/function_diag.json): all 17
+unproved functions are the 17 multiplications, z3 unknown at depth 0 and fully expanded, 0 of 500 random inputs
+differ. Structure exact (28/28 nodes found, 28/28 edges exact, period as predicted, no spurious event, no grouping
+issue, no unresolved read): reported as "structure exact, functions not proved (solver limit)", 11 of 28 functions
+proved.
