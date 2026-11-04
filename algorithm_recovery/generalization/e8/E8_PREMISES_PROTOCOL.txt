@@ -135,3 +135,8 @@ after the queue had moved on two designs. It was terminated by PID, and e8/orpha
 cc1plus whose command line names a <case>/analysis/state_replay whose stages.jsonl already records analyze (stage over,
 exit status and metrics written), logging to build/orphan_cleanup.log. It applies equally to the E8.3 and remaining E5
 runs; it changes no stage, exit status or metric.
+Note (same day, widened after a second case): on lattice4_min_random, analyze's state-replay backend timed out and
+retried while analyze was still running, leaving an orphaned 3.6 GB cc1plus beside the new 2.4 GB compile (235 MB of RAM
+available); the orphan was terminated by PID. The watchdog now also terminates a cc1plus naming a case's state_replay
+whose parent, or whose compiler driver's parent, is init (WSL: /init), i.e. whose output can no longer be read. The live
+compile of a running analyze (driver child of hal-recover) is never touched; no stage, exit status or metric changes.
