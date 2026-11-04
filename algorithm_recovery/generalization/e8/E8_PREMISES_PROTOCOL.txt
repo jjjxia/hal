@@ -174,3 +174,7 @@ Amendment 6 (2026-11-04, scorer runtime budget, while dct8_min_asap's scoring ap
 scoring rules unchanged): e8_run.sh gave the scorer 1 h, less than the 3 h stage budget of this protocol. dct8 has 120
 nodes (two to four z3 checks of up to 60 s each per node). The scorer now gets the 3 h stage budget; a design whose
 scoring exceeded 1 h is rescored separately with 3 h. No result of dct8 had been seen when this was decided.
+Correction to amendment 6 (same day): the scoring that approached its 1 h limit was arf_min_asap's (28 nodes, 17
+variable 16x16 multiplications), not dct8's; the queue order is ... matvec4, arf, dct8, and dct8 had not started. The
+rule is unchanged: the scorer gets the 3 h stage budget, and a design whose scoring exceeded 1 h is rescored with 3 h.
+A stray score.log written into the not-yet-started dct8_min_asap directory by the mis-targeted rescoring was removed.
