@@ -262,3 +262,9 @@ three programs. arf_c20_minf: 2-4 output equalities per program are z3 unknown (
 rejected for a state-interface mismatch (they carry the state word ('DANA_module_0', 13, 1) under a different key than
 the certified graph), a defect of rolling/lifting, reported as such and not repaired (recovery code unchanged); V3 0
 mismatches for the lifted and flat programs.
+E8.3 final (2026-11-05 16:14, 6 GiB budget): 40 distinct designs (72 configurations). 34 reach a program (57
+configurations), V3 0 mismatches on every one; end-to-end check closed on 32 (see the analysis note). 4 abort in groups
+with std::bad_alloc under 6 GiB (biquad_c20_minf, lattice4_c20_minf, dct8_c10_minf, dct8_c20_m2; rerun under
+amendment 8c); 2 have no flip-flops and stop in import (matvec4_c10_minf, dct8_c20_minf). Predictions: coverage does
+not grow with the clock period for any kernel with unconstrained multipliers (confirmed); resource limits leave
+coverage unchanged (refuted on ARF and Horner: limits raise it); programs correct in every configuration (confirmed).
