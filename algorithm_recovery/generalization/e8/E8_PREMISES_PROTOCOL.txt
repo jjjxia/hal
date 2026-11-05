@@ -219,3 +219,7 @@ of concurrent designs are measured under that concurrency (32 cores; memory is s
 serially after the E5 remainder, with the frozen pipeline's own limits (16 GiB, 3 h per stage; e8/extended_rerun.sh,
 VMEM_KB). The 6 GiB outcome remains the declared-budget result and is reported; the extended result is reported next to
 it. Candidates now: matvec4_min_asap, dct8_min_asap, dct8_min_random (and any later bad_alloc).
+(c) (same day, after biquad_c20_minf, 158 LUTs, aborted in groups with std::bad_alloc under 6 GiB after 123 s while
+checking 181 module candidates): the extended-budget reruns of (b) also cover every E8.3 design that aborts with
+std::bad_alloc (its case directory kept as case.oom6g), and they start only after both the E5 remainder and the
+parallel E8.3 lane have finished. The 6 GiB outcome remains the declared-budget result.
