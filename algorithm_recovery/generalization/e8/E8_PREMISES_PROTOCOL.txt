@@ -223,3 +223,7 @@ it. Candidates now: matvec4_min_asap, dct8_min_asap, dct8_min_random (and any la
 checking 181 module candidates): the extended-budget reruns of (b) also cover every E8.3 design that aborts with
 std::bad_alloc (its case directory kept as case.oom6g), and they start only after both the E5 remainder and the
 parallel E8.3 lane have finished. The 6 GiB outcome remains the declared-budget result.
+E8.2 final (2026-11-04 23:38, 6 GiB budget): 32 designs; 17 exact; 2 structure exact with solver-limited functions
+(arf min_random, 2min_random); 8 grouping (fir8 min/2min random, biquad2 min/2min asap, lattice4_2min_random,
+matvec4_2min_asap, arf min/2min asap); 5 groups stage std::bad_alloc under 6 GiB (matvec4_min_asap; dct8 min_asap
+7,618 s, min_random 699 s, 2min_asap 4,250 s, 2min_random 467 s), rerun under amendment 8b.
