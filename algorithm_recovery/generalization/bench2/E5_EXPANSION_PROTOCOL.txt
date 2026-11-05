@@ -161,3 +161,5 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      e8/resume_all.sh (see E8 protocol); an interrupted design is moved to <case>.interrupted_<time> and rerun from the
      start, as after the earlier WSL restart. sha256_sw finished before this note (complete result: program, 2,000
      fresh inputs equal, all three programs closed, RTL and oracle 1.000).
+ Note (2026-11-05 10:37): after the power loss, aes_sw_core (interrupted, no result) was moved to
+     aes_sw_core.interrupted_20261105_103747 and rerun from the start by e8/resume_e5_tail.sh.

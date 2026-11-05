@@ -245,3 +245,7 @@ only if not already running. A design counts as finished when its lane log has i
 file exists); a started design without one was interrupted: its directory is moved to *.interrupted_<time> (logged in
 build/resume.log) and the design rerun from the start under the same budget. Candidates of the extended lane are fixed
 once in build/extended_candidates_{e82,e5,e83}.txt. No result of an interrupted run is used.
+Resume after the power loss (2026-11-05 10:37, swap 33 GiB present): e8/resume_all.sh restarted all lanes. E8.3: 30 of
+40 designs had result lines; arf_c20_m1, dct8_c10_minf and dct8_c10_m2 were interrupted (case/ moved to
+case.interrupted_<time>, rerun from the start); seven dct8 designs had not started. The extended-budget lane had not
+started. Actions are logged in build/resume.log.
