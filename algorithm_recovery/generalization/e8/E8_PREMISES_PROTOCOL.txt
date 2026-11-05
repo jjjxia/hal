@@ -234,3 +234,6 @@ counts if every non-constant bit equals a bit of some recovered write (any word 
 can match another value's bits, so V1_any can over-count; V1 (one write) is unchanged and reported first.
 horner6_c20_m1: V1 0/12, V1_any 6/12, bit coverage 0.607. Every finished E8.3 design is re-evaluated (stream stage only;
 earlier file kept as v_metrics_pre_a9.json; all earlier fields must be identical).
+Amendment 9 re-evaluation: 12 finished E8.3 designs, all earlier fields identical; V1_any differs from V1 only on
+biquad_c5_minf (3 vs 2 of 9) and horner6_c20_m1 (6 vs 0 of 12). lattice4_c5_minf was evaluated with the amended tool.
+Also aborted in groups with std::bad_alloc under 6 GiB: biquad_c20_minf (123 s), lattice4_c20_minf (67 s).
