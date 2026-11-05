@@ -256,3 +256,9 @@ the butterfly differences x2-x5 and x3-x4 are present in full (16/16 bits; x0-x7
 stored values are those of a restructured computation (factoring by the DCT coefficient symmetry), not the source
 kernel's sequential partial sums: algebraic restructuring, which no equation-level method can undo
 (Proposition indist), so kernel-node coverage measures how much of the SOURCE graph is stored, not recovery accuracy.
+Analysis note (2026-11-05, no rule changed), E8.3 end-to-end check of the 34 recovered distinct designs: 32 close all
+three programs. arf_c20_minf: 2-4 output equalities per program are z3 unknown (timeout; chained 16x16 products at
+20 ns), none refuted; V3 0 mismatches. horner6_c10_m1: the flat program closes; the rolled and lifted programs are
+rejected for a state-interface mismatch (they carry the state word ('DANA_module_0', 13, 1) under a different key than
+the certified graph), a defect of rolling/lifting, reported as such and not repaired (recovery code unchanged); V3 0
+mismatches for the lifted and flat programs.
