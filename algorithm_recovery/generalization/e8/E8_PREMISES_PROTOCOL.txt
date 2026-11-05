@@ -205,3 +205,8 @@ whose function is not proved is not found or has an incomplete slice because of 
 grouping, not solver limits). arf_2min_asap (grouping: split registers, 6 spurious events; 25/28 found, 25 edges exact,
 9 functions proved): all 16 unproved functions are multiplications, z3 unknown at depth 0 and fully expanded, 0 of 500
 random inputs differ; outcome stays grouping. arf_2min_random is being diagnosed.
+Amendment 7 diagnosis, arf_2min_random: structure exact (28/28 nodes found, 28/28 edges exact, period as predicted, no
+spurious event, no grouping issue, no unresolved read); all 17 unproved functions are the multiplications, z3 unknown at
+depth 0 and fully expanded, 0 of 500 random inputs differ: "structure exact, functions not proved (solver limit)",
+11 of 28 functions proved. dct8_min_asap and dct8_min_random: groups stage aborted (std::bad_alloc under the 6 GiB
+limit, 7,618 s and 699 s; 7,001 LUTs, 891 FFs for min_asap); no graph, reported as front-end failures.
