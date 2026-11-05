@@ -237,3 +237,5 @@ earlier file kept as v_metrics_pre_a9.json; all earlier fields must be identical
 Amendment 9 re-evaluation: 12 finished E8.3 designs, all earlier fields identical; V1_any differs from V1 only on
 biquad_c5_minf (3 vs 2 of 9) and horner6_c20_m1 (6 vs 0 of 12). lattice4_c5_minf was evaluated with the amended tool.
 Also aborted in groups with std::bad_alloc under 6 GiB: biquad_c20_minf (123 s), lattice4_c20_minf (67 s).
+(d) (2026-11-05, order only): the extended-budget lane starts after the E5 remainder and runs the E8.2 and E5 designs
+concurrently with the parallel E8.3 lane; the E8.3 designs follow once the E8.3 lane has finished.
