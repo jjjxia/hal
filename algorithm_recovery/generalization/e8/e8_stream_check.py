@@ -12,6 +12,8 @@ V1: value coverage on 200 transactions of the stream (after 3 warm-up transactio
     next) is FOUND if every one of its non-constant bits has the signature of some bit of ONE recovered write;
     V1_bit_coverage is the share of non-constant value bits present in any recovered write. Nodes whose value is
     constant on the stream are not scored; bits constant on the stream (e.g. bit 0 of an even multiple) are skipped.
+V1_any (amendment 9): a value counts if every non-constant bit is a bit of SOME recovered write (any word or phase),
+    for values that grouping splits across words; structurally equal low bits can match another value's bits.
 V2: recovered writes per kernel operation; kernel values that are not found are listed as chained/merged (absent).
 """
 import json, os, random, re, sys
@@ -88,7 +90,7 @@ for k in keys:
     width = max(writes[n].get(k, 0) for n in rngT).bit_length()
     for b in range(width):
         bitsig.setdefault(tuple((writes[n].get(k, 0) >> b) & 1 for n in rngT), set()).add(k)
-found, absent, bits_total, bits_found = {}, [], 0, 0
+found, absent, bits_total, bits_found, found_any = {}, [], 0, 0, {}
 for v in kern["nodes"]:
     best = None
     for d in (0, 1):
@@ -99,12 +101,14 @@ for v in kern["nodes"]:
         sigs = [g for g in sigs if len(set(g)) > 1]
         hit = [bitsig.get(g, set()) for g in sigs]
         one = set.intersection(*hit) if hit else set()
-        cand = (bool(one), sum(1 for h in hit if h), len(sigs), d, sorted(map(str, one))[:2])
+        cand = (bool(one), sum(1 for h in hit if h), len(sigs), d, sorted(map(str, one))[:2], all(hit))
         if best is None or cand[:2] > best[:2]:
             best = cand
     if best is None:                 # constant on the stream: not scored
         continue
     bits_total += best[2]; bits_found += best[1]
+    if best[5]:
+        found_any[v] = best[3]          # amendment 9: every non-constant bit in some write (any word or phase)
     if best[0]:
         found[v] = {"delay": best[3], "writes": best[4]}
     else:
@@ -114,6 +118,7 @@ res["case"] = os.path.basename(os.path.dirname(case_dir.rstrip("/"))) if os.path
 res.update({"kernel_nodes": len(kern["nodes"]), "V1_transactions": NV, "V1_scored_nodes": scored,
             "V1_values_found": len(found), "V1_coverage": round(len(found) / scored, 4) if scored else None,
             "V1_bit_coverage": round(bits_found / bits_total, 4) if bits_total else None,
+            "V1_any_values_found": len(found_any), "V1_any_coverage": round(len(found_any) / scored, 4) if scored else None,
             "V2_recovered_writes": len(keys), "V2_writes_per_operation": round(len(keys) / len(kern["nodes"]), 3),
             "V2_absent_values": absent, "found": found})
 json.dump(res, open(out, "w"), indent=1)
