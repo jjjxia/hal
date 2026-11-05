@@ -249,3 +249,10 @@ Resume after the power loss (2026-11-05 10:37, swap 33 GiB present): e8/resume_a
 40 designs had result lines; arf_c20_m1, dct8_c10_minf and dct8_c10_m2 were interrupted (case/ moved to
 case.interrupted_<time>, rerun from the start); seven dct8 designs had not started. The extended-budget lane had not
 started. Actions are logged in build/resume.log.
+Analysis note (2026-11-05, no rule changed): dct8_c10_m2 (245 FFs, 5 recovered words of 1-117 bits) has V1 = V1_any =
+0 of 120 and bit coverage 0.002, with V3 0 mismatches. analysis/dct_butterfly.py checks bit signatures of candidate
+values over 200 transactions of the recovered flat program: no bit of any input x_i is a recovered write bit, while
+the butterfly differences x2-x5 and x3-x4 are present in full (16/16 bits; x0-x7 3/16, x1-x6 2/16, sums 1/16). The
+stored values are those of a restructured computation (factoring by the DCT coefficient symmetry), not the source
+kernel's sequential partial sums: algebraic restructuring, which no equation-level method can undo
+(Proposition indist), so kernel-node coverage measures how much of the SOURCE graph is stored, not recovery accuracy.
