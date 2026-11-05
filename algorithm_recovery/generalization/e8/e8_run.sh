@@ -11,7 +11,7 @@ D=$B/e8/fold/$case; G=$D/gen
 mkdir -p "$G"
 [ -s "$G/truth.json" ] || python3 "$E/e8/e8_fold_dfg.py" "$kernel" "$nspec" "$policy" "$seed" "$G" > "$G/gen.json" || { echo "$case: generator failed"; exit 1; }
 python3 "$E/e8/e8_selfcheck.py" "$G" 100 > "$G/selfcheck.json" || { echo "$case: SELF-CHECK FAILED"; exit 1; }
-( ulimit -v 6291456; cd "$G" && timeout 3600 yosys -q -l synth.log -p "read_verilog fold_top.v; synth_ice40 -top fold_top -nobram -json fold_top.json; tee -o stat.txt stat" ) > /dev/null 2>&1 || { echo "$case: synthesis failed"; exit 1; }
+( ulimit -v ${VMEM_KB:-6291456}; cd "$G" && timeout 3600 yosys -q -l synth.log -p "read_verilog fold_top.v; synth_ice40 -top fold_top -nobram -json fold_top.json; tee -o stat.txt stat" ) > /dev/null 2>&1 || { echo "$case: synthesis failed"; exit 1; }
 python3 - "$G" "$case" <<'PY'
 import json, sys
 g, case = sys.argv[1], sys.argv[2]
@@ -25,13 +25,13 @@ spec = {"synth": f"{g}/fold_top.json", "top": "fold_top",
 json.dump(spec, open(f"{g}/spec.json", "w"), indent=1)
 PY
 [ -e "$D/case" ] && mv "$D/case" "$D/case.prev.$(date +%s)"
-( ulimit -v 6291456; timeout 10800 python3 "$E/bench2/prepare_bench2.py" "$G/spec.json" "$D/case" ) > "$D/prepare.log" 2>&1 || { echo "$case: prepare failed"; exit 1; }
-( ulimit -v 6291456; bash "$E/bench2/run_bench2.sh" "$D/case" ) > /dev/null 2>&1
+( ulimit -v ${VMEM_KB:-6291456}; timeout 10800 python3 "$E/bench2/prepare_bench2.py" "$G/spec.json" "$D/case" ) > "$D/prepare.log" 2>&1 || { echo "$case: prepare failed"; exit 1; }
+( ulimit -v ${VMEM_KB:-6291456}; bash "$E/bench2/run_bench2.sh" "$D/case" ) > /dev/null 2>&1
 cli=$B/bin/hal_plugins/hal-recover
 export HAL_BASE_PATH=$B LD_LIBRARY_PATH=$B/lib OMP_NUM_THREADS=1
 win=$(python3 -c "import json;print(len(json.load(open('$D/case/input/stimulus.json'))['windows']['training']))")
-( ulimit -v 6291456; timeout 10800 "$cli" graph "$D/case/groups/ordered.hal" "$D/case/groups/groups.json" "$D/case/input/recovered.json" \
+( ulimit -v ${VMEM_KB:-6291456}; timeout 10800 "$cli" graph "$D/case/groups/ordered.hal" "$D/case/groups/groups.json" "$D/case/input/recovered.json" \
     "$D/case/trace" "$D/case/graph" --window "$win" --profiles training --protocol "$D/case/input/protocol.json" ) > "$D/graph.log" 2>&1
-( ulimit -v 6291456; timeout 10800 "$B/c3_venv/bin/python" "$E/e8/e8_score.py" "$D/case" "$G/truth.json" "$G/fold_top.json" \
+( ulimit -v ${VMEM_KB:-6291456}; timeout 10800 "$B/c3_venv/bin/python" "$E/e8/e8_score.py" "$D/case" "$G/truth.json" "$G/fold_top.json" \
     "$D/case/graph/graph_training.json" "$D/score.json" ) > "$D/score.log" 2>&1
 echo "$case: $(tail -n 1 "$D/score.log" | cut -c1-400)"

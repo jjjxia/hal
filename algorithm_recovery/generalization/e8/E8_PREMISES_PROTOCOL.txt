@@ -210,3 +210,12 @@ spurious event, no grouping issue, no unresolved read); all 17 unproved function
 depth 0 and fully expanded, 0 of 500 random inputs differ: "structure exact, functions not proved (solver limit)",
 11 of 28 functions proved. dct8_min_asap and dct8_min_random: groups stage aborted (std::bad_alloc under the 6 GiB
 limit, 7,618 s and 699 s; 7,001 LUTs, 891 FFs for min_asap); no graph, reported as front-end failures.
+Amendment 8 (2026-11-04, execution only; recovery, scoring and metrics unchanged): the user added 33 GB of swap.
+(a) E8.3 no longer waits for E8.2 and no longer runs serially: e8/e8_bambu_parallel.sh runs the 40 manifest designs in
+the declared order, up to 3 at a time, starting one only when at least 1.5 GB of RAM is available; each design keeps
+the 6 GiB / 3 h stage budget. The one-shot serial hook before the E5 remainder was removed before it fired. Stage times
+of concurrent designs are measured under that concurrency (32 cores; memory is shared).
+(b) Extended budget: every E8.2 design whose stage aborted with std::bad_alloc under the 6 GiB outer limit is rerun,
+serially after the E5 remainder, with the frozen pipeline's own limits (16 GiB, 3 h per stage; e8/extended_rerun.sh,
+VMEM_KB). The 6 GiB outcome remains the declared-budget result and is reported; the extended result is reported next to
+it. Candidates now: matvec4_min_asap, dct8_min_asap, dct8_min_random (and any later bad_alloc).

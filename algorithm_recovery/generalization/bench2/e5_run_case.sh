@@ -13,19 +13,19 @@ receipt=$D/e5_stages.jsonl
 st() {   # st NAME CMD...  (6 GiB, 3 h)
     local name=$1; shift
     local t0=$(date +%s.%N)
-    ( ulimit -c 0; ulimit -v 6291456; /usr/bin/time -f "%M" -o "$D/$name.mem" timeout 10800 "$@" ) > "$D/$name.log" 2>&1
+    ( ulimit -c 0; ulimit -v ${VMEM_KB:-6291456}; /usr/bin/time -f "%M" -o "$D/$name.mem" timeout 10800 "$@" ) > "$D/$name.log" 2>&1
     local rc=$?
     printf '{"stage":"%s","exit":%d,"seconds":%.1f,"peak_kb":%s}\n' "$name" $rc "$(echo "$(date +%s.%N) - $t0" | bc)" \
         "$(tail -n 1 "$D/$name.mem" 2>/dev/null | grep -E '^[0-9]+$' || echo null)" >> "$receipt"
     return $rc
 }
 if [ ! -e "$D/input" ]; then
-    ( ulimit -v 6291456; timeout 10800 python3 "$E/bench2/prepare_bench2.py" "$spec" "$D" ) > "$B/bench2_e5/$case.prepare.log" 2>&1 || { echo "$case: prepare failed (see $case.prepare.log)"; exit 0; }
+    ( ulimit -v ${VMEM_KB:-6291456}; timeout 10800 python3 "$E/bench2/prepare_bench2.py" "$spec" "$D" ) > "$B/bench2_e5/$case.prepare.log" 2>&1 || { echo "$case: prepare failed (see $case.prepare.log)"; exit 0; }
 fi
 mkdir -p "$D"
 # frozen C1 pipeline under the E5 budget: an outer hard limit of 6 GiB (the pipeline's own `ulimit -v 16777216` then
 # cannot raise it) and its own 3 h per stage
-[ -e "$D/stages.jsonl" ] || ( ulimit -v 6291456; bash "$E/bench2/run_bench2.sh" "$D" ) > /dev/null 2>&1
+[ -e "$D/stages.jsonl" ] || ( ulimit -v ${VMEM_KB:-6291456}; bash "$E/bench2/run_bench2.sh" "$D" ) > /dev/null 2>&1
 # gate (amendment h): a certified schedule. analyze's exit status also covers the separate state-machine export (used
 # only for the RAM-backed Index programs), so a certified design whose state export failed continues.
 grep -q '"stage":"analyze","exit":0' "$D/stages.jsonl" || \

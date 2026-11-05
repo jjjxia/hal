@@ -152,3 +152,8 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      MemoryError while compiling it under the 6 GiB budget (peak 5.1 GB). The flat program is reported as out of budget
      for the end-to-end check; the rolled and lifted programs are checked in a separate run of the same checker
      (each program is checked independently, so this does not change what is checked for them).
+ (n) Extended budget, 2026-11-04 (execution only; recovery unchanged): the user added 33 GB of swap. Designs whose stage
+     aborted with std::bad_alloc under the 6 GiB outer limit (the six ARX designs chacha_r8/r12/r20, siphash_c1d3/c2d4/
+     c4d8, and sha256_sw / aes_sw_core if they do) are rerun after the E5 remainder with the frozen pipeline's own
+     limits (16 GiB, 3 h per stage; e8/extended_rerun.sh, VMEM_KB); the 6 GiB directories are kept as <case>.oom6g.
+     The 6 GiB outcome remains the declared-budget result; the extended result is reported next to it.

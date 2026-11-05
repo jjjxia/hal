@@ -15,7 +15,7 @@ receipt=$D/e8_stages.jsonl
 st() {
     local name=$1; shift
     local t0=$(date +%s.%N)
-    ( ulimit -c 0; ulimit -v 6291456; /usr/bin/time -f "%M" -o "$D/$name.mem" timeout 10800 "$@" ) > "$D/$name.log" 2>&1
+    ( ulimit -c 0; ulimit -v ${VMEM_KB:-6291456}; /usr/bin/time -f "%M" -o "$D/$name.mem" timeout 10800 "$@" ) > "$D/$name.log" 2>&1
     local rc=$?
     printf '{"stage":"%s","exit":%d,"seconds":%.1f,"peak_kb":%s}\n' "$name" $rc "$(echo "$(date +%s.%N) - $t0" | bc)" \
         "$(tail -n 1 "$D/$name.mem" 2>/dev/null | grep -E '^[0-9]+$' || echo null)" >> "$receipt"
@@ -24,7 +24,7 @@ st() {
 [ -s "$D/gen/spec.json" ] || st bambu python3 "$E/e8/e8_bambu_prepare.py" "$kernel" "$clock" "$mults" "$D/gen" "$case" || { echo "$case: bambu/prepare failed: $(tail -n 1 $D/bambu.log)"; exit 0; }
 [ "$only" = prepare ] && { echo "$case: prepared"; exit 0; }
 [ -e "$D/case/input" ] || st prepare python3 "$E/bench2/prepare_bench2.py" "$D/gen/spec.json" "$D/case" || { echo "$case: prepare failed"; exit 0; }
-[ -e "$D/case/stages.jsonl" ] || ( ulimit -v 6291456; bash "$E/bench2/run_bench2.sh" "$D/case" ) > /dev/null 2>&1
+[ -e "$D/case/stages.jsonl" ] || ( ulimit -v ${VMEM_KB:-6291456}; bash "$E/bench2/run_bench2.sh" "$D/case" ) > /dev/null 2>&1
 grep -q '"status": *"PROTOCOL_SCHEDULE_CERTIFIED"' "$D/case/analysis/certificate/certificate.json" 2>/dev/null || \
     { echo "$case: not certified: $(tail -n 2 $D/case/stages.jsonl | tr '\n' ' ')"; exit 0; }
 win=$(python3 -c "import json;print(len(json.load(open('$D/case/input/stimulus.json'))['windows']['training']))")
