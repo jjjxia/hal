@@ -199,3 +199,9 @@ unproved functions are the 17 multiplications, z3 unknown at depth 0 and fully e
 differ. Structure exact (28/28 nodes found, 28/28 edges exact, period as predicted, no spurious event, no grouping
 issue, no unresolved read): reported as "structure exact, functions not proved (solver limit)", 11 of 28 functions
 proved.
+Amendment 7 diagnosis of the other finished designs with unproved functions (e8_function_diag.py): fir8 min_random and
+2min_random, biquad2 min_asap and 2min_asap, lattice4_2min_random, matvec4_2min_asap: 0 nodes diagnosed (every node
+whose function is not proved is not found or has an incomplete slice because of the grouping issue; the failures are
+grouping, not solver limits). arf_2min_asap (grouping: split registers, 6 spurious events; 25/28 found, 25 edges exact,
+9 functions proved): all 16 unproved functions are multiplications, z3 unknown at depth 0 and fully expanded, 0 of 500
+random inputs differ; outcome stays grouping. arf_2min_random is being diagnosed.
