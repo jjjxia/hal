@@ -157,3 +157,7 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      c4d8, and sha256_sw / aes_sw_core if they do) are rerun after the E5 remainder with the frozen pipeline's own
      limits (16 GiB, 3 h per stage; e8/extended_rerun.sh, VMEM_KB); the 6 GiB directories are kept as <case>.oom6g.
      The 6 GiB outcome remains the declared-budget result; the extended result is reported next to it.
+ Note (2026-11-05, execution only): power loss expected; the E5 remainder and extended reruns are resumable through
+     e8/resume_all.sh (see E8 protocol); an interrupted design is moved to <case>.interrupted_<time> and rerun from the
+     start, as after the earlier WSL restart. sha256_sw finished before this note (complete result: program, 2,000
+     fresh inputs equal, all three programs closed, RTL and oracle 1.000).

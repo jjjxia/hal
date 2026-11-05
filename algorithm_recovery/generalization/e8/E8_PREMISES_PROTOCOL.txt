@@ -239,3 +239,9 @@ biquad_c5_minf (3 vs 2 of 9) and horner6_c20_m1 (6 vs 0 of 12). lattice4_c5_minf
 Also aborted in groups with std::bad_alloc under 6 GiB: biquad_c20_minf (123 s), lattice4_c20_minf (67 s).
 (d) (2026-11-05, order only): the extended-budget lane starts after the E5 remainder and runs the E8.2 and E5 designs
 concurrently with the parallel E8.3 lane; the E8.3 designs follow once the E8.3 lane has finished.
+Note (2026-11-05, execution only): the machine will lose power. All lanes are resumable: e8/resume_all.sh restarts the
+orphan watchdog, the E5 remainder (e8/resume_e5_tail.sh), the parallel E8.3 lane and the extended-budget lane, each
+only if not already running. A design counts as finished when its lane log has its result line (or its final result
+file exists); a started design without one was interrupted: its directory is moved to *.interrupted_<time> (logged in
+build/resume.log) and the design rerun from the start under the same budget. Candidates of the extended lane are fixed
+once in build/extended_candidates_{e82,e5,e83}.txt. No result of an interrupted run is used.
