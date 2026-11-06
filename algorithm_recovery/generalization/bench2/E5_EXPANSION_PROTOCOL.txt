@@ -163,3 +163,7 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      fresh inputs equal, all three programs closed, RTL and oracle 1.000).
  Note (2026-11-05 10:37): after the power loss, aes_sw_core (interrupted, no result) was moved to
      aes_sw_core.interrupted_20261105_103747 and rerun from the start by e8/resume_e5_tail.sh.
+ E5 final under the 6 GiB budget (2026-11-05 19:49): 23 instances; 14 complete; aes_sw128 and aes_sw_core stop in
+     program generation (3 h; e5_summarize labels this "graph; program refused", it is a timeout, exit 124); aes_sw_core's
+     folded RTL is mismatch-free and its oracle stage also exceeded 3 h; six ARX designs abort in groups (std::bad_alloc;
+     rerun with 16 GiB under amendment n); Keccak exceeds 3 h in preparation.
