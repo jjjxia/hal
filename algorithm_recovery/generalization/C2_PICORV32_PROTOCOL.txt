@@ -1,0 +1,96 @@
+C2 PicoRV32 iterative multiplier protocol, frozen before recovery
+
+Purpose and information boundary
+  Test the existing frozen InvFold equation-to-graph implementation on a new
+  independently authored shared-storage design. This is a supplied-equation
+  C2 test, not anonymous netlist/word recovery or an automatic multiplier
+  recognizer. Supply the five source numeric-word boundaries, LSB-first bit
+  order, exact word-update equations, and the effective writes under this
+  fixed protocol. Logical iteration labels and producer/sample tags occur
+  only in oracle.json, never in recovery.json.
+
+Source and configuration
+  https://github.com/YosysHQ/picorv32
+  commit ef203c2b0a3fb793280f5114941416c425c5b461
+  picorv32.v:2197-2316, module picorv32_pcpi_mul, ISC license.
+  Unmodified original RTL; FORMAL is not defined.
+  STEPS_AT_ONCE=1 and CARRY_CHAIN=0. CARRY_CHAIN=0 is an explicitly selected
+  non-default configuration (upstream default is 4); STEPS_AT_ONCE=1 is default.
+  Data registers: rs1,rs2,rd,rdx are each 64 bits; pcpi_rd is 32 bits.
+  The four 64-bit registers hold successive shifted operands, partial sums,
+  and partial carries over 32 multiplication iterations, not merely the
+  inputs/outputs of a shared combinational multiplier.
+
+Fixed clock/input protocol
+  Physical cycle T means the pre-edge state and the following positive edge.
+  Start with four resetn=0 edges at T=0..3; pcpi_valid=0 and both operands=0.
+  All registers without RTL initialization stay unknown until actually written.
+  Transaction n starts at T=4+48*n; exactly 64 transactions by default.
+  Hold its two unsigned raw 32-bit operands constant for all 48 slots.
+  Use pcpi_insn=32'h02000033 (MUL), resetn=1, and pcpi_valid=1 at slots 0..35;
+  deassert pcpi_valid at slots 36..47. No internal force or ready-driven
+  modification of this predetermined input schedule is allowed.
+  The selected MUL result is the low 32 product bits; raw signed and unsigned
+  interpretations agree there. MULH/MULHSU/MULHU modes are outside this case.
+
+Control timing derived before simulation/recovery
+  Slot 0: instruction decode captures MUL; wait still reads the old decode.
+  Slot 1: pcpi_wait becomes 1, with old pcpi_wait_q=0, so mul_start becomes 1.
+  Slot 2: the waiting branch loads the operands, clears rd/rdx, sets the
+  7-bit counter to 30, and leaves the waiting state.
+  Slots 3..34: 32 carry-save iterations. The last iteration sees the old
+  counter value 127 and raises mul_finish and mul_waiting after slot 34.
+  Slot 35: the output block reads that old finish and old rd, writes pcpi_rd,
+  and raises pcpi_ready/pcpi_wr. Simultaneously the waiting block reloads
+  operands and clears rd/rdx; those new values MUST NOT feed pcpi_rd.
+  Slot 36 deasserts valid. Instruction, wait, and delayed-wait flags drain
+  by slot 38; the next start at slot 48 has ample separation.
+  Every control register and derived control wire used by these predictions
+  is compared before/after every original-RTL edge, separately from C2 data.
+
+Equations, writes, and independent references
+  On every non-reset waiting edge, retain all four actual assignments:
+    rs1'=zero_extend(pcpi_rs1); rs2'=zero_extend(pcpi_rs2); rd'=0; rdx'=0.
+  On each active iteration, all RHS values are old-state values (modulo 2^64):
+    m = rs1[0] ? rs2 : 0
+    rd'  = rd xor rdx xor m
+    rdx' = ((rd and rdx) or (rd and m) or (rdx and m)) << 1
+    rs1' = rs1 >> 1; rs2' = rs2 << 1
+  pcpi_rd' is old rd[31:0] only when old mul_finish && resetn; otherwise hold.
+  Do not inline across registers, replace CSA with multiplication, discard
+  repeated waiting assignments, merge iteration roles, or erase duplicate
+  occurrences of an operand in the CSA expressions.
+  The source-step integer model and source provenance advance forward with
+  separate old/new states. The oracle labels every actual write, including
+  prefix writes, and records each operand occurrence's old producer tag.
+  Output observations read pcpi_rd BEFORE the edge at every physical cycle.
+  A second, evaluation-only functional check compares pcpi_rd at each ready
+  pulse with (transaction_rs1 * transaction_rs2) modulo 2^32. This integer
+  multiplication never enters the recovery equations or recovery inputs.
+
+Frozen extraction/validation plan
+  Base period 48; source-frame origin 100 (transaction 2, after two full
+  transactions of actual prefix). Supply exactly T=100..387 to recovery,
+  six complete periods. Full-prefix write_enable arrays are retained.
+  reference_equations.json separately stores every cycle's equations.
+  run-reference first checks recovery equations equal the exact restriction
+  of that file to meta.window, then validates all five word equations and
+  holds against original RTL at every edge where operands are known.
+  Unknown observations remain null with their raw hexadecimal form recorded;
+  neither reset nor the first functional output is invented in the trace.
+  The predicted first fully known before-state is T=40, after the first
+  result was registered at T=39. Later unknowns fail reference validation.
+  Prepare hashes the source, this protocol, adapter, all generated inputs,
+  and the existing frozen core. Validate the adapter before the first
+  recovery call. No recovery/scoring output is used to tune this adapter.
+
+Reproduction (run heavy commands serially, at most 180 min / 16 GiB)
+  python3 algorithm_recovery/generalization/c2_picorv32_mul.py prepare \
+    --source build/c2_sources/picorv32 --out NEW_CASE
+  python3 algorithm_recovery/generalization/c2_picorv32_mul.py run-reference \
+    --out NEW_CASE
+  python3 algorithm_recovery/generalization/c2_score.py NEW_CASE NEW_SCORE \
+    --origins 0,1,47 --multiples 1,2,3
+  The selected origins are three of 48 base-period origins, not exhaustive.
+  The original RTL simulation and equation checks are finite validation;
+  neither their PASS nor structural recovery is a universal certificate.

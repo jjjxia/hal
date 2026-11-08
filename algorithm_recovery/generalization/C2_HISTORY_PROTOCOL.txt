@@ -1,0 +1,115 @@
+C2 controlled history and arithmetic boundary protocol (2026-11-01)
+
+Status: specified before executing the new generator, recovery, or normalizer.
+This is a development boundary test of the existing C2 mechanism, not a new
+recovery algorithm, held-out design, or novelty claim. Existing v1 cases and
+their outputs remain unchanged. New outputs must use a fresh directory.
+
+Frozen mechanism and information boundary
+  Use the already frozen c2_score.py and legacy InvFold/SMT code identities in
+  C2_CONTRACT.txt; do not change them in response to a new result. The generator
+  may import operand_occurrences solely to enumerate syntactic leaf paths.
+  It does not call any recovery, producer resolver, graph builder or SMT runtime.
+  recovery.json contains only anonymous word equations, widths, physical input
+  ports, effective writes and a finite extraction window. The independently
+  defined integer recurrence, forward provenance, depth, roles and expected
+  delays remain outside that recovery input. Preserve all failed receipts.
+
+Reference graphs (two history depths, H=3 and H=5)
+  These are two delay settings of the same arithmetic graph, not two independent
+  algorithms or applications.
+  Values are 8-bit words. signed8 converts a word to [-128,127]; wrap8 reduces
+  modulo 256. RNE2(z) rounds signed8(z)/2 to the nearest integer, ties to even,
+  and returns an 8-bit word. In the integer reference it uses signed divmod,
+  not the generated SMT expression or the legacy SMT evaluator.
+
+    A[n] = RNE2(wrap8(A[n-H] - x[n]))
+    B[n] = wrap8(wrap8(3*A[n]) + RNE2(wrap8(A[n] - B[n-H])))
+
+  The inner subtraction and multiplication wrap BEFORE the following operator.
+  B retains repeated A operands and independent rounding before addition.
+  x[n] is the physical input sampled at phase 0, not an oracle parameter.
+  Reference initial history A[n]=B[n]=0 for n<0 is an explicit initialized
+  implementation condition. Run a real finite physical prefix; recovery and
+  normalization receive actual prefix writes, never invented negative-time or
+  periodically extended state.
+
+Legal fixed-binding implementations
+  Base period P=4, origin 0. A computes at phase 0 and B at phase 2.
+  H distinct A copy registers all write at phase 1; H distinct B copy registers
+  all write at phase 3. Each stage reads PRE-EDGE state, so stages 2..H copy a
+  value from the preceding sample. This is deliberately different from a
+  same-sample serial copy chain. Every node has one fixed result register and
+  executes once per sample. Copy nodes retain separate forward identity tags.
+
+  For each H generate shared, separate_binding and copy_cuts variants (6 cases).
+  shared binds A and B to one result register, with the A copy write before B.
+  separate_binding uses distinct fixed A/B result registers, otherwise identical.
+  copy_cuts removes only the identity storage boundaries. A/B read the retained
+  computation result at the actual historical time immediately after its write
+  H samples earlier. Assert the historical value AND forward tag equal the
+  removed-copy value/tag after following copies; retain every compute boundary.
+  No rotating binding, hidden arithmetic pipeline or across-operation inlining.
+
+  Prediction at base coordinates after literal-copy collapse:
+    A has feedback producer A, delay H, plus x at delay 0.
+    B has producer A at delay 0 at every repeated A occurrence, and B at delay H.
+    The phase-3 output observes B[n]. Intermediate cycle outputs are not the
+    cross-implementation interface. H=3 and H=5 are different graphs and are
+    never required to have identical normalized signatures.
+
+  A correctly expanded prefix audit must check H*(H+1) copy equalities for the
+  uncut base-origin graph (12 for H=3, 30 for H=5), unless a precise smaller
+  sufficient set is separately justified. At least one retained operand must
+  require a compute write more than one sample before execution starts.
+  A one-frame-only history check must not count as coverage of this test.
+
+Finite window and arithmetic coverage
+  Use a 24-sample physical prefix, a 96-sample extraction/scoring window and
+  32 additional execution samples. compare_from is the start of that window.
+  All initial physical words are zero; input words during the prefix are a
+  fixed arithmetic sequence. Every variant of the same H uses the same inputs.
+  Within the window, choose x from the independent recurrence so A's wrapped
+  subtraction has a predeclared target value. This produces one frozen external
+  vector, not a feedback stimulus supplied to recovery or a runtime oracle.
+  Force target 127 at window sample 4, 128 at 4+H, and 127 at 4+2H. This yields
+  A=64, then a positive signed-subtraction overflow, then a negative overflow.
+  The other targets repeatedly include 0,1,2,3,126,127,128,129,130,253,254,255.
+
+  coverage.json must list counts and first witnesses INSIDE meta.window for:
+    RNE positive tie kept/incremented; negative tie kept/incremented;
+    negative odd arithmetic shift; zero, signed minimum and signed maximum;
+    exact even division; positive and negative signed subtraction overflow;
+    positive and negative signed multiplication overflow in B.
+  Require all declared bins and every target value to occur, and fail generator
+  validation if any is absent. Prefix-only stimuli cannot satisfy coverage.
+  Count only events at or after window_start+4P. This is after every declared
+  raw execution run_start (window_start plus an origin offset in 0..3), including
+  supplied multiples 2/3; no counted witness is discarded by those executions.
+  The report distinguishes a generator/reference coverage PASS from recovery,
+  finite semantics, normalization, and any universal proof (none claimed).
+
+Evaluation and stopping rules
+  Main agent runs cases serially, within the existing 180min/16GiB limits.
+  Score all four base-period origins at supplied period multiples 1/2/3 using
+  the unchanged scorer. These are 12 representations per case, 72 total, not
+  72 independent designs. Preserve raw missing/extra/producer/delay results.
+  The separate normalizer may evaluate representation variants; do not change
+  the frozen raw recovery/scoring rules. Compare the three implementations only
+  within each H after mapping to base physical sample coordinates. Require
+  actual finite prefix checks and saved-graph execution before adoption.
+  Wrong-history probes must corrupt a demanded copy/history value at least two
+  base samples before run_start, rather than only the newest prefix value.
+  Unexpected errors remain results; do not silently shorten H, move coverage
+  into the prefix, change rounding, weaken equality, or relabel supplied periods
+  as discovered/certified. Any follow-up fix receives an explicit new revision.
+
+Artifacts and intended commands
+  Generator: algorithm_recovery/generalization/c2_controlled_history.py OUT
+  OUT must not exist. It contains cases.json and six case directories, each
+  with recovery.json, oracle.json, trace.json, coverage.json and manifest.json.
+  Then, one at a time:
+    python3 algorithm_recovery/generalization/c2_score.py CASE SCORE_DIR
+    python3 algorithm_recovery/generalization/c2_normalize.py CASE SCORE_DIR NORMALIZED_DIR
+  New source/protocol can be committed after review; generated inputs/receipts
+  remain ignored under build/. No experiments or commits from the child agent.
