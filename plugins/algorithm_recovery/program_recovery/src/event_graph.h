@@ -1,5 +1,5 @@
-// Event-graph model of the C3 backend: graph loading, certified specialisation, retiming
-// to transaction coordinates, observations and liveness (port of decompile.py steps 1-3).
+// Event-graph model for program recovery: graph loading, certified specialisation, retiming
+// to transaction coordinates, observations and liveness.
 #pragma once
 #include "python_format.h"
 #include <nlohmann/json.hpp>

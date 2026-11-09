@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """E3.7 clone fidelity: replace the certified node equations by the equations a trace-guided
-family accepted (T1.2), keep every other node, and write the graph for c3/decompile.py.
+family accepted (T1.2), keep every other node, and write the graph for recover-program.
 usage: e37_clone.py GRAPH_JSON ACCEPTED_JSON FAMILY OUT_GRAPH_JSON"""
 import json, sys
 g = json.load(open(sys.argv[1])); acc = json.load(open(sys.argv[2]))[sys.argv[3]]

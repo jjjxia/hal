@@ -4,7 +4,7 @@
 # usage: e6_run.sh SEED K N          results in build/e6/s<SEED>_k<K>_n<N>/
 set -uo pipefail
 seed=$1; K=$2; N=$3
-H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation/scale; B=$H/build/e6; PY=$H/build/c3_venv/bin/python
+H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation/scale; B=$H/build/e6; PY=$H/build/python_venv/bin/python
 D=$B/s${seed}_k${K}_n${N}; G=$D/gen
 [ -e "$D/score.json" ] && { echo "$(basename $D): done"; exit 0; }
 [ -e "$D" ] && mv "$D" "$D.prev.$(date +%s)"   # keep an earlier attempt; never delete

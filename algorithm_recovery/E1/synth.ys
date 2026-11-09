@@ -1,5 +1,0 @@
-read_verilog biquad2_folded.v
-synth_xilinx -flatten -nodsp -nosrl -top biquad2_folded
-opt_clean -purge
-write_verilog -noattr -noexpr build/biquad2_folded_xilinx.v
-stat

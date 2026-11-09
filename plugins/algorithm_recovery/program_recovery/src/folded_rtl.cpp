@@ -1,6 +1,5 @@
 // Folded-RTL backend: certified event graph -> cycle-accurate Verilog with recovered word registers, validated
-// with Icarus against the original-gate trace (port of program_recovery_python/emit_rtl.py).
-// The module header keeps the reference's text "c3/emit_rtl.py" so that outputs stay byte-identical.
+// with Icarus against the original-gate trace.
 #include "event_graph.h"
 #include "python_printer.h"
 #include "python_json.h"
@@ -362,7 +361,7 @@ namespace program_recovery
             ports.push_back("output reg [" + std::to_string(mx) + ":0] " + p);
         }
         std::vector<std::string> module{
-            "// Recovered folded RTL (c3/emit_rtl.py): " + std::to_string(written.size()) + " word registers, cycle counter of " + std::to_string(NC) + " cycles",
+            "// Recovered folded RTL (recover-program rtl): " + std::to_string(written.size()) + " word registers, cycle counter of " + std::to_string(NC) + " cycles",
             "// (certified schedule, graph period " + std::to_string(R.P) + " events, origin " + std::to_string(R.origin) + "); valid from the origin under the protocol.",
             "module recovered(" + join(ports, ", ") + ");",
             "reg [" + std::to_string(cbits - 1) + ":0] cyc;"};

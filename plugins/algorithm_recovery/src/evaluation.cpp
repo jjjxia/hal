@@ -8,26 +8,26 @@ namespace hal::algorithm_recovery
     namespace
     {
         void require(bool value, const std::string& why) { if (!value) throw std::runtime_error(why); }
-    }
-    Integer wrap(const Integer& value, unsigned width)
-    {
-        require(width > 0, "zero-width bit vector");
-        const Integer modulus = Integer(1) << width; Integer result = value % modulus;
-        if (result < 0) result += modulus;
-        return result;
-    }
-    Integer signed_value(const Integer& value, unsigned width)
-    {
-        Integer result = wrap(value, width);
-        if (boost::multiprecision::bit_test(result, width - 1)) result -= Integer(1) << width;
-        return result;
-    }
-    Integer floor_div(const Integer& numerator, const Integer& denominator)
-    {
-        require(denominator > 0, "floor division requires a positive denominator");
-        Integer q = numerator / denominator;
-        if (numerator < 0 && numerator % denominator != 0) --q;
-        return q;
+        Integer wrap(const Integer& value, unsigned width)
+        {
+            require(width > 0, "zero-width bit vector");
+            const Integer modulus = Integer(1) << width; Integer result = value % modulus;
+            if (result < 0) result += modulus;
+            return result;
+        }
+        Integer signed_value(const Integer& value, unsigned width)
+        {
+            Integer result = wrap(value, width);
+            if (boost::multiprecision::bit_test(result, width - 1)) result -= Integer(1) << width;
+            return result;
+        }
+        Integer floor_div(const Integer& numerator, const Integer& denominator)
+        {
+            require(denominator > 0, "floor division requires a positive denominator");
+            Integer q = numerator / denominator;
+            if (numerator < 0 && numerator % denominator != 0) --q;
+            return q;
+        }
     }
     BitVectorProgram::BitVectorProgram(const z3::expr& expression)
     {

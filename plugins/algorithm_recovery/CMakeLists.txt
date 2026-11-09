@@ -15,32 +15,23 @@ if(PL_ALGORITHM_RECOVERY OR BUILD_ALL_PLUGINS)
             message(FATAL_ERROR "algorithm_recovery requires ${dependency}=ON")
         endif()
     endforeach()
+    # Netlist -> certified event graph (hal-recover import, groups, trace, graph).
     hal_add_plugin(algorithm_recovery SHARED
-        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/memory.h include/algorithm_recovery/folding.h include/algorithm_recovery/frontend.h include/algorithm_recovery/grouping.h include/algorithm_recovery/observations.h include/algorithm_recovery/guided.h include/algorithm_recovery/evaluation.h include/algorithm_recovery/arithmetic.h include/algorithm_recovery/lifting.h
-        SOURCES src/plugin_algorithm_recovery.cpp src/memory.cpp src/folding.cpp src/frontend.cpp src/grouping.cpp src/observations.cpp src/guided.cpp src/evaluation.cpp src/arithmetic.cpp src/lifting.cpp
+        HEADER include/algorithm_recovery/plugin_algorithm_recovery.h include/algorithm_recovery/frontend.h
+               include/algorithm_recovery/grouping.h include/algorithm_recovery/observations.h include/algorithm_recovery/taint.h
+               include/algorithm_recovery/certify.h include/algorithm_recovery/memory.h include/algorithm_recovery/guided.h
+               include/algorithm_recovery/evaluation.h include/algorithm_recovery/memory_replay.h include/algorithm_recovery/folding.h
+        SOURCES src/plugin_algorithm_recovery.cpp src/frontend.cpp src/grouping.cpp src/observations.cpp src/taint.cpp
+                src/certify.cpp src/memory.cpp src/guided.cpp src/evaluation.cpp src/memory_replay.cpp src/folding.cpp src/artifacts.h
         LINK_LIBRARIES PUBLIC sequential_symbolic_execution nlohmann_json::nlohmann_json dataflow module_identification bitorder_propagation PRIVATE ${RECOVERY_SODIUM_LIBRARY})
     target_include_directories(algorithm_recovery PRIVATE ${RECOVERY_SODIUM_INCLUDE})
-    target_sources(algorithm_recovery PRIVATE src/routing.cpp include/algorithm_recovery/routing.h)
-    # Embed the exact standalone support sources so installed HAL can export
-    # programs without depending on this checkout at runtime.
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS standalone/recovery_bits.h standalone/recovery_runtime.h standalone/recovery_state.h)
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/standalone/recovery_bits.h RECOVERY_BITS)
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/standalone/recovery_runtime.h RECOVERY_RUNTIME)
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/standalone/recovery_state.h RECOVERY_STATE_RUNTIME)
-    file(READ ${CMAKE_SOURCE_DIR}/deps/nlohmann_json/nlohmann/json.hpp RECOVERY_JSON)
-    configure_file(src/program_resources.h.in ${CMAKE_CURRENT_BINARY_DIR}/program_resources.h @ONLY)
-    target_include_directories(algorithm_recovery PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-    target_sources(algorithm_recovery PRIVATE src/cpp_function.cpp src/cpp_arithmetic.cpp src/program.cpp src/resynthesis.cpp include/algorithm_recovery/program.h)
-    target_sources(algorithm_recovery PRIVATE src/structured_schedule.cpp src/structured_schedule.h)
-    target_sources(algorithm_recovery PRIVATE src/resynthesis_replay.cpp)
-    target_sources(algorithm_recovery PRIVATE src/state_machine.cpp src/state_driver.cpp src/state_driver.h include/algorithm_recovery/state_machine.h)
-    target_sources(algorithm_recovery PRIVATE src/state_replay.cpp)
-    target_sources(algorithm_recovery PRIVATE src/replay.cpp src/process.cpp src/process.h include/algorithm_recovery/replay.h)
-    target_sources(algorithm_recovery PRIVATE src/taint.cpp include/algorithm_recovery/taint.h src/certify.cpp include/algorithm_recovery/certify.h)
 
     add_executable(hal-recover cli/main.cpp)
     target_link_libraries(hal-recover PRIVATE algorithm_recovery)
     install(TARGETS hal-recover RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    # Event graph -> untimed programs and folded RTL (recover-program generate, rtl); does not link HAL.
+    add_subdirectory(program_recovery)
 
     if(ALGORITHM_RECOVERY_TESTS)
         enable_testing()

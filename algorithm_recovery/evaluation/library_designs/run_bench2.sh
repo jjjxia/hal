@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Frozen per-case pipeline for the bench2 held-out set (see C2C3_BENCHMARKS_FROZEN.txt).
+# Per-case pipeline (see C2C3_BENCHMARKS_FROZEN.txt): import, word groups, original-gate trace, then one `graph` run that
+# writes the schedule certificate (graph/certificate/) and the event graph (graph/graph_training.json); variant trace
+# and the cross-run taint check. Until 2026-11-08 a separate `analyze` stage wrote the same certificate to analysis/.
 # usage: run_bench2.sh CASE_DIRECTORY   (prepared by prepare_bench2.py)
 set -uo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
@@ -22,11 +24,11 @@ window=$(python3 -c "import json;print(len(json.load(open('$in/stimulus.json'))[
 stage import "$cli" import "$in/recovered.json" "$repo/plugins/gate_libraries/definitions/ice40ultra_hal.hgl" "$case_dir/import" || exit 1
 stage groups "$cli" groups "$case_dir/import/import.hal" "$case_dir/groups" --mi-types counter,addition --mi-controls 3 --mi-threads 1 --dana-threads 1 || exit 1
 stage trace "$cli" trace "$in/recovered.json" "$in/recovered.v" /usr/share/yosys/ice40/cells_sim.v "$case_dir/trace" --stimulus-json "$in/stimulus.json" || exit 1
-stage analyze "$cli" analyze "$case_dir/groups/ordered.hal" "$case_dir/groups/groups.json" "$in/recovered.json" "$case_dir/trace" "$case_dir/analysis" \
+stage graph "$cli" graph "$case_dir/groups/ordered.hal" "$case_dir/groups/groups.json" "$in/recovered.json" "$case_dir/trace" "$case_dir/graph" \
     --window "$window" --profiles training --protocol "$in/protocol.json"
 python3 "$repo/algorithm_recovery/evaluation/library_designs/variant_stimulus.py" "$in/stimulus.json" "$in/protocol.json" "$case_dir/variant_stimulus.json" 20261103
 stage variant_trace "$cli" trace "$in/recovered.json" "$in/recovered.v" /usr/share/yosys/ice40/cells_sim.v "$case_dir/variant_trace" --stimulus-json "$case_dir/variant_stimulus.json"
-if [[ -f "$case_dir/analysis/certificate/taint_observed.txt" ]]; then
-    stage crossrun python3 "$repo/algorithm_recovery/evaluation/check_taint_crossrun.py" "$case_dir/analysis/certificate" "$case_dir/trace" "$case_dir/variant_trace"
+if [[ -f "$case_dir/graph/certificate/taint_observed.txt" ]]; then
+    stage crossrun python3 "$repo/algorithm_recovery/evaluation/check_taint_crossrun.py" "$case_dir/graph/certificate" "$case_dir/trace" "$case_dir/variant_trace"
 fi
 echo DONE >> "$receipt"

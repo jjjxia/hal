@@ -1,5 +1,5 @@
 // Untimed transaction programs from a certified event graph: flat program and roll-up
-// (port of decompile.py steps 3-4; lifting is added by lifted.cpp).
+// (lifting is added by lifted_program.cpp).
 #pragma once
 #include "event_graph.h"
 #include "python_printer.h"

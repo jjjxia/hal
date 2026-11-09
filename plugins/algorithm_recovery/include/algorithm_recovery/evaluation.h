@@ -8,13 +8,9 @@
 namespace hal::algorithm_recovery
 {
     using Integer = boost::multiprecision::cpp_int;
-    Integer wrap(const Integer& value, unsigned width);
-    Integer signed_value(const Integer& value, unsigned width);
-    Integer floor_div(const Integer& numerator, const Integer& positive_denominator);
 
-    // Native, arbitrary-width evaluation of the same Boolean/BV operations
-    // supported by InvFold's SMT2 compiler. Unsupported ASTs fail at construction.
-    // Sources and operations are taken from the actual Z3 DAG, never Python text.
+    // Native, arbitrary-width evaluation of a Boolean/bit-vector z3 term (used for the RAM port
+    // functions in memory_replay.cpp). Unsupported ASTs fail at construction.
     class BitVectorProgram
     {
     public:
@@ -23,9 +19,6 @@ namespace hal::algorithm_recovery
         unsigned width() const { return m_steps.back().width; } // 0 means Boolean
         Integer evaluate(const std::vector<Integer>& inputs) const;
         Integer evaluate(const std::map<std::string, Integer>& inputs) const;
-        // Restricted, readable C++ statement sequence. Its saved text is parsed
-        // independently and universally checked before program export succeeds.
-        std::string cpp_function(const std::string& identifier) const;
     private:
         struct Step
         {

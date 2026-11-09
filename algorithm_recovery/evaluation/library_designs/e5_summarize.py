@@ -12,7 +12,7 @@ for f in ("stages.jsonl", "e5_stages.jsonl"):
     if os.path.exists(p):
         stages += [json.loads(l) for l in open(p) if l.startswith("{")]
 out["stages"] = stages
-cert = j(f"{D}/analysis/certificate/certificate.json")
+cert = j(f"{D}/graph/certificate/certificate.json")
 G = j(f"{D}/graph/graph_training.json")
 contract = j(f"{D}/input/evaluation_contract.json")
 out["period"] = contract and contract["period_cycles"]
@@ -33,15 +33,16 @@ if G and G.get("available"):
                     "excluded": len(G.get("excluded", {}))}
 # M3/M5 program
 rep = j(f"{D}/program/report.json")
+val = j(f"{D}/program/validation.json") or {}
 if rep:
-    out["program"] = {"status": rep.get("status"), "lines_flat": rep.get("flat_program_lines"),
+    out["program"] = {"status": val.get("status"), "lines_flat": rep.get("flat_program_lines"),
                       "lines_rolled": rep.get("rolled_program_lines"), "lines_lifted": rep.get("program_lines"),
                       "loops": [l.get("iterations") for l in rep.get("loops", [])],
                       "tables": {k: {"inputs": t.get("inputs"), "instances": t.get("instances")} for k, t in rep.get("tables", {}).items()},
-                      "arithmetic": len(rep.get("arithmetic", [])), "validation": rep.get("validation"),
+                      "arithmetic": len(rep.get("arithmetic", [])), "validation": val.get("programs", {}).get("program.py", {}).get("results"),
                       "state_values": rep.get("state_values")}
     if out["outcome"] == "certified; graph":
-        out["outcome"] = "program" if rep.get("status") == "PASS" else f"program {rep.get('status')}"
+        out["outcome"] = "program" if val.get("status") == "PASS" else f"program {val.get('status')}"
 elif G and G.get("available"):
     log = f"{D}/program.log"
     tail = open(log).read().strip().splitlines()[-1:] if os.path.exists(log) else []

@@ -1,9 +1,9 @@
+// hal-recover: netlist -> certified event graph (import, word groups, original-gate trace, certificate, SSE, folding).
 #include "algorithm_recovery/memory.h"
 #include "algorithm_recovery/frontend.h"
 #include "algorithm_recovery/grouping.h"
 #include "algorithm_recovery/observations.h"
 #include "algorithm_recovery/guided.h"
-#include "algorithm_recovery/lifting.h"
 #include "algorithm_recovery/certify.h"
 #include "hal_core/netlist/netlist.h"
 #include "hal_core/netlist/persistent/netlist_serializer.h"
@@ -11,9 +11,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include "algorithm_recovery/program.h"
-#include "algorithm_recovery/replay.h"
-#include "algorithm_recovery/state_machine.h"
+#include "algorithm_recovery/memory_replay.h"
 #include "hal_core/utilities/enums.h"
 #include <limits>
 #include <sstream>
@@ -157,51 +155,32 @@ namespace
 }
 
 
+
 int main(int argc, char** argv)
 {
-    const std::map<std::string, int> arguments{{"extract-ram", 4}, {"groups", 4}, {"import", 5}, {"trace", 6}, {"analyze", 7}, {"synthesize", 5}, {"state", 7}, {"replay-state", 5}, {"certify", 6}, {"graph", 7}};
+    const std::map<std::string, int> arguments{{"import", 5}, {"groups", 4}, {"trace", 6}, {"graph", 7}};
     if (argc < 2 || !arguments.count(argv[1]) || argc < arguments.at(argv[1]))
     {
-        std::cerr << "Usage: hal-recover extract-ram input.hal output.json\n"
-                     "       hal-recover synthesize proved_program_directory arithmetic.json empty_output_directory\n"
-                     "       hal-recover replay-state state_program_directory trace_directory empty_output_directory\n"
-                     "       hal-recover state ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...]\n"
-                     "       hal-recover import recovered.json library.hgl empty_output_directory\n"
+        std::cerr << "Usage: hal-recover import recovered.json library.hgl empty_output_directory\n"
                      "       hal-recover groups input.hal empty_output_directory [--mi-controls 3] [--mi-types all] [--mi-threads 1] [--dana-threads 4]\n"
                      "       hal-recover trace recovered.json recovered.v cells_sim.v empty_output_directory [--profile-length 768] [--profiles zero,one,pattern,irregular] [--seed 20261031]\n"
                      "                         or --stimulus-json physical_pad_stimulus.json (exclusive with profile/length/seed options)\n"
-                     "       hal-recover analyze ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...] [--compare-window N] [--protocol pad_protocol.json]\n"
-                     "       hal-recover graph (same arguments as analyze): certificate, SSE and folding only; writes graph_<profile>.json\n"
-                     "       hal-recover certify recovered.json trace_directory pad_protocol.json empty_output_directory [--horizon N]\n"
-                     "Native HAL import/grouping, original-gate trace, SSE/folding, checked lifting, C++ export and coupled replay.\n";
+                     "       hal-recover graph ordered.hal groups.json recovered.json trace_directory empty_output_directory [--window 512] [--profiles PROFILE,...]\n"
+                     "                         [--protocol pad_protocol.json] [--align-certificate 1] [--ablation-trace-controls 1]\n"
+                     "Native HAL import and word grouping, original-gate trace, schedule certificate, certified SSE word equations\n"
+                     "and the event graph (certificate/, graph_<profile>.json, fold_report.json).\n";
         return 2;
     }
     try
     {
         const std::map<std::string, std::set<std::string>> accepted{
             {"groups", {"--mi-controls", "--mi-types", "--mi-threads", "--dana-threads"}},
-            {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}}, {"analyze", {"--window", "--profiles", "--compare-window", "--protocol"}},
-            {"state", {"--window", "--profiles", "--protocol"}}, {"certify", {"--horizon"}},
+            {"trace", {"--profile-length", "--profiles", "--seed", "--stimulus-json"}},
             {"graph", {"--window", "--profiles", "--protocol", "--ablation-trace-controls", "--align-certificate"}}};
-        const auto allowed = accepted.count(argv[1]) ? accepted.at(argv[1]) : std::set<std::string>{};
-        const auto options = parse_options(argc, argv, arguments.at(argv[1]), allowed);
-        if (std::string(argv[1]) == "replay-state")
-        {
-            const auto trace = hal::algorithm_recovery::Observations::load(argv[3]);
-            auto replay = hal::algorithm_recovery::replay_state_machine(argv[2], trace, argv[3], argv[4]);
-            if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
-            std::cout << replay.get().dump(2) << '\n'; return 0;
-        }
-        if (std::string(argv[1]) == "synthesize")
-        {
-            z3::context ctx;
-            auto result = hal::algorithm_recovery::resynthesize_program(argv[2], argv[3], argv[4], ctx);
-            if (result.is_error()) throw std::runtime_error(result.get_error().get());
-            auto replay = hal::algorithm_recovery::replay_resynthesis(argv[2], argv[4], std::filesystem::path(argv[4]) / "replay");
-            if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
-            std::cout << result.get().dump(2) << '\n' << replay.get().at("status") << '\n'; return 0;
-        }
-        if (std::string(argv[1]) == "trace")
+        const std::string command = argv[1];
+        const auto allowed = accepted.count(command) ? accepted.at(command) : std::set<std::string>{};
+        const auto options = parse_options(argc, argv, arguments.at(command), allowed);
+        if (command == "trace")
         {
             z3::context ctx;
             if (options.count("--stimulus-json") && (options.count("--profiles") || options.count("--profile-length") || options.count("--seed")))
@@ -216,17 +195,7 @@ int main(int argc, char** argv)
             std::cout << "TRACED " << trace.get().pre.size() << " events, " << trace.get().positions.size() << " observed nets\n";
             return 0;
         }
-        if (std::string(argv[1]) == "certify")
-        {
-            z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[2], ctx);
-            const auto trace = hal::algorithm_recovery::Observations::load(argv[3]);
-            const auto protocol = hal::algorithm_recovery::PadProtocol::load(argv[4], original);
-            auto cert = hal::algorithm_recovery::certify_schedule(original, trace, protocol, ctx, argv[5], number(options, "--horizon", static_cast<u32>(trace.pre.size() - 1)));
-            if (cert.is_error()) throw std::runtime_error(cert.get_error().get());
-            std::cout << cert.get().report.at("status") << '\n';
-            return cert.get().certified ? 0 : 1;
-        }
-        if (std::string(argv[1]) == "import")
+        if (command == "import")
         {
             auto imported = hal::algorithm_recovery::import_recovered(argv[2], argv[3], argv[4]);
             if (imported.is_error()) throw std::runtime_error(imported.get_error().get());
@@ -236,166 +205,7 @@ int main(int argc, char** argv)
         if (!hal::plugin_manager::load("hgl_parser") || !hal::plugin_manager::load("algorithm_recovery"))
             throw std::runtime_error("cannot load hgl_parser or algorithm_recovery");
         auto nl = hal::netlist_serializer::deserialize_from_file(argv[2]);
-        if (std::string(argv[1]) == "analyze" || std::string(argv[1]) == "state" || std::string(argv[1]) == "graph")
-        {
-            nlohmann::json groups; std::ifstream(argv[3]) >> groups;
-            z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[4], ctx);
-            auto trace = hal::algorithm_recovery::Observations::load(argv[5]);
-            const auto profiles_to_analyze = options.count("--profiles") ? list(options.at("--profiles")) : std::vector<std::string>{};
-            const auto window = number(options, "--window", 512), comparison_window = number(options, "--compare-window", 0);
-            if (options.count("--compare-window") && (!comparison_window || comparison_window > window))
-                throw std::runtime_error("comparison window must be positive and no larger than extraction window");
-            std::optional<hal::algorithm_recovery::ScheduleCertificate> certificate;
-            if (options.count("--protocol"))
-            {
-                const auto out = std::filesystem::absolute(argv[6]);
-                if (std::filesystem::exists(out) && !std::filesystem::is_empty(out)) throw std::runtime_error("analysis output directory must be empty");
-                const auto protocol = hal::algorithm_recovery::PadProtocol::load(options.at("--protocol"), original);
-                size_t horizon = 0;
-                for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
-                    if (profiles_to_analyze.empty() || std::find(profiles_to_analyze.begin(), profiles_to_analyze.end(), it.key()) != profiles_to_analyze.end())
-                        horizon = std::max<size_t>(horizon, it.value().back().get<size_t>() + 1);
-                auto cert = hal::algorithm_recovery::certify_schedule(original, trace, protocol, ctx, out / "certificate", horizon);
-                if (cert.is_error()) throw std::runtime_error(cert.get_error().get());
-                certificate = std::move(cert.get());
-                std::cout << "CERTIFICATE " << certificate->report.at("status") << std::endl;
-            }
-            u32 extraction_window = window;
-            if (certificate && certificate->certified)
-            {
-                // Extract only inside the certified periodic region: prefix events
-                // before the schedule origin are B-steps, not periodic phases.
-                for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
-                    if (profiles_to_analyze.empty() || std::find(profiles_to_analyze.begin(), profiles_to_analyze.end(), it.key()) != profiles_to_analyze.end())
-                    {
-                        const auto end = it.value().back().get<u64>() + 1;
-                        if (end <= certificate->origin) throw std::runtime_error("profile window ends before the certified schedule origin");
-                        extraction_window = static_cast<u32>(std::min<u64>(extraction_window, end - certificate->origin));
-                    }
-                if (extraction_window != window) std::cout << "WINDOW clipped to certified region: " << extraction_window << std::endl;
-            }
-            // Evaluation-only ablation: keep the certificate (windows, per-phase constants) but extract
-            // equations with EVERY FF control fixed to its trace value, as trace-guided recovery does.
-            const bool ablation = options.count("--ablation-trace-controls") != 0;
-            if (ablation) std::cout << "ABLATION: all FF controls concretized to trace values (not a certified extraction)" << std::endl;
-            auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], extraction_window, profiles_to_analyze,
-                certificate && !ablation ? &certificate->taint : nullptr);
-            if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
-            if (std::string(argv[1]) == "state")
-            {
-                auto result = hal::algorithm_recovery::export_state_machine(nl.get(), groups, original, analyzed.get(), std::filesystem::path(argv[6]) / "state_machine", ctx);
-                if (result.is_error()) throw std::runtime_error(result.get_error().get());
-                auto replay = hal::algorithm_recovery::replay_state_machine(std::filesystem::path(argv[6]) / "state_machine", trace, argv[5], std::filesystem::path(argv[6]) / "state_replay");
-                if (replay.is_error()) throw std::runtime_error(replay.get_error().get());
-                std::cout << replay.get().dump(2) << '\n'; return 0;
-            }
-            auto warmed = hal::algorithm_recovery::replay_memories(analyzed.get(), original, trace,
-                std::filesystem::path(argv[5]) / "native_ram_final.txt", std::filesystem::path(argv[6]) / "memory_replay");
-            if (warmed.is_error()) throw std::runtime_error(warmed.get_error().get());
-            nlohmann::json profiles = nlohmann::json::object();
-            nlohmann::json replays = nlohmann::json::object();
-            bool periodic_replay_failed = false;
-            hal::algorithm_recovery::ArithmeticRecovery arithmetic;
-            // --align-certificate 1: unfold the graph to a multiple of the certificate period, so that the
-            // certificate's per-event constants are constants of each graph phase (needed by C3 specialisation).
-            const bool align = options.count("--align-certificate") && options.at("--align-certificate") != "0";
-            if (align && !(certificate && certificate->certified && certificate->period > 0))
-                throw std::runtime_error("--align-certificate needs a certified schedule (--protocol)");
-            for (const auto& [name, window_input] : analyzed.get().windows)
-            {
-                auto input = window_input;
-                if (align) input.period_multiple = certificate->period;
-                auto folded = hal::algorithm_recovery::fold_observed(input, ctx);
-                if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
-                const auto& graph = folded.get();
-                profiles[name] = fold_diagnostic(graph, input);
-                {
-                    std::optional<hal::algorithm_recovery::PadProtocol> protocol_for_dump;
-                    if (options.count("--protocol")) protocol_for_dump = hal::algorithm_recovery::PadProtocol::load(options.at("--protocol"), original);
-                    dump_graph(std::filesystem::path(argv[6]) / ("graph_" + name + ".json"), graph, input, original,
-                               certificate ? &*certificate : nullptr, protocol_for_dump ? &*protocol_for_dump : nullptr, ctx);
-                }
-                if (std::string(argv[1]) == "graph") { std::cout << "GRAPH " << name << ' ' << profiles[name].dump() << std::endl; continue; }
-                if (options.count("--compare-window"))
-                {
-                    const auto length = comparison_window;
-                    hal::algorithm_recovery::FoldInput smaller; smaller.length = length; smaller.start = input.start + input.length - length;
-                    smaller.inputs = input.inputs; smaller.memories = input.memories;
-                    for (const auto& [word_name, word] : input.words)
-                    {
-                        hal::algorithm_recovery::WordWindow row; row.bits = word.bits; row.numeric_order_known = word.numeric_order_known;
-                        row.writes.assign(word.writes.end() - length, word.writes.end()); row.equations.assign(word.equations.end() - length, word.equations.end());
-                        smaller.words.emplace(word_name, std::move(row));
-                    }
-                    auto comparison = hal::algorithm_recovery::fold_observed(smaller, ctx);
-                    if (comparison.is_error()) throw std::runtime_error(comparison.get_error().get());
-                    profiles[name]["comparison"] = fold_diagnostic(comparison.get(), smaller);
-                    profiles[name]["comparison"]["scope"] = "Diagnostic only: exact suffix of the same proved extraction; no graph replacement or exclusion of newly periodic words";
-                }
-                std::cout << "FOLDED " << name << ' ' << profiles[name].dump() << std::endl;
-                auto routing = hal::algorithm_recovery::recover_routing(graph, input, std::filesystem::path(argv[6]) / ("routing_" + name));
-                if (routing.is_error()) throw std::runtime_error(routing.get_error().get());
-                profiles[name]["routing_groups"] = routing.get().accepted.size();
-                std::cout << "ROUTING " << name << ' ' << routing.get().accepted.size() << " accepted" << std::endl;
-                auto lifted = hal::algorithm_recovery::lift_arithmetic(graph, arithmetic, std::filesystem::path(argv[6]) / ("lift_" + name), routing.get());
-                if (lifted.is_error()) throw std::runtime_error(lifted.get_error().get());
-                profiles[name]["arithmetic_counts"] = lifted.get().at("counts");
-                profiles[name]["fit_calls"] = lifted.get().at("fit_calls");
-                std::cout << "LIFTED " << name << ' ' << lifted.get().at("counts").dump() << std::endl;
-                auto program = hal::algorithm_recovery::export_program(graph, std::filesystem::path(argv[6]) / ("program_" + name), {}, lifted.get());
-                if (program.is_error()) throw std::runtime_error(program.get_error().get());
-                profiles[name]["program_status"] = program.get().at("status");
-                auto replay = hal::algorithm_recovery::replay_program(name, graph, analyzed.get(), trace, warmed.get(),
-                    std::filesystem::path(argv[6]) / ("program_" + name), std::filesystem::path(argv[6]) / ("replay_" + name));
-                if (replay.is_error())
-                {
-                    periodic_replay_failed = true;
-                    replays[name] = {{"status", "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_FAILED"}, {"reason", replay.get_error().get()}};
-                    std::cerr << "REPLAY_FAILED " << name << ' ' << replay.get_error().get() << '\n';
-                }
-                else replays[name] = replay.get();
-                profiles[name]["replay_status"] = replays.at(name).at("status");
-            }
-            nlohmann::json certificate_summary;
-            if (certificate)
-            {
-                certificate_summary = {{"status", certificate->report.at("status")}, {"certified", certificate->certified},
-                    {"origin", certificate->origin}, {"period", certificate->period}, {"report", "certificate/certificate.json"},
-                    {"concretization", analyzed.get().report.at("concretization")}, {"complete_update_words", analyzed.get().report.at("complete_update_words")},
-                    {"requested_window", window}, {"extraction_window", extraction_window}};
-                for (auto& [name, row] : profiles.items()) row["certificate"] = certificate_summary;
-            }
-            std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
-            if (std::string(argv[1]) == "graph") return 0;
-            if (!stream) throw std::runtime_error("cannot save fold report");
-            bool executed = false;
-            for (const auto& replay : replays) executed |= replay.at("status") == "SAVED_PROGRAM_ORIGINAL_GATE_REPLAY_PASS";
-            nlohmann::json verified = {{"status", executed ? "NATIVE_CPP_CHAIN_AUDITED" : "NO_EXECUTABLE_GRAPH"}, {"profiles", replays}, {"ram", warmed.get().report},
-                {"groups", analyzed.get().report.at("groups")}, {"FF_bits", analyzed.get().report.at("FF_bits")},
-                {"HAL_SSE_calls", analyzed.get().report.at("HAL_calls")}, {"RAM_port_proofs", analyzed.get().report.at("RAM_port_proofs")},
-                {"observation_files", trace.metadata.at("files")}, {"manual_semantic_inputs", trace.metadata.value("manual_semantic_inputs", nlohmann::json::array())},
-                {"scope", "Native HAL grouping/order, conditional guided SSE, observed folding, checked routing/arithmetic, saved C++ expression proofs and original-gate training/withheld coupled replay. Explicit FF cuts, unresolved orders and observed schedules remain limitations; no whole-device equivalence claim."}};
-            const auto state_path = std::filesystem::path(argv[6]) / "state_machine";
-            auto state_program = hal::algorithm_recovery::export_state_machine(nl.get(), groups, original, analyzed.get(), state_path, ctx);
-            bool state_pass = false;
-            if (state_program.is_error()) verified["state_machine"] = {{"status", "STATE_EXPORT_FAILED"}, {"reason", state_program.get_error().get()}};
-            else
-            {
-                verified["state_machine"]["program"] = state_program.get();
-                auto state_replay = hal::algorithm_recovery::replay_state_machine(state_path, trace, argv[5], std::filesystem::path(argv[6]) / "state_replay");
-                if (state_replay.is_error()) verified["state_machine"]["replay"] = {{"status", "STATE_REPLAY_FAILED"}, {"reason", state_replay.get_error().get()}};
-                else { state_pass = true; verified["state_machine"]["replay"] = state_replay.get(); }
-            }
-            verified["state_machine"]["scope"] = "Separate guarded event backend includes all FF/RAM storage, clocks/resets/enable/hold and unconditional fallbacks. No global observed period required. Proof scope and finite replay/X limitations are in its own receipts.";
-            verified["status"] = !state_pass ? "PARTIAL_RECOVERY_STATE_STAGE_FAILED" : periodic_replay_failed ? "PARTIAL_RECOVERY_PERIODIC_REPLAY_FAILED"
-                : executed ? "NATIVE_CPP_PERIODIC_AND_STATE_CHAIN_AUDITED" : "NATIVE_CPP_STATE_CHAIN_AUDITED";
-            if (certificate) verified["certificate"] = certificate_summary;
-            std::ofstream receipt(std::filesystem::path(argv[6]) / "native_verified.json"); receipt << verified.dump(2) << '\n';
-            if (!receipt) throw std::runtime_error("cannot save native verification report");
-            if (!state_pass) std::cerr << verified["state_machine"].dump(2) << '\n';
-            return state_pass && !periodic_replay_failed ? 0 : 1;
-        }
-        if (std::string(argv[1]) == "groups")
+        if (command == "groups")
         {
             const auto out = std::filesystem::absolute(argv[3]);
             if (std::filesystem::exists(out) && !std::filesystem::is_empty(out)) throw std::runtime_error("group output directory must be empty");
@@ -423,31 +233,87 @@ int main(int argc, char** argv)
             if (!hal::netlist_serializer::serialize_to_file(nl.get(), out / "ordered.hal")) throw std::runtime_error("cannot save ordered netlist");
             return 0;
         }
-        z3::context ctx;
-        auto result = hal::algorithm_recovery::extract_ice40_rams(nl.get(), ctx);
-        if (result.is_error())
-            throw std::runtime_error(result.get_error().get());
-        nlohmann::json out = {{"schema", 1}, {"status", "RAM_PORTS_EXTRACTED"},
-            {"semantics", "SB_RAM40_4K mode 0, read-before-write, MASK, INIT; read register initially unconstrained"},
-            {"memories", nlohmann::json::object()}};
-        for (const auto& ram : result.get())
+        // graph
+        nlohmann::json groups; std::ifstream(argv[3]) >> groups;
+        z3::context ctx; hal::algorithm_recovery::OriginalCircuit original(argv[4], ctx);
+        auto trace = hal::algorithm_recovery::Observations::load(argv[5]);
+        const auto profiles_to_analyze = options.count("--profiles") ? list(options.at("--profiles")) : std::vector<std::string>{};
+        const auto window = number(options, "--window", 512);
+        std::optional<hal::algorithm_recovery::ScheduleCertificate> certificate;
+        if (options.count("--protocol"))
         {
-            auto& row = out["memories"][ram.name];
-            row = {{"gate_id", ram.gate_id}, {"rclk", ram.read_clock}, {"wclk", ram.write_clock},
-                   {"initial", ram.initial}, {"pins", ram.pins}};
-            for (const auto& [port, term] : ram.ports)
-                row["functions"][port] = {{"width", term.get_sort().bv_size()}, {"smt2", term.to_string()}};
+            const auto out = std::filesystem::absolute(argv[6]);
+            if (std::filesystem::exists(out) && !std::filesystem::is_empty(out)) throw std::runtime_error("graph output directory must be empty");
+            const auto protocol = hal::algorithm_recovery::PadProtocol::load(options.at("--protocol"), original);
+            size_t horizon = 0;
+            for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
+                if (profiles_to_analyze.empty() || std::find(profiles_to_analyze.begin(), profiles_to_analyze.end(), it.key()) != profiles_to_analyze.end())
+                    horizon = std::max<size_t>(horizon, it.value().back().get<size_t>() + 1);
+            auto cert = hal::algorithm_recovery::certify_schedule(original, trace, protocol, ctx, out / "certificate", horizon);
+            if (cert.is_error()) throw std::runtime_error(cert.get_error().get());
+            certificate = std::move(cert.get());
+            std::cout << "CERTIFICATE " << certificate->report.at("status") << std::endl;
         }
-        std::ofstream stream(argv[3]);
-        stream << out.dump(2) << '\n';
-        if (!stream)
-            throw std::runtime_error("cannot write output");
-        std::cout << "Extracted " << result.get().size() << " RAMs using native HAL SSE\n";
+        u32 extraction_window = window;
+        if (certificate && certificate->certified)
+        {
+            // Extract only inside the certified periodic region: prefix events
+            // before the schedule origin are B-steps, not periodic phases.
+            for (auto it = trace.metadata.at("windows").begin(); it != trace.metadata.at("windows").end(); ++it)
+                if (profiles_to_analyze.empty() || std::find(profiles_to_analyze.begin(), profiles_to_analyze.end(), it.key()) != profiles_to_analyze.end())
+                {
+                    const auto end = it.value().back().get<u64>() + 1;
+                    if (end <= certificate->origin) throw std::runtime_error("profile window ends before the certified schedule origin");
+                    extraction_window = static_cast<u32>(std::min<u64>(extraction_window, end - certificate->origin));
+                }
+            if (extraction_window != window) std::cout << "WINDOW clipped to certified region: " << extraction_window << std::endl;
+        }
+        // Evaluation-only ablation: keep the certificate (windows, per-phase constants) but extract
+        // equations with EVERY FF control fixed to its trace value, as trace-guided recovery does.
+        const bool ablation = options.count("--ablation-trace-controls") != 0;
+        if (ablation) std::cout << "ABLATION: all FF controls concretized to trace values (not a certified extraction)" << std::endl;
+        auto analyzed = hal::algorithm_recovery::analyze_observations(nl.get(), groups, original, trace, ctx, argv[6], extraction_window, profiles_to_analyze,
+            certificate && !ablation ? &certificate->taint : nullptr);
+        if (analyzed.is_error()) throw std::runtime_error(analyzed.get_error().get());
+        // Check the extracted RAM port model against the trace and the final RAM dump (memory_replay/).
+        auto warmed = hal::algorithm_recovery::replay_memories(analyzed.get(), original, trace,
+            std::filesystem::path(argv[5]) / "native_ram_final.txt", std::filesystem::path(argv[6]) / "memory_replay");
+        if (warmed.is_error()) throw std::runtime_error(warmed.get_error().get());
+        // --align-certificate 1: unfold the graph to a multiple of the certificate period, so that the
+        // certificate's per-event constants are constants of each graph phase (needed by program recovery).
+        const bool align = options.count("--align-certificate") && options.at("--align-certificate") != "0";
+        if (align && !(certificate && certificate->certified && certificate->period > 0))
+            throw std::runtime_error("--align-certificate needs a certified schedule (--protocol)");
+        std::optional<hal::algorithm_recovery::PadProtocol> protocol_for_dump;
+        if (options.count("--protocol")) protocol_for_dump = hal::algorithm_recovery::PadProtocol::load(options.at("--protocol"), original);
+        nlohmann::json profiles = nlohmann::json::object();
+        for (const auto& [name, window_input] : analyzed.get().windows)
+        {
+            auto input = window_input;
+            if (align) input.period_multiple = certificate->period;
+            auto folded = hal::algorithm_recovery::fold_observed(input, ctx);
+            if (folded.is_error()) throw std::runtime_error(folded.get_error().get());
+            const auto& graph = folded.get();
+            profiles[name] = fold_diagnostic(graph, input);
+            dump_graph(std::filesystem::path(argv[6]) / ("graph_" + name + ".json"), graph, input, original,
+                       certificate ? &*certificate : nullptr, protocol_for_dump ? &*protocol_for_dump : nullptr, ctx);
+            std::cout << "GRAPH " << name << ' ' << profiles[name].dump() << std::endl;
+        }
+        if (certificate)
+        {
+            const nlohmann::json certificate_summary = {{"status", certificate->report.at("status")}, {"certified", certificate->certified},
+                {"origin", certificate->origin}, {"period", certificate->period}, {"report", "certificate/certificate.json"},
+                {"concretization", analyzed.get().report.at("concretization")}, {"complete_update_words", analyzed.get().report.at("complete_update_words")},
+                {"requested_window", window}, {"extraction_window", extraction_window}};
+            for (auto& [name, row] : profiles.items()) row["certificate"] = certificate_summary;
+        }
+        std::ofstream stream(std::filesystem::path(argv[6]) / "fold_report.json"); stream << profiles.dump(2) << '\n';
+        if (!stream) throw std::runtime_error("cannot save fold report");
+        return 0;
     }
     catch (const std::exception& e)
     {
         std::cerr << e.what() << '\n';
         return 1;
     }
-    return 0;
 }

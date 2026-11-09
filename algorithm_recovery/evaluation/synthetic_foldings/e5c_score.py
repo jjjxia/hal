@@ -4,7 +4,7 @@
 usage: e5c_score.py CASE_DIR TRUTH_JSON SYNTH_JSON GRAPH_JSON OUT_JSON
 Mapping (evaluation side only): recovered words -> RTL registers through the synthesized netlist's names (anonymisation
 keeps physical bit ids); data pads -> x0/x1 through the evaluation contract. A recovered event (word, phase) is placed at
-the transaction-relative cycle floor(((phase - shift) mod P) / 2), shift = (first_event - origin) mod P, as in c3/decompile.py.
+the transaction-relative cycle floor(((phase - shift) mod P) / 2), shift = (first_event - origin) mod P, as in recover-program (program_recovery/src/event_graph.cpp).
 Per DFG node v (per parity copy for the rotate control):
   found     an event of v's register at v's slot;
   edges     its operands, after collapsing the copy registers d_<u>_<k> (delays add up), equal v's operands as a set of
@@ -65,7 +65,7 @@ result["words_merging_registers"] = merged
 
 shift = (contract["first_event"] - G["origin"]) % P
 cycle_of = lambda phase: ((phase - shift) % P) // 2
-rho = lambda phase: -1 if phase < shift else 0     # graph -> transaction sample coordinates (Theorem 5), as c3/decompile.py
+rho = lambda phase: -1 if phase < shift else 0     # graph -> transaction sample coordinates (Theorem 5), as recover-program
 tdelay = lambda ev_phase, src: src["delay"] + rho(ev_phase) - rho(src["phase"])
 events = {(n["name"], n["phase"]): n for n in G["nodes"]}
 nphases = len(next(iter(G["words"].values()))["certified_known_lsb_first"])

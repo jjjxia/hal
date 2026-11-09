@@ -1,4 +1,4 @@
-// Python code printer for z3 bit-vector expressions (port of decompile.py's Printer).
+// Python code printer for z3 bit-vector expressions.
 #pragma once
 #include "python_format.h"
 #include <z3++.h>

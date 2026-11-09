@@ -9,7 +9,7 @@ namespace program_recovery
 
     std::vector<z3::expr> z3_vars(const z3::expr& expr)
     {
-        // Same traversal as decompile.py: DFS with an explicit stack, children pushed in order.
+        // DFS with an explicit stack, children pushed in order.
         std::unordered_set<unsigned> seen;
         std::vector<z3::expr> out, stack{expr};
         while (!stack.empty())
@@ -144,7 +144,7 @@ namespace program_recovery
         {
             const std::string smt2 = n.at("smt2").get<std::string>();
             z3::expr e = parse(smt2);
-            Node node{specialise(e, n.at("phase").get<long long>()), e};
+            Node node{specialise(e, n.at("phase").get<long long>()), e, {}, 0, 0, {}, 0};
             for (const auto& s : n.at("sources"))
                 node.sources.items.push_back({s.at("symbol").get<std::string>(), s.at("kind").get<std::string>(), s.at("name").get<std::string>(),
                                               s.at("phase").get<long long>(), s.at("delay").get<long long>()});

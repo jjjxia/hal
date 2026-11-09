@@ -1,4 +1,4 @@
-// Lifted program: proven arithmetic, routes, XOR layers and tables (port of decompile.py step 4).
+// Lifted program: proven arithmetic, routes, XOR layers and tables.
 #pragma once
 #include "transaction_program.h"
 #include "lift_arithmetic.h"

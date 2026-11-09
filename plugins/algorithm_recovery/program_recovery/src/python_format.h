@@ -1,5 +1,5 @@
-// Python-compatible formatting helpers for the C3 backend: the generated programs and
-// reports must be byte-identical to those of the Python reference implementation.
+// Formatting helpers for the generated Python programs: integer literals, hex() and repr() of tuples,
+// lists and strings as Python prints them.
 #pragma once
 #include <boost/multiprecision/cpp_int.hpp>
 #include <stdexcept>

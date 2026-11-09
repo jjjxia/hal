@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
-# E5.A/B one design (protocol bench2/E5_EXPANSION_PROTOCOL.txt): the frozen pipeline, then program, checks, RTL, oracle.
-# usage: e5_run_case.sh CASE      (spec: bench2/specs/e5/CASE.json; reference: c3/e5_refs/CASE.py; observe.json[CASE])
+# E5.A/B one design (protocol library_designs/E5_EXPANSION_PROTOCOL.txt): C1 pipeline with the event graph, then the
+# program (recover-program generate), its trace validation, reference check and end-to-end check (CPython), folded RTL
+# (recover-program rtl) and the oracle.
+# usage: e5_run_case.sh CASE      (spec: library_designs/specs/e5/CASE.json; reference: program_checks/e5_refs/CASE.py)
 # Every stage: <= 3 h, <= 6 GiB virtual memory; times and peak memory in OUT/e5_stages.jsonl. Results: build/bench2_e5/CASE/.
 set -uo pipefail
 case=$1
-H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation; B=$H/build; PY=$B/c3_venv/bin/python
-# Program backend (program, end-to-end check, folded RTL; same arguments and outputs):
-#   PROGRAM_BACKEND=cpp (default since 2026-11-08) runs recover-program, the C++ port in
-#     plugins/algorithm_recovery/program_recovery (build: see its README.txt; binary in build/program_recovery);
-#   PROGRAM_BACKEND=py runs the frozen Python scripts in program_recovery_python, which produced the earlier runs.
-# The backend used is written to OUT/program_backend.txt.
-BACKEND=${PROGRAM_BACKEND:-cpp}
-case $BACKEND in
-    cpp) X=$B/program_recovery/recover-program
-         [ -x "$X" ] || { echo "missing $X (build plugins/algorithm_recovery/program_recovery, or set PROGRAM_BACKEND=py)" >&2; exit 2; }
-         PROGRAM_CMD=("$X" generate); CHECK_CMD=("$X" check); RTL_CMD=("$X" rtl) ;;
-    py)  PROGRAM_CMD=("$PY" "$E/program_recovery_python/decompile.py"); CHECK_CMD=("$PY" "$E/program_recovery_python/close_chain_deep.py"); RTL_CMD=("$PY" "$E/program_recovery_python/emit_rtl.py") ;;
-    *)   echo "PROGRAM_BACKEND must be cpp or py, not '$BACKEND'" >&2; exit 2 ;;
-esac
+H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation; B=$H/build; PY=$B/python_venv/bin/python
+X=$B/bin/hal_plugins/recover-program; C=$E/program_checks
 spec=$E/library_designs/specs/e5/$case.json
 D=$B/bench2_e5/$case
 [ -e "$D/e5_summary.json" ] && { echo "$case: done"; exit 0; }
@@ -36,31 +26,26 @@ if [ ! -e "$D/input" ]; then
     ( ulimit -v ${VMEM_KB:-6291456}; timeout 10800 python3 "$E/library_designs/prepare_bench2.py" "$spec" "$D" ) > "$B/bench2_e5/$case.prepare.log" 2>&1 || { echo "$case: prepare failed (see $case.prepare.log)"; exit 0; }
 fi
 mkdir -p "$D"
-echo "$BACKEND" > "$D/program_backend.txt"
-# frozen C1 pipeline under the E5 budget: an outer hard limit of 6 GiB (the pipeline's own `ulimit -v 16777216` then
-# cannot raise it) and its own 3 h per stage
+# C1 pipeline under the E5 budget: an outer hard limit of 6 GiB (the pipeline's own `ulimit -v 16777216` then
+# cannot raise it) and its own 3 h per stage; it ends with the certificate and event graph in graph/
 [ -e "$D/stages.jsonl" ] || ( ulimit -v ${VMEM_KB:-6291456}; bash "$E/library_designs/run_bench2.sh" "$D" ) > /dev/null 2>&1
-# gate (amendment h): a certified schedule. analyze's exit status also covers the separate state-machine export (used
-# only for the RAM-backed Index programs), so a certified design whose state export failed continues.
-grep -q '"stage":"analyze","exit":0' "$D/stages.jsonl" || \
-    grep -q '"status": *"PROTOCOL_SCHEDULE_CERTIFIED"' "$D/analysis/certificate/certificate.json" 2>/dev/null || \
+# gate (amendment h): a certified schedule
+grep -q '"status": *"PROTOCOL_SCHEDULE_CERTIFIED"' "$D/graph/certificate/certificate.json" 2>/dev/null || \
     { echo "$case: C1 pipeline failed: $(tail -n 2 "$D/stages.jsonl" | tr '\n' ' ')"; exit 0; }
-win=$(python3 -c "import json;print(len(json.load(open('$D/input/stimulus.json'))['windows']['training']))")
-st graph "$B/bin/hal_plugins/hal-recover" graph "$D/groups/ordered.hal" "$D/groups/groups.json" "$D/input/recovered.json" \
-    "$D/trace" "$D/graph" --window "$win" --profiles training --protocol "$D/input/protocol.json"
-st program "${PROGRAM_CMD[@]}" "$D/graph/graph_training.json" "$D/trace" "$D/input/evaluation_contract.json" \
-    "$E/program_recovery_python/observe.json" "$case" "$D/program"
+G=$D/graph/graph_training.json; K=$D/input/evaluation_contract.json
+[ -s "$G" ] && st program "$X" generate "$G" "$K" "$C/observe.json" "$case" "$D/program"
 if [ -s "$D/program/program.py" ]; then
-    if grep -q '^STREAM' "$E/program_recovery_python/e5_refs/$case.py" 2>/dev/null; then
-        st reference "$PY" "$E/program_recovery_python/check_stream.py" "$D/program" "$D/input/evaluation_contract.json" "$case" 2000
+    st validate "$PY" "$C/validate_programs.py" "$G" "$D/trace" "$K" "$D/program"
+    if grep -q '^STREAM' "$C/e5_refs/$case.py" 2>/dev/null; then
+        st reference "$PY" "$C/check_stream.py" "$D/program" "$K" "$case" 2000
         [ -s "$D/program/stream_check.json" ] && cp "$D/program/stream_check.json" "$D/program/reference_check.json"
     else
-        st reference "$PY" "$E/program_recovery_python/check_reference.py" "$D/program" "$D/input/evaluation_contract.json" "$case" 2000
+        st reference "$PY" "$C/check_reference.py" "$D/program" "$K" "$case" 2000
     fi
-    st close_chain "${CHECK_CMD[@]}" "$D/graph/graph_training.json" "$D/input/evaluation_contract.json" \
-        "$E/program_recovery_python/observe.json" "$case" "$D/close_chain.json" "$D/program/program_flat.py" "$D/program/program_rolled.py" "$D/program/program.py"
+    st close_chain "$PY" "$C/close_chain.py" "$G" "$K" "$C/observe.json" "$case" "$D/close_chain.json" \
+        "$D/program/program_flat.py" "$D/program/program_rolled.py" "$D/program/program.py"
 fi
-[ -s "$D/graph/graph_training.json" ] && st rtl "${RTL_CMD[@]}" "$D/graph/graph_training.json" "$D/rtl" "$D/trace" "$D/variant_trace"
+[ -s "$G" ] && st rtl "$X" rtl "$G" "$D/rtl" "$D/trace" "$D/variant_trace"
 # E2.1 oracle: the synthesis script's read_verilog/chparam lines, then the word-level elaboration of E21_ORACLE_PROTOCOL
 synth_dir=$(dirname "$(python3 -c "import json;print(json.load(open('$spec'))['synth'])")")
 top=$(python3 -c "import json;print(json.load(open('$spec'))['top'])")

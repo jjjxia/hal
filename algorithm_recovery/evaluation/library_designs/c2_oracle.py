@@ -540,7 +540,7 @@ def bit_support(e):
 
 def specialised_symbols(nd):
     """Symbols of the node function after substituting the certificate's known bits at its phase
-    (the same rule as c3/decompile.py): the operand edges that matter at this phase."""
+    (the same rule as recover-program): the operand edges that matter at this phase."""
     e = z3.parse_smt2_string(nd["smt2"])[0].arg(1)
     subs = []
     seen, stack, vs = set(), [e], {}

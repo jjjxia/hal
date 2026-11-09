@@ -1,5 +1,0 @@
-file(REMOVE_RECURSE "${WORK}")
-execute_process(COMMAND "${GENERATOR}" "${WORK}" "${IVERILOG}" "${VVP}" "${MODEL}" "${CXX}" RESULT_VARIABLE result)
-if(NOT result EQUAL 0)
-    message(FATAL_ERROR "native replay/contract regression failed: ${result}")
-endif()

@@ -1,4 +1,4 @@
-// Word-level arithmetic lifting with inferred bit orders (port of program_recovery_python/lift_arith.py).
+// Word-level arithmetic lifting with inferred bit orders.
 #pragma once
 #include "lift_tables.h"
 #include "python_random.h"

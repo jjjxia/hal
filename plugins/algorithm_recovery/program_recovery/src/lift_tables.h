@@ -1,4 +1,4 @@
-// Routing and table lifting of bit-level node functions (port of program_recovery_python/lift.py).
+// Routing and table lifting of bit-level node functions.
 #pragma once
 #include "expr_eval.h"
 #include "python_format.h"
