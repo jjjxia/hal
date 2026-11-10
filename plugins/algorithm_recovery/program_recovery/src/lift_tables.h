@@ -36,6 +36,11 @@ namespace program_recovery
         std::vector<std::tuple<unsigned, std::vector<BitRef>, std::vector<int>>> param_route;
         std::vector<LiftTable> tables;
         std::vector<unsigned> keep;
+        // bits of more than MAX_TABLE inputs written as an XOR of small tables and single bits (disjoint-support XOR
+        // decomposition, checked on the bit's full truth table): per bit its single-bit terms and constant; each table
+        // XORs into the bits listed as its outputs
+        std::vector<std::tuple<unsigned, std::vector<BitRef>, int>> dsd_linear;
+        std::vector<LiftTable> dsd_tables;
     };
 
     LiftPlan lift_plan(const z3::expr& expr, const IsParam& is_param);

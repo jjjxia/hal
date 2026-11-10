@@ -32,6 +32,10 @@ namespace program_recovery
         std::map<std::string, std::vector<unsigned>> word_order;
         std::map<std::string, std::string> order_sources;
         Registry registry;
+        unsigned long long last_kept_bits = 0; // bits the last emit_lifted call left bit-level
+
+        // the program's node statements: program_bits (all), program_lifted_bits (bits of chosen lifted statements, minus kept bits)
+        void note_choice(bool lifted_chosen, unsigned width);
 
         std::optional<std::vector<std::string>> emit_lifted(const z3::expr& expr, const Printer::Env& env, unsigned indent, const IsParam& is_param,
                                                             const std::string& target, const std::map<std::string, std::pair<std::string, unsigned>>& alias,

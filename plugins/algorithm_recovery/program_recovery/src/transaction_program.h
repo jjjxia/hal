@@ -13,18 +13,26 @@ namespace program_recovery
         std::vector<std::pair<std::string, unsigned>> bits; // position q holds bit k of symbol sym
     };
 
-    struct Loop
+    // One step (write phase) of a loop body: its words, their templates and the constants that vary per iteration.
+    struct LoopStep
     {
-        size_t index = 0;
-        std::vector<long long> phases;
+        long long offset = 0; // phase offset from the iteration's first phase
         std::vector<std::string> names;
         std::map<std::string, z3::expr> templates;
         std::vector<std::pair<std::string, unsigned>> iter_vars, partial;
         std::vector<std::map<std::string, BigInt>> table;
         std::vector<std::map<std::string, std::pair<BigInt, BigInt>>> ptable;
         std::optional<Counter> counter;
+    };
+
+    struct Loop
+    {
+        size_t index = 0;
+        std::vector<long long> phases; // first phase of each iteration
+        std::vector<LoopStep> body;    // the steps of one iteration; one step unless an iteration spans several cycles
         bool regular = true;
         long long stride = 0;
+        std::vector<std::string> names() const; // words written by the body, in body order, each once
     };
 
     class ProgramBuilder
@@ -51,12 +59,16 @@ namespace program_recovery
         std::function<std::optional<std::vector<std::string>>(const z3::expr&, const Printer::Env&, unsigned, const std::function<bool(const std::string&)>&,
                                                               const std::string&, const std::map<std::string, std::pair<std::string, unsigned>>&,
                                                               const Json&, const std::string&, const std::string&)> lift_hook;
+        std::function<void(bool, unsigned)> lift_note; // lifting statistics: whether a loop statement's lifted form was chosen
 
     private:
         void build_flat();
         void build_rollup();
         bool compatible(long long prev, long long cur, long long first) const;
         bool first_step_ok(long long first) const;
+        bool block_compatible(const std::vector<long long>& prev, const std::vector<long long>& cur, const std::vector<long long>& first) const;
+        bool first_block_ok(const std::vector<long long>& block) const;
+        LoopStep make_step(const std::vector<long long>& run, long long offset);
         std::optional<Counter> find_counter(const std::vector<std::pair<std::string, unsigned>>& iter_vars,
                                             const std::vector<std::map<std::string, BigInt>>& table) const;
         std::vector<std::vector<long long>> split_run(const std::vector<long long>& run) const;

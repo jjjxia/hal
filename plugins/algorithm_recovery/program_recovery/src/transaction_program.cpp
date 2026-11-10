@@ -6,6 +6,7 @@
 namespace program_recovery
 {
     static const unsigned MIN_ITERATIONS = 3;
+    static const size_t MAX_BODY_STEPS = 32; // longest loop body searched, in steps (write phases)
 
     std::string pyname(const std::string& sym)
     {
@@ -283,11 +284,224 @@ namespace program_recovery
         return {run};
     }
 
+    std::vector<std::string> Loop::names() const
+    {
+        std::vector<std::string> out;
+        std::set<std::string> seen;
+        for (const auto& s : body)
+            for (const auto& n : s.names)
+                if (seen.insert(n).second) out.push_back(n);
+        return out;
+    }
+
+    // An iteration that spans several steps: block `cur` repeats the first block if it writes the same words at the same
+    // phase offsets with the same raw equations, if every data read of a word the body writes comes from that word's
+    // latest write in loop order (earlier in this iteration, else in the previous one), and if every other data read
+    // comes from the same source as in the first block.
+    bool ProgramBuilder::block_compatible(const std::vector<long long>& prev, const std::vector<long long>& cur,
+                                          const std::vector<long long>& first) const
+    {
+        const size_t k = first.size();
+        std::set<std::string> written;
+        for (long long ph : first) written.insert(steps.at(ph).begin(), steps.at(ph).end());
+        auto writes = [&](long long ph, const std::string& w) {
+            const auto& ns = steps.at(ph);
+            return std::find(ns.begin(), ns.end(), w) != ns.end();
+        };
+        for (size_t q = 0; q < k; ++q)
+        {
+            if (cur[q] - cur[0] != first[q] - first[0]) return false;
+            std::vector<std::string> a = steps.at(cur[q]), b = steps.at(first[q]);
+            std::sort(a.begin(), a.end());
+            std::sort(b.begin(), b.end());
+            if (a != b) return false;
+            for (const auto& name : b)
+            {
+                const Node& cn = M.nodes.at({name, cur[q]});
+                const Node& fn = M.nodes.at({name, first[q]});
+                if (cn.raw_sha256 != fn.raw_sha256) return false;
+                for (const auto& [sym, _] : raw_symbols(name, cur[q]))
+                {
+                    if (sym.rfind("word:", 0) != 0) continue;
+                    if (data_symbol(sym, cur[q]) != data_symbol(sym, first[q])) return false;
+                    if (!data_symbol(sym, cur[q])) continue;
+                    const Source& s = cn.sources.at(sym);
+                    const std::string base = partition_colon(sym).second;
+                    if (written.count(base))
+                    {
+                        long long expected = -1;
+                        for (size_t q2 = q; q2-- > 0;)
+                            if (writes(cur[q2], base)) { expected = cur[q2]; break; }
+                        if (expected < 0)
+                            for (size_t q2 = k; q2-- > 0;)
+                                if (writes(prev[q2], base)) { expected = prev[q2]; break; }
+                        if (!(s.name == base && s.phase == expected && s.delay == 0)) return false;
+                    }
+                    else
+                    {
+                        const Source& f = fn.sources.at(sym);
+                        if (!(s.name == f.name && s.phase == f.phase && s.delay == f.delay)) return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    // First block: a body word read before the body writes it is read from one source (the loop's initial value); a read
+    // after the body wrote it in this block comes from that write.
+    bool ProgramBuilder::first_block_ok(const std::vector<long long>& block) const
+    {
+        std::set<std::string> written;
+        for (long long ph : block) written.insert(steps.at(ph).begin(), steps.at(ph).end());
+        std::map<std::string, std::pair<long long, long long>> initial;
+        for (size_t q = 0; q < block.size(); ++q)
+            for (const auto& name : steps.at(block[q]))
+                for (const auto& [sym, _] : raw_symbols(name, block[q]))
+                {
+                    const std::string base = partition_colon(sym).second;
+                    if (sym.rfind("word:", 0) != 0 || !written.count(base) || !data_symbol(sym, block[q])) continue;
+                    const Source& s = M.nodes.at({name, block[q]}).sources.at(sym);
+                    long long latest = -1;
+                    for (size_t q2 = q; q2-- > 0;)
+                    {
+                        const auto& ns = steps.at(block[q2]);
+                        if (std::find(ns.begin(), ns.end(), base) != ns.end()) { latest = block[q2]; break; }
+                    }
+                    if (latest >= 0)
+                    {
+                        if (!(s.name == base && s.phase == latest && s.delay == 0)) return false;
+                        continue;
+                    }
+                    const auto [it, inserted] = initial.emplace(base, std::make_pair(s.phase, s.delay));
+                    if (it->second != std::make_pair(s.phase, s.delay)) return false;
+                }
+        return true;
+    }
+
+    // One step of a loop body over the phases `run` (one per iteration): iteration constants, templates and the proof
+    // that every iteration is the template instance.
+    LoopStep ProgramBuilder::make_step(const std::vector<long long>& run, long long offset)
+    {
+        LoopStep S;
+        S.offset = offset;
+        const long long first = run[0];
+        std::vector<std::string> names = steps.at(first);
+        std::sort(names.begin(), names.end());
+        std::map<std::string, z3::expr> sym_vars;
+        for (const auto& name : names)
+            for (const auto& [sym, var] : raw_symbols(name, first)) sym_vars.insert_or_assign(sym, var);
+        std::set<std::vector<unsigned>> sigs;
+        for (long long ph : run)
+        {
+            std::vector<unsigned> s;
+            for (const auto& nm : names) s.push_back(M.nodes.at({nm, ph}).expr.id());
+            sigs.insert(s);
+        }
+        const bool uniform = sigs.size() == 1;
+        std::vector<std::pair<std::string, z3::expr>> invariant;
+        S.names = names;
+        if (!uniform)
+        {
+            for (const auto& [sym, var] : sym_vars)
+            {
+                std::vector<std::string> pats;
+                for (long long ph : run) pats.push_back(M.known_pattern(sym, ph));
+                bool same = true, known = true;
+                for (const auto& pt : pats) { same &= pt == pats[0]; known &= pt.find('x') == std::string::npos; }
+                const unsigned w = var.get_sort().bv_size();
+                if (same)
+                {
+                    const std::string& pat = pats[0];
+                    if (pat.find('x') == std::string::npos) invariant.emplace_back(sym, const_bv(M.ctx, pat, w));
+                    else if (pat.find_first_not_of('x') != std::string::npos) invariant.emplace_back(sym, masked_known(var, pat));
+                }
+                else if (known) S.iter_vars.emplace_back(sym, w);
+                else S.partial.emplace_back(sym, w);
+            }
+        }
+        auto lsb_int = [](const std::string& pt) { return from_binary(std::string(pt.rbegin(), pt.rend())); };
+        for (long long ph : run)
+        {
+            std::map<std::string, BigInt> row;
+            for (const auto& [sym, _] : S.iter_vars) row[sym] = lsb_int(M.known_pattern(sym, ph));
+            S.table.push_back(row);
+            std::map<std::string, std::pair<BigInt, BigInt>> prow;
+            for (const auto& [sym, _] : S.partial)
+            {
+                const std::string& pt = M.known_pattern(sym, ph);
+                std::string m, val;
+                for (char c : pt) { m += c != 'x' ? '1' : '0'; val += c != 'x' ? c : '0'; }
+                prow[sym] = {lsb_int(m), lsb_int(val)};
+            }
+            S.ptable.push_back(prow);
+        }
+        std::vector<std::pair<std::string, z3::expr>> subs = invariant;
+        std::map<std::string, z3::expr> iter_sym;
+        for (const auto& [sym, w] : S.iter_vars)
+        {
+            iter_sym.emplace(sym, M.ctx.bv_const(("iter:" + sym).c_str(), w));
+            // bits equal in every iteration enter the template as constants; only the varying bits stay symbolic
+            BigInt vary = 0, common = 0;
+            for (unsigned b = 0; b < w; ++b)
+            {
+                const BigInt bit = BigInt(1) << b;
+                const bool v0 = ((S.table[0].at(sym) >> b) & 1) != 0;
+                bool same = true;
+                for (const auto& row : S.table) same &= (((row.at(sym) >> b) & 1) != 0) == v0;
+                if (!same) vary |= bit;
+                else if (v0) common |= bit;
+            }
+            if (vary == mask_of(w)) subs.emplace_back(sym, iter_sym.at(sym));
+            else subs.emplace_back(sym, (iter_sym.at(sym) & M.ctx.bv_val(vary.str().c_str(), w)) | M.ctx.bv_val(common.str().c_str(), w));
+        }
+        for (const auto& [sym, w] : S.partial) subs.emplace_back(sym, M.ctx.bv_const(("pv:" + sym).c_str(), w));
+        for (const auto& name : names)
+        {
+            if (uniform) { S.templates.emplace(name, M.nodes.at({name, first}).expr); continue; }
+            std::vector<std::pair<z3::expr, z3::expr>> s2;
+            for (const auto& [sym, e] : subs) s2.emplace_back(sym_vars.at(sym), e);
+            S.templates.emplace(name, substitute(M.nodes.at({name, first}).raw, s2).simplify());
+        }
+        for (size_t it = 0; it < run.size(); ++it)
+        {
+            std::vector<std::pair<z3::expr, z3::expr>> inst;
+            for (const auto& [sym, w] : S.iter_vars)
+                inst.emplace_back(iter_sym.at(sym), M.ctx.bv_val(S.table[it].at(sym).str().c_str(), w));
+            for (const auto& [sym, w] : S.partial)
+            {
+                const auto& [imask, ival] = S.ptable[it].at(sym);
+                // Python: (BitVec("pv:"+sym), (sym_vars[sym] & BitVecVal(~imask)) | BitVecVal(ival)), left to right
+                z3::expr pv = M.ctx.bv_const(("pv:" + sym).c_str(), w);
+                z3::expr keep = M.ctx.bv_val((mask_of(w) ^ imask).str().c_str(), w);
+                z3::expr anded = sym_vars.at(sym) & keep;
+                z3::expr val = M.ctx.bv_val(ival.str().c_str(), w);
+                inst.emplace_back(pv, anded | val);
+            }
+            for (const auto& name : names)
+            {
+                z3::expr instance = inst.empty() ? S.templates.at(name) : substitute(S.templates.at(name), inst);
+                z3::solver solver(M.ctx);
+                z3::params p(M.ctx);
+                p.set("timeout", 120000u);
+                solver.set(p);
+                solver.add(instance != M.nodes.at({name, run[it]}).expr);
+                const z3::check_result r = solver.check();
+                const std::string rs = r == z3::unsat ? "unsat" : r == z3::sat ? "sat" : "unknown";
+                roll_proofs[rs] += 1;
+                require(r == z3::unsat, "roll-up iteration " + std::to_string(it) + " of " + name + " not proven: " + rs);
+            }
+        }
+        S.counter = find_counter(S.iter_vars, S.table);
+        return S;
+    }
+
     void ProgramBuilder::build_rollup()
     {
         for (const auto& key : M.order) steps[key.second].push_back(key.first);
         for (const auto& [ph, _] : steps) step_phases.push_back(ph);
 
+        // loops whose body is one step
         std::vector<std::vector<long long>> runs;
         size_t i = 0;
         while (i < step_phases.size())
@@ -304,112 +518,61 @@ namespace program_recovery
         }
         std::vector<std::vector<long long>> split;
         for (const auto& run : runs) for (auto& sub : split_run(run)) split.push_back(sub);
-
-        for (size_t li = 0; li < split.size(); ++li)
+        std::vector<std::vector<std::vector<long long>>> found; // loop -> iteration -> phases of its steps
+        std::set<long long> covered;
+        for (const auto& run : split)
         {
-            const auto& run = split[li];
-            const long long first = run[0];
-            std::vector<std::string> names = steps.at(first);
-            std::sort(names.begin(), names.end());
-            std::map<std::string, z3::expr> sym_vars;
-            for (const auto& name : names)
-                for (const auto& [sym, var] : raw_symbols(name, first)) sym_vars.insert_or_assign(sym, var);
-            std::set<std::vector<unsigned>> sigs;
-            for (long long ph : run)
+            std::vector<std::vector<long long>> its;
+            for (long long ph : run) { its.push_back({ph}); covered.insert(ph); }
+            found.push_back(std::move(its));
+        }
+        // loops whose iteration spans several steps, on each stretch of steps outside the one-step loops; per start,
+        // the body length that puts the most steps into a loop (the shortest on a tie)
+        for (size_t a = 0; a < step_phases.size();)
+        {
+            if (covered.count(step_phases[a])) { ++a; continue; }
+            size_t end = a;
+            while (end < step_phases.size() && !covered.count(step_phases[end])) ++end;
+            for (size_t j = a; j < end;)
             {
-                std::vector<unsigned> s;
-                for (const auto& nm : names) s.push_back(M.nodes.at({nm, ph}).expr.id());
-                sigs.insert(s);
+                auto block = [&](size_t k, size_t it) {
+                    return std::vector<long long>(step_phases.begin() + static_cast<long>(j + it * k),
+                                                  step_phases.begin() + static_cast<long>(j + (it + 1) * k));
+                };
+                size_t best_k = 0, best_n = 0;
+                for (size_t k = 2; k <= MAX_BODY_STEPS && j + MIN_ITERATIONS * k <= end; ++k)
+                {
+                    const auto b0 = block(k, 0);
+                    if (!first_block_ok(b0)) continue;
+                    size_t n = 1;
+                    while (j + (n + 1) * k <= end && block_compatible(block(k, n - 1), block(k, n), b0)) ++n;
+                    if (n >= MIN_ITERATIONS && n * k > best_n * best_k) { best_k = k; best_n = n; }
+                }
+                if (!best_k) { ++j; continue; }
+                std::vector<std::vector<long long>> its;
+                for (size_t it = 0; it < best_n; ++it) its.push_back(block(best_k, it));
+                found.push_back(std::move(its));
+                j += best_k * best_n;
             }
-            const bool uniform = sigs.size() == 1;
-            std::vector<std::pair<std::string, z3::expr>> invariant;
+            a = end;
+        }
+        std::stable_sort(found.begin(), found.end(), [](const auto& x, const auto& y) { return x[0][0] < y[0][0]; });
+
+        for (size_t li = 0; li < found.size(); ++li)
+        {
+            const auto& its = found[li];
             Loop L;
             L.index = li;
-            L.phases = run;
-            L.names = names;
-            if (!uniform)
+            for (const auto& blk : its) L.phases.push_back(blk[0]);
+            for (size_t q = 0; q < its[0].size(); ++q)
             {
-                for (const auto& [sym, var] : sym_vars)
-                {
-                    std::vector<std::string> pats;
-                    for (long long ph : run) pats.push_back(M.known_pattern(sym, ph));
-                    bool same = true, known = true;
-                    for (const auto& pt : pats) { same &= pt == pats[0]; known &= pt.find('x') == std::string::npos; }
-                    const unsigned w = var.get_sort().bv_size();
-                    if (same)
-                    {
-                        const std::string& pat = pats[0];
-                        if (pat.find('x') == std::string::npos) invariant.emplace_back(sym, const_bv(M.ctx, pat, w));
-                        else if (pat.find_first_not_of('x') != std::string::npos) invariant.emplace_back(sym, masked_known(var, pat));
-                    }
-                    else if (known) L.iter_vars.emplace_back(sym, w);
-                    else L.partial.emplace_back(sym, w);
-                }
+                std::vector<long long> run;
+                for (const auto& blk : its) run.push_back(blk[q]);
+                L.body.push_back(make_step(run, its[0][q] - its[0][0]));
             }
-            auto lsb_int = [](const std::string& pt) { return from_binary(std::string(pt.rbegin(), pt.rend())); };
-            for (long long ph : run)
-            {
-                std::map<std::string, BigInt> row;
-                for (const auto& [sym, _] : L.iter_vars) row[sym] = lsb_int(M.known_pattern(sym, ph));
-                L.table.push_back(row);
-                std::map<std::string, std::pair<BigInt, BigInt>> prow;
-                for (const auto& [sym, _] : L.partial)
-                {
-                    const std::string& pt = M.known_pattern(sym, ph);
-                    std::string m, val;
-                    for (char c : pt) { m += c != 'x' ? '1' : '0'; val += c != 'x' ? c : '0'; }
-                    prow[sym] = {lsb_int(m), lsb_int(val)};
-                }
-                L.ptable.push_back(prow);
-            }
-            std::vector<std::pair<std::string, z3::expr>> subs = invariant;
-            std::map<std::string, z3::expr> iter_sym;
-            for (const auto& [sym, w] : L.iter_vars)
-            {
-                iter_sym.emplace(sym, M.ctx.bv_const(("iter:" + sym).c_str(), w));
-                subs.emplace_back(sym, iter_sym.at(sym));
-            }
-            for (const auto& [sym, w] : L.partial) subs.emplace_back(sym, M.ctx.bv_const(("pv:" + sym).c_str(), w));
-            for (const auto& name : names)
-            {
-                if (uniform) { L.templates.emplace(name, M.nodes.at({name, first}).expr); continue; }
-                std::vector<std::pair<z3::expr, z3::expr>> s2;
-                for (const auto& [sym, e] : subs) s2.emplace_back(sym_vars.at(sym), e);
-                L.templates.emplace(name, substitute(M.nodes.at({name, first}).raw, s2).simplify());
-            }
-            for (size_t it = 0; it < run.size(); ++it)
-            {
-                std::vector<std::pair<z3::expr, z3::expr>> inst;
-                for (const auto& [sym, w] : L.iter_vars)
-                    inst.emplace_back(iter_sym.at(sym), M.ctx.bv_val(L.table[it].at(sym).str().c_str(), w));
-                for (const auto& [sym, w] : L.partial)
-                {
-                    const auto& [imask, ival] = L.ptable[it].at(sym);
-                    // Python: (BitVec("pv:"+sym), (sym_vars[sym] & BitVecVal(~imask)) | BitVecVal(ival)), left to right
-                    z3::expr pv = M.ctx.bv_const(("pv:" + sym).c_str(), w);
-                    z3::expr keep = M.ctx.bv_val((mask_of(w) ^ imask).str().c_str(), w);
-                    z3::expr anded = sym_vars.at(sym) & keep;
-                    z3::expr val = M.ctx.bv_val(ival.str().c_str(), w);
-                    inst.emplace_back(pv, anded | val);
-                }
-                for (const auto& name : names)
-                {
-                    z3::expr instance = inst.empty() ? L.templates.at(name) : substitute(L.templates.at(name), inst);
-                    z3::solver solver(M.ctx);
-                    z3::params p(M.ctx);
-                    p.set("timeout", 120000u);
-                    solver.set(p);
-                    solver.add(instance != M.nodes.at({name, run[it]}).expr);
-                    const z3::check_result r = solver.check();
-                    const std::string rs = r == z3::unsat ? "unsat" : r == z3::sat ? "sat" : "unknown";
-                    roll_proofs[rs] += 1;
-                    require(r == z3::unsat, "roll-up iteration " + std::to_string(it) + " of " + name + " not proven: " + rs);
-                }
-            }
-            L.stride = run[1] - run[0];
+            L.stride = L.phases[1] - L.phases[0];
             L.regular = true;
-            for (size_t k = 0; k + 1 < run.size(); ++k) L.regular &= run[k + 1] - run[k] == L.stride;
-            L.counter = find_counter(L.iter_vars, L.table);
+            for (size_t k = 0; k + 1 < L.phases.size(); ++k) L.regular &= L.phases[k + 1] - L.phases[k] == L.stride;
             loops.push_back(std::move(L));
         }
 
@@ -417,7 +580,8 @@ namespace program_recovery
         std::map<Key, size_t> in_loop;
         for (size_t li = 0; li < loops.size(); ++li)
             for (long long ph : loops[li].phases)
-                for (const auto& name : loops[li].names) in_loop[{name, ph}] = li;
+                for (const auto& s : loops[li].body)
+                    for (const auto& name : s.names) in_loop[{name, ph + s.offset}] = li;
         std::vector<std::string> rolled = header;
         std::set<size_t> emitted;
         for (const auto& key : M.order)
@@ -434,134 +598,161 @@ namespace program_recovery
 
     std::vector<std::string> ProgramBuilder::emit_loop(const Loop& L, bool lifted)
     {
+        const bool multi = L.body.size() > 1;
         const long long first = L.phases[0];
-        const std::set<std::string> carried(L.names.begin(), L.names.end());
+        const std::vector<std::string> all_names = L.names();
+        const std::set<std::string> carried(all_names.begin(), all_names.end());
         const std::string idx = std::to_string(L.index);
-        std::vector<std::string> out{"    # loop " + idx + ": " + std::to_string(L.phases.size()) + " iterations writing " + join(L.names, ", ")};
         const size_t n = L.phases.size();
-        std::string phase_expr;
-        if (L.regular) phase_expr = std::to_string(first) + " + " + std::to_string(L.stride) + " * it";
-        else
+        std::vector<std::string> out{"    # loop " + idx + ": " + std::to_string(n) + " iterations" +
+                                     (multi ? " of a " + std::to_string(L.body.size()) + "-step body" : "") + " writing " + join(all_names, ", ")};
+        auto table_name = [&](size_t q, const std::string& sym) { return "L" + idx + "_" + (multi ? std::to_string(q) + "_" : "") + pyname(sym); };
+        if (!L.regular)
         {
             std::vector<Py> ps;
             for (long long p : L.phases) ps.push_back(py(p));
             out.push_back("    L" + idx + "_PHASE = " + Py::list(ps).repr());
-            phase_expr = "L" + idx + "_PHASE[it]";
         }
-        for (const auto& [sym, w] : L.iter_vars)
-        {
-            if (L.counter) continue;
-            std::vector<Py> vals;
-            for (const auto& row : L.table) vals.push_back(py(row.at(sym)));
-            out.push_back("    L" + idx + "_" + pyname(sym) + " = " + Py::list(vals).repr());
-        }
-        for (const auto& [sym, w] : L.partial)
-        {
-            std::vector<Py> vals;
-            for (const auto& row : L.ptable) vals.push_back(Py::tuple({py(row.at(sym).first), py(row.at(sym).second)}));
-            out.push_back("    L" + idx + "_" + pyname(sym) + " = " + Py::list(vals).repr() + "  # (known mask, known value)");
-        }
-        std::map<std::string, std::string> init;
-        for (const auto& name : L.names)
-        {
-            const Node& node = M.nodes.at({name, first});
-            for (const auto& s : node.sources.items)
+        auto phase_expr = [&](const LoopStep& s) {
+            if (L.regular) return std::to_string(first + s.offset) + " + " + std::to_string(L.stride) + " * it";
+            return "L" + idx + "_PHASE[it]" + (s.offset ? " + " + std::to_string(s.offset) : std::string());
+        };
+        for (size_t q = 0; q < L.body.size(); ++q)
+            for (const auto& [sym, w] : L.body[q].iter_vars)
             {
-                const std::string base = partition_colon(s.symbol).second;
-                if (s.symbol.rfind("word:", 0) == 0 && carried.count(base) && data_symbol(s.symbol, first) && !init.count(base))
-                    init[base] = source_code(node, s.symbol, true);
+                if (L.body[q].counter) continue;
+                std::vector<Py> vals;
+                for (const auto& row : L.body[q].table) vals.push_back(py(row.at(sym)));
+                out.push_back("    " + table_name(q, sym) + " = " + Py::list(vals).repr());
             }
+        for (size_t q = 0; q < L.body.size(); ++q)
+            for (const auto& [sym, w] : L.body[q].partial)
+            {
+                std::vector<Py> vals;
+                for (const auto& row : L.body[q].ptable) vals.push_back(Py::tuple({py(row.at(sym).first), py(row.at(sym).second)}));
+                out.push_back("    " + table_name(q, sym) + " = " + Py::list(vals).repr() + "  # (known mask, known value)");
+            }
+        // initial values of the body words read before the body writes them; read_carried: body words read as cur_<word>
+        // The initial value is read from its source only if the first iteration's (specialised) equation uses it: the
+        // template is the raw equation, which may name a word the first iteration ignores (a hold path its control
+        // never takes); reading it would add a state value the certified interface does not have. Each first-iteration
+        // instance is proved equal to its specialised equation, so an unused initial value cannot change the result.
+        std::map<std::string, std::string> init;
+        std::set<std::string> read_carried, written_before, unused_initial;
+        for (const auto& s : L.body)
+        {
+            for (const auto& name : s.names)
+            {
+                const Node& node = M.nodes.at({name, first + s.offset});
+                std::set<std::string> used;
+                for (const auto& v : z3_vars(node.expr)) used.insert(sym_name(v));
+                for (const auto& src : node.sources.items)
+                {
+                    const std::string base = partition_colon(src.symbol).second;
+                    if (src.symbol.rfind("word:", 0) == 0 && carried.count(base) && data_symbol(src.symbol, first + s.offset))
+                    {
+                        read_carried.insert(base);
+                        if (written_before.count(base) || init.count(base)) continue;
+                        if (used.count(src.symbol)) init[base] = source_code(node, src.symbol, true);
+                        else unused_initial.insert(base);
+                    }
+                }
+            }
+            written_before.insert(s.names.begin(), s.names.end());
         }
+        for (const auto& base : unused_initial)
+            if (!init.count(base)) init[base] = "0  # initial value not used: the first iteration does not read it";
         for (const auto& [base, code] : init) out.push_back("    cur_" + base + " = " + code);
         out.push_back("    for it in range(" + std::to_string(n) + "):");
-        out.push_back("        ph = " + phase_expr);
-        if (L.counter)
+        for (size_t q = 0; q < L.body.size(); ++q)
         {
-            const Counter& c = *L.counter;
-            out.push_back("        r = (" + py_int(c.a) + " + " + py_int(c.b) + " * it) & " + py_hex(mask_of(c.width)) +
-                          "  # iteration counter (" + std::to_string(c.width) + " bits)");
-            std::map<std::string, std::vector<std::pair<unsigned, unsigned>>> per_sym;
-            for (unsigned q = 0; q < c.bits.size(); ++q) per_sym[c.bits[q].first].emplace_back(c.bits[q].second, q);
-            for (const auto& [sym, w] : L.iter_vars)
+            const LoopStep& S = L.body[q];
+            const long long ph0 = first + S.offset;
+            out.push_back("        ph = " + phase_expr(S));
+            if (S.counter)
             {
-                auto pairs = per_sym[sym];
-                std::sort(pairs.begin(), pairs.end());
-                std::vector<std::string> parts;
-                for (const auto& [k, q] : pairs)
-                    parts.push_back(k ? "(((r >> " + std::to_string(q) + ") & 1) << " + std::to_string(k) + ")" : "((r >> " + std::to_string(q) + ") & 1)");
-                out.push_back("        " + pyname("iter:" + sym) + " = " + join(parts, " | "));
-            }
-        }
-        else
-        {
-            for (const auto& [sym, w] : L.iter_vars)
-                out.push_back("        " + pyname("iter:" + sym) + " = L" + idx + "_" + pyname(sym) + "[it]");
-        }
-        for (const auto& [sym, w] : L.partial)
-        {
-            const std::string base_ = partition_colon(sym).second;
-            const std::string mask_ = pyname("imask:" + sym), val_ = pyname("ival:" + sym);
-            out.push_back("        " + mask_ + ", " + val_ + " = L" + idx + "_" + pyname(sym) + "[it]");
-            std::string value_;
-            if (sym.rfind("word:", 0) == 0)
-            {
-                const Node* holder = nullptr;
-                for (const auto& nm : L.names)
-                    if (M.nodes.at({nm, first}).sources.find(sym)) { holder = &M.nodes.at({nm, first}); break; }
-                require(holder != nullptr, "StopIteration: no holder for " + sym);
-                value_ = carried.count(base_) ? "cur_" + base_ : source_code(*holder, sym, true);
-            }
-            else value_ = "pads.get((" + py_str_repr(base_) + ", ph), 0)";
-            out.push_back("        " + pyname("pv:" + sym) + " = (" + value_ + " & ~" + mask_ + ") | " + val_ + "  # certified known bits of this iteration");
-        }
-        std::vector<std::string> new_names;
-        for (const auto& name : L.names)
-        {
-            const Node& node = M.nodes.at({name, first});
-            Printer::Env env = [&](const std::string& sym) -> std::string {
-                const auto [kind, base] = partition_colon(sym);
-                if (kind == "word")
+                const Counter& c = *S.counter;
+                out.push_back("        r = (" + py_int(c.a) + " + " + py_int(c.b) + " * it) & " + py_hex(mask_of(c.width)) +
+                              "  # iteration counter (" + std::to_string(c.width) + " bits)");
+                std::map<std::string, std::vector<std::pair<unsigned, unsigned>>> per_sym;
+                for (unsigned qb = 0; qb < c.bits.size(); ++qb) per_sym[c.bits[qb].first].emplace_back(c.bits[qb].second, qb);
+                for (const auto& [sym, w] : S.iter_vars)
                 {
-                    if (carried.count(base)) return "cur_" + base;
-                    return source_code(node, sym, true);
+                    auto pairs = per_sym[sym];
+                    std::sort(pairs.begin(), pairs.end());
+                    std::vector<std::string> parts;
+                    for (const auto& [k, qb] : pairs)
+                        parts.push_back(k ? "(((r >> " + std::to_string(qb) + ") & 1) << " + std::to_string(k) + ")" : "((r >> " + std::to_string(qb) + ") & 1)");
+                    out.push_back("        " + pyname("iter:" + sym) + " = " + join(parts, " | "));
                 }
-                if (kind == "input") return "pads.get((" + py_str_repr(base) + ", ph), 0)";
-                if (kind == "iter" || kind == "imask" || kind == "ival" || kind == "pv") return pyname(sym);
-                throw std::runtime_error("KeyError " + sym);
-            };
-            std::optional<std::vector<std::string>> lifted_code;
-            if (lifted && lift_hook)
-            {
-                std::map<std::string, std::pair<std::string, unsigned>> alias;
-                if (L.counter)
-                {
-                    std::map<std::string, unsigned> ivw(L.iter_vars.begin(), L.iter_vars.end());
-                    for (unsigned q = 0; q < L.counter->bits.size(); ++q)
-                        if (ivw.at(L.counter->bits[q].first) == 1) alias["iter:" + L.counter->bits[q].first] = {"r", q};
-                }
-                Json node_id = Json::array({name, "loop" + idx});
-                lifted_code = lift_hook(L.templates.at(name), env, 8, [](const std::string& s) {
-                    const auto k = partition_colon(s).first;
-                    return k == "iter" || k == "imask" || k == "ival";
-                }, "new_" + name, alias, node_id, "ph", name);
             }
-            Printer pr(env);
-            const std::string code = pr.emit(L.templates.at(name));
-            std::vector<std::string> plain;
-            for (const auto& ln : pr.lines) plain.push_back("    " + ln);
-            plain.push_back("        new_" + name + " = " + code);
-            const auto& chosen = (lifted_code && lifted_code->size() <= plain.size()) ? *lifted_code : plain;
-            out.insert(out.end(), chosen.begin(), chosen.end());
-            new_names.push_back(name);
-        }
-        for (const auto& name : new_names) out.push_back("        v[(" + py_str_repr(name) + ", ph)] = new_" + name);
-        std::vector<std::string> cw;
-        for (const auto& nm : new_names) if (init.count(nm)) cw.push_back(nm);
-        if (!cw.empty())
-        {
+            else
+            {
+                for (const auto& [sym, w] : S.iter_vars)
+                    out.push_back("        " + pyname("iter:" + sym) + " = " + table_name(q, sym) + "[it]");
+            }
+            for (const auto& [sym, w] : S.partial)
+            {
+                const std::string base_ = partition_colon(sym).second;
+                const std::string mask_ = pyname("imask:" + sym), val_ = pyname("ival:" + sym);
+                out.push_back("        " + mask_ + ", " + val_ + " = " + table_name(q, sym) + "[it]");
+                std::string value_;
+                if (sym.rfind("word:", 0) == 0)
+                {
+                    const Node* holder = nullptr;
+                    for (const auto& nm : S.names)
+                        if (M.nodes.at({nm, ph0}).sources.find(sym)) { holder = &M.nodes.at({nm, ph0}); break; }
+                    require(holder != nullptr, "StopIteration: no holder for " + sym);
+                    value_ = carried.count(base_) ? "cur_" + base_ : source_code(*holder, sym, true);
+                }
+                else value_ = "pads.get((" + py_str_repr(base_) + ", ph), 0)";
+                out.push_back("        " + pyname("pv:" + sym) + " = (" + value_ + " & ~" + mask_ + ") | " + val_ + "  # certified known bits of this iteration");
+            }
+            for (const auto& name : S.names)
+            {
+                const Node& node = M.nodes.at({name, ph0});
+                Printer::Env env = [&](const std::string& sym) -> std::string {
+                    const auto [kind, base] = partition_colon(sym);
+                    if (kind == "word")
+                    {
+                        if (carried.count(base)) return "cur_" + base;
+                        return source_code(node, sym, true);
+                    }
+                    if (kind == "input") return "pads.get((" + py_str_repr(base) + ", ph), 0)";
+                    if (kind == "iter" || kind == "imask" || kind == "ival" || kind == "pv") return pyname(sym);
+                    throw std::runtime_error("KeyError " + sym);
+                };
+                std::optional<std::vector<std::string>> lifted_code;
+                if (lifted && lift_hook)
+                {
+                    std::map<std::string, std::pair<std::string, unsigned>> alias;
+                    if (S.counter)
+                    {
+                        std::map<std::string, unsigned> ivw(S.iter_vars.begin(), S.iter_vars.end());
+                        for (unsigned qb = 0; qb < S.counter->bits.size(); ++qb)
+                            if (ivw.at(S.counter->bits[qb].first) == 1) alias["iter:" + S.counter->bits[qb].first] = {"r", qb};
+                    }
+                    Json node_id = Json::array({name, "loop" + idx + (multi ? "." + std::to_string(q) : "")});
+                    lifted_code = lift_hook(S.templates.at(name), env, 8, [](const std::string& s) {
+                        const auto k = partition_colon(s).first;
+                        return k == "iter" || k == "imask" || k == "ival";
+                    }, "new_" + name, alias, node_id, "ph", name);
+                }
+                Printer pr(env);
+                const std::string code = pr.emit(S.templates.at(name));
+                std::vector<std::string> plain;
+                for (const auto& ln : pr.lines) plain.push_back("    " + ln);
+                plain.push_back("        new_" + name + " = " + code);
+                const bool lifted_chosen = lifted_code && lifted_code->size() <= plain.size();
+                if (lifted && lift_note) lift_note(lifted_chosen, S.templates.at(name).get_sort().bv_size());
+                const auto& chosen = lifted_chosen ? *lifted_code : plain;
+                out.insert(out.end(), chosen.begin(), chosen.end());
+            }
+            for (const auto& name : S.names) out.push_back("        v[(" + py_str_repr(name) + ", ph)] = new_" + name);
             std::vector<std::string> lhs, rhs;
-            for (const auto& nm : cw) { lhs.push_back("cur_" + nm); rhs.push_back("new_" + nm); }
-            out.push_back("        " + join(lhs, ", ") + " = " + join(rhs, ", "));
+            for (const auto& nm : S.names)
+                if (read_carried.count(nm)) { lhs.push_back("cur_" + nm); rhs.push_back("new_" + nm); }
+            if (!lhs.empty()) out.push_back("        " + join(lhs, ", ") + " = " + join(rhs, ", "));
         }
         return out;
     }

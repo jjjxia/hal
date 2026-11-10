@@ -1,0 +1,1182 @@
+[
+ {
+  "case": "aes_oc",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_aes_core/src/rtl/verilog/aes_cipher_top.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_aes_core/src/rtl/verilog/aes_key_expand_128.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_aes_core/src/rtl/verilog/aes_sbox.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_aes_core/src/rtl/verilog/aes_rcon.v"
+  ],
+  "loops": [
+   {
+    "name": "AES-128 cipher rounds",
+    "trip_count": 10,
+    "parameter": "Nr=10 (AES-128, fixed by RTL). No loop-exit logic: the state registers have no enable and run every cycle. dcnt (loaded with 4'hb at ld) only drives done. The 12-cycle protocol fixes the count.",
+    "special_iterations": "Pre-loop: initial AddRoundKey in the ld_r cycle (cycle 1), sa <= text_in_r ^ w (w = round key 0). Rounds 1..9 (cycles 2..10) are identical: sa <= MixColumns(ShiftRows(SubBytes(sa))) ^ w. Round 10 (last) is special: no MixColumns, separate datapath into text_out (text_out <= ShiftRows(SubBytes(sa)) ^ w). text_out is written every cycle and is correct after cycle 11 (done=1). It is read in cycle 12 = cycle 0 of the next transaction.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "sa00..sa33 (16 x 8-bit state)",
+     "u0.w[0..3] (current round key)",
+     "u0.r0.rcnt, u0.r0.out (rcon)",
+     "dcnt (done timer only)"
+    ],
+    "fused_with": "key expansion: in the cycle where round r uses w = rk_r, the key expander writes rk_{r+1} into w (same cycle)",
+    "evidence": [
+     "aes_cipher_top.v:103-108 (dcnt <= 4'hb on ld, decrement while nonzero)",
+     "aes_cipher_top.v:110 (done when dcnt==1)",
+     "aes_cipher_top.v:111-112 (text_in_r, ld_r)",
+     "aes_cipher_top.v:119-134 (sa <= ld_r ? text_in_r ^ w : sa_next)",
+     "aes_cipher_top.v:141-176 (ShiftRows, MixColumns, sa_next = mc ^ w)",
+     "aes_cipher_top.v:183-198 (text_out = sr ^ w, no MixColumns)"
+    ]
+   },
+   {
+    "name": "key expansion (round keys 1..10)",
+    "trip_count": 10,
+    "parameter": "AES-128",
+    "special_iterations": "Round key 0 = key, loaded when kld=ld (cycle 0); this is not an iteration. Then rk1..rk10 are computed in cycles 1..10, one per cycle. The rcon counter rcnt is reset by kld.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "u0.w[0..3]",
+     "u0.r0.rcnt",
+     "u0.r0.out"
+    ],
+    "fused_with": "AES-128 cipher rounds (same cycle; see above)",
+    "evidence": [
+     "aes_key_expand_128.v:73-76 (w <= kld ? key : next word)",
+     "aes_key_expand_128.v:77-82 (SubWord(RotWord(w3)), rcon)",
+     "aes_rcon.v:67-74 (rcnt counter, out register)",
+     "aes_rcon.v:76-91 (rcon table)"
+    ]
+   }
+  ],
+  "notes": "Free-running datapath. The loop count is not enforced by the RTL. It comes from dcnt/done and the sampling cycle."
+ },
+ {
+  "case": "aes_sw128",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/wrap/aes128_enc_top.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_core.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_encipher_block.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_decipher_block.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_key_mem.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_sbox.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_inv_sbox.v"
+  ],
+  "loops": [
+   {
+    "name": "key expansion (aes_key_mem CTRL_GENERATE)",
+    "trip_count": 11,
+    "parameter": "AES_128_NUM_ROUNDS=10, keylen=0. round_ctr_reg runs 0..10. The exit test (round_ctr_reg == num_rounds) is evaluated in the same cycle as the update.",
+    "special_iterations": "First (r=0): copies key[255:128] (= wrapper key) into key_mem[0] and prev_key1_reg, with no computation. r=1..10: k = f(prev_key1_reg, SubWord(RotWord), rcon). rcon is preset to 8'h8d outside update cycles, so r=0 steps it to 01.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "keymem.prev_key1_reg",
+     "keymem.rcon_reg",
+     "keymem.round_ctr_reg",
+     "keymem.key_mem[0..10] (written here, read by the cipher)"
+    ],
+    "fused_with": "none. It is a separate phase (init in cycle 0, GENERATE in cycles 2..12) before the cipher. It time-shares the single 32-bit S-box with the cipher (aes_core sbox_mux, init_state=1).",
+    "evidence": [
+     "aes_key_mem.v:65 (AES_128_NUM_ROUNDS=10)",
+     "aes_key_mem.v:368-429 (FSM IDLE/INIT/GENERATE/DONE; GENERATE exit at 409)",
+     "aes_key_mem.v:343-359 (round_ctr)",
+     "aes_key_mem.v:191-257 (round_key_gen, AES-128 branch 237-258)",
+     "aes_key_mem.v:316-335 (rcon)",
+     "aes_key_mem.v:160-161, 180-183 (key_mem write/read)",
+     "aes_core.v:218-228 (shared sbox mux)",
+     "aes_core.v:278-314 (CTRL_IDLE->CTRL_INIT, wait key_ready)"
+    ]
+   },
+   {
+    "name": "cipher rounds (aes_encipher_block)",
+    "trip_count": 10,
+    "parameter": "AES128_ROUNDS=4'ha, keylen=0. round_ctr_reg 1..10. Each round = CTRL_SBOX x4 + CTRL_MAIN x1.",
+    "special_iterations": "Pre-loop: CTRL_INIT (1 cycle), INIT_UPDATE, block_reg <= block ^ key_mem[0]. Rounds 1..9: MAIN_UPDATE (ShiftRows, MixColumns, AddRoundKey). Round 10 (last): FINAL_UPDATE, no MixColumns, ready <= 1.",
+    "cycles_per_iteration": 5,
+    "carried_state": [
+     "enc_block.block_w0_reg..block_w3_reg",
+     "enc_block.round_ctr_reg",
+     "enc_block.sword_ctr_reg",
+     "enc_block.enc_ctrl_reg"
+    ],
+    "fused_with": "none (the round key is read combinationally from key_mem[round_ctr_reg])",
+    "evidence": [
+     "aes_encipher_block.v:68 (AES128_ROUNDS)",
+     "aes_encipher_block.v:399-481 (encipher_ctrl FSM; CTRL_INIT 436-443, CTRL_SBOX 445-454, CTRL_MAIN 456-474 with round_ctr_reg < num_rounds at 460)",
+     "aes_encipher_block.v:376-391 (round_ctr)",
+     "aes_encipher_block.v:263-345 (round_logic: INIT 283-290, SBOX 292-321, MAIN 323-330, FINAL 332-339)"
+    ]
+   },
+   {
+    "name": "SubBytes word loop (inner, once per cipher round)",
+    "trip_count": 4,
+    "parameter": "4 x 32-bit columns, one through the shared 4-byte S-box per cycle (sword_ctr_reg 0..3)",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "enc_block.sword_ctr_reg",
+     "enc_block.block_w0_reg..block_w3_reg (updated in place, one word per cycle)"
+    ],
+    "fused_with": "nested in cipher rounds (40 SubBytes word steps per transaction)",
+    "evidence": [
+     "aes_encipher_block.v:445-454 (CTRL_SBOX, exit at sword_ctr_reg == 3)",
+     "aes_encipher_block.v:353-368 (sword_ctr)",
+     "aes_encipher_block.v:292-321 (one word per cycle)",
+     "aes_core.v:172 (single aes_sbox instance)"
+    ]
+   }
+  ],
+  "notes": "Transaction = init (key expansion, cycles 0..13) + next (encryption, cycles 15..66); the result is read in cycle 68. Wrapper ties encdec=1, keylen=0, key={key,128'h0} (wrap/aes128_enc_top.v:5-6). The decipher block is present but idle (dec_next=0)."
+ },
+ {
+  "case": "aes_sw_core",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_core.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_encipher_block.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_decipher_block.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_key_mem.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_sbox.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_aes/src/src/rtl/aes_inv_sbox.v"
+  ],
+  "loops": [
+   {
+    "name": "key expansion (aes_key_mem CTRL_GENERATE)",
+    "trip_count": 11,
+    "parameter": "keylen pad = 0 (AES-128), round_ctr_reg 0..10",
+    "special_iterations": "r=0 copies key[255:128] with no computation; r=1..10 compute",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "keymem.prev_key1_reg",
+     "keymem.rcon_reg",
+     "keymem.round_ctr_reg",
+     "keymem.key_mem[0..10]"
+    ],
+    "fused_with": "none (separate init phase, shared S-box)",
+    "evidence": [
+     "aes_key_mem.v:368-429",
+     "aes_key_mem.v:343-359",
+     "aes_key_mem.v:237-258",
+     "aes_key_mem.v:316-335"
+    ]
+   },
+   {
+    "name": "cipher rounds (aes_encipher_block)",
+    "trip_count": 10,
+    "parameter": "encdec pad = 1, keylen pad = 0, AES128_ROUNDS=10",
+    "special_iterations": "pre-loop CTRL_INIT whitening with key_mem[0]; rounds 1..9 MAIN_UPDATE; round 10 FINAL_UPDATE without MixColumns",
+    "cycles_per_iteration": 5,
+    "carried_state": [
+     "enc_block.block_w0_reg..block_w3_reg",
+     "enc_block.round_ctr_reg",
+     "enc_block.sword_ctr_reg",
+     "enc_block.enc_ctrl_reg"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "aes_encipher_block.v:399-481",
+     "aes_encipher_block.v:376-391",
+     "aes_encipher_block.v:263-345"
+    ]
+   },
+   {
+    "name": "SubBytes word loop (inner, once per cipher round)",
+    "trip_count": 4,
+    "parameter": "sword_ctr_reg 0..3",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "enc_block.sword_ctr_reg",
+     "enc_block.block_w0_reg..block_w3_reg"
+    ],
+    "fused_with": "nested in cipher rounds",
+    "evidence": [
+     "aes_encipher_block.v:445-454",
+     "aes_encipher_block.v:353-368"
+    ]
+   }
+  ],
+  "notes": "Same RTL and loop structure as aes_sw128, without the wrapper. The AES-256 and decipher paths are synthesized but not executed with the fixed pads. key[127:0] is unused for keylen=0."
+ },
+ {
+  "case": "cordic",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_cordic/conf/cordic_iterate.v"
+  ],
+  "loops": [
+   {
+    "name": "CORDIC micro-rotations (rotation mode)",
+    "trip_count": 16,
+    "parameter": "ITERATIONS=16, ITERATE, ROTATE, RADIAN_16, XY_BITS=THETA_BITS=16 (+sign)",
+    "special_iterations": "none. i=0 uses shift 0 and tanangle(0) in the same datapath. Pre-loop: the init cycle (cycle 0) loads x_i, y_i, theta_i into the rotator registers without rotating. No gain compensation.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "U.x_1",
+     "U.y_1",
+     "U.z_1",
+     "iteration (5-bit counter; low 4 bits index the shifter and tanangle)"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "cordic_iterate.v:114 (ITERATIONS 16)",
+     "cordic_iterate.v:129 (ITERATE selected)",
+     "cordic_iterate.v:366-375 (iteration counter: reset by init, +1 every cycle, no terminal test)",
+     "cordic_iterate.v:217-249 (rotator update, direction from sign of z)",
+     "cordic_iterate.v:280-302 (tanangle table)",
+     "cordic_iterate.v:171-180 (D >>> i shifter, bench patch)"
+    ]
+   }
+  ],
+  "notes": "There is no terminating counter. The rotator keeps rotating after 16 steps, and iteration[3:0] wraps to 0 at 16. The trip count of 16 comes from the 17-cycle protocol: init in cycle 0, rotations in cycles 1..16, result valid only in cycle 17."
+ },
+ {
+  "case": "hb_dec",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/hb_dec.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/round_sd.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/add2_and_clip_reg.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/add2_and_clip.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/round.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/clip.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/sign_extend.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/acc.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/control_lib/srl.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/models/MULT18X18S.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/wrap/SRL16E_behav.v"
+  ],
+  "loops": [
+   {
+    "name": "folded symmetric tap-pair MAC",
+    "trip_count": 4,
+    "parameter": "WIDTH=24, 16 odd taps as 8 symmetric pairs. 2 pairs per iteration on 2 multipliers (outer coeff1, inner coeff2). phase counter 1..4.",
+    "special_iterations": "First iteration: accumulator clear (clear = stb_out_pre[3]), so acc <= product. Post-loop: the centre tap (even sample from srl_even, addr_even=8 for cpi=4) is added in final_sum, then rounded, clipped and output.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "acc.out (36-bit accumulator)",
+     "phase, phase_d1",
+     "pipeline registers sum1, sum2, mult1.P, mult2.P, sum_of_prod",
+     "stb_out_pre (schedule shift register)"
+    ],
+    "fused_with": "none. Iterations are pipelined (II=1): SRL read, then pre-add (sum1/sum2), then MULT18X18S, then sum_of_prod, then acc.",
+    "evidence": [
+     "hb_dec.v:64-72 (phase: 1 on odd strobe, +1, 4->0)",
+     "hb_dec.v:84-100 (tap address pairs per phase)",
+     "hb_dec.v:113-129 (coefficients per phase_d1)",
+     "hb_dec.v:140-141, 157-161 (pre-add, multiply, sum of products)",
+     "hb_dec.v:102-103, 164-165 (do_acc = |stb_out_pre[6:3], clear = stb_out_pre[3])",
+     "acc.v:16-21",
+     "hb_dec.v:179-192 (centre tap, output)"
+    ]
+   }
+  ],
+  "notes": "Streaming filter. One output per transaction of 2 input strobes (cycles 0 and 4). State carried across transactions: SRL16E data in srl_odd_a..d (four copies of the 16 odd samples), srl_even, odd, and the round_sd error-feedback register (round_in). Because of pipeline latency the loop and the output fall in the next 8-cycle frame."
+ },
+ {
+  "case": "icrc1",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/bambu_arf/wrap/icrc1_extract.c",
+   "/home/jiahao/hal/build/bench_candidates/bambu_arf/gen_icrc1/icrc1.v"
+  ],
+  "loops": [
+   {
+    "name": "CRC bit steps (C: for (i=0;i<8;i++))",
+    "trip_count": 8,
+    "parameter": "i<8 (C). Bambu -O1 -fno-unroll-loops builds an FSM self-loop in S_1. The exit test (reg_1 + 1 == 8) runs in the same state as the body.",
+    "special_iterations": "none. Pre-loop S_0: ans = crc ^ (onech << 8), i = 0. Post-loop S_2: done (done_port registered).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "Datapath_i.reg_0 (ans, 16-bit)",
+     "Datapath_i.reg_1 (i, 32-bit)",
+     "Controller_i._present_state"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "icrc1_extract.c:4-11 (C loop)",
+     "icrc1.v:482-493 (S_0 prologue)",
+     "icrc1.v:494-510 (S_1 loop state, exit to S_2)",
+     "icrc1.v:398-412 (i+1, compare with const 8; const_2 at 357-358)",
+     "icrc1.v:380-397 (ans<<1, ^0x1021, select on bit 15)",
+     "icrc1.v:417-428 (reg_0, reg_1)"
+    ]
+   }
+  ],
+  "notes": "The source is C compiled by Bambu HLS. The loop structure is that of the C source and of the generated FSM. Timing: start in cycle 0, loop in cycles 1..8, done in cycle 9."
+ },
+ {
+  "case": "pcpi_div",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/picorv32_pcpi_div/src/picorv32.v"
+  ],
+  "loops": [
+   {
+    "name": "restoring division bit steps",
+    "trip_count": 32,
+    "parameter": "quotient_msk = 1<<31 shifted right until 0 (32 bits). DIVU (pcpi_insn 0x02b55533).",
+    "special_iterations": "none in the loop. Pre-loop start cycle: operand load, no sign change for DIVU, divisor = rs2 << 31. Post-loop finish cycle (quotient_msk == 0): pcpi_rd <= quotient (outsign = 0 for DIVU), pcpi_ready.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "dividend",
+     "divisor (63-bit)",
+     "quotient",
+     "quotient_msk",
+     "running",
+     "outsign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "picorv32.v:2438-2455 (decode, pcpi_wait, start = pcpi_wait && !pcpi_wait_q)",
+     "picorv32.v:2472-2478 (start)",
+     "picorv32.v:2480-2496 (exit when !quotient_msk && running)",
+     "picorv32.v:2497-2508 (iteration body)"
+    ]
+   }
+  ],
+  "notes": "Timing: decode in cycles 0..1, start in cycle 2, iterations in cycles 3..34, finish in cycle 35, pcpi_ready in cycle 36."
+ },
+ {
+  "case": "present_saiedhk",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/present_saiedhk/conf/present_encrypt.v",
+   "/home/jiahao/hal/build/bench_candidates/present_saiedhk/src/present_encrypt_pbox.v",
+   "/home/jiahao/hal/build/bench_candidates/present_saiedhk/src/present_encrypt_sbox.v"
+  ],
+  "loops": [
+   {
+    "name": "PRESENT-80 rounds",
+    "trip_count": 31,
+    "parameter": "round counter 1..31 (5-bit, wraps to 0). No exit logic. The 32-cycle protocol fixes the count.",
+    "special_iterations": "none in the loop. Each round: addRoundKey (kreg[79:16]), 16 S-boxes, pLayer. The final whitening with K32 is not an iteration: odat = dreg ^ kreg[79:16] is combinational and equals the ciphertext in cycle 32 (= load cycle of the next transaction, round==0).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "dreg (64-bit state)",
+     "kreg (80-bit key register)",
+     "round"
+    ],
+    "fused_with": "key schedule: kreg <= update(kreg, round) in the same cycle as the round (31 key updates)",
+    "evidence": [
+     "present_encrypt.v:94-100 (round <= load ? 1 : round+1)",
+     "present_encrypt.v:76-82 (dreg)",
+     "present_encrypt.v:85-91 (kreg)",
+     "present_encrypt.v:46-47 (dat1 = dreg ^ kreg[79:16], odat)",
+     "present_encrypt.v:50-53, 70 (key update: rotate 61, S-box, XOR round)",
+     "present_encrypt.v:59-67 (sLayer, pLayer)"
+    ]
+   }
+  ],
+  "notes": "Free-running datapath. The bench patch only comments out the PRINT_TEST_VECTORS define (line 26)."
+ },
+ {
+  "case": "qdiv",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qdiv.v"
+  ],
+  "loops": [
+   {
+    "name": "restoring shift-subtract division",
+    "trip_count": 47,
+    "parameter": "N=32, Q=15 (defaults). reg_count counts N+Q-1=46 down to 0, giving N+Q iterations.",
+    "special_iterations": "Last iteration (reg_count==0) is special. It also sets reg_done, copies reg_quotient <= reg_working_quotient and sets overflow. The copy is nonblocking in the same edge that sets quotient bit 0, so bit 0 never reaches the output (o_quotient_out[0] is always 0). The overflow test also uses the old working quotient. Pre-loop start cycle: left-align operands, sign = XOR of signs.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_dividend",
+     "reg_working_divisor",
+     "reg_working_quotient",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qdiv.v:28-29 (Q, N)",
+     "qdiv.v:72-85 (start: reg_count <= N+Q-1 at 75)",
+     "qdiv.v:86-105 (body: shift 87, compare/subtract 91-94, stop at reg_count==0 97-102, copy 99)"
+    ]
+   }
+  ],
+  "notes": "Timing: start in cycle 0, iterations in cycles 1..47, o_complete from cycle 48 (= cycle 0 of the next transaction)."
+ },
+ {
+  "case": "qdiv_n16",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qdiv.v"
+  ],
+  "loops": [
+   {
+    "name": "restoring shift-subtract division",
+    "trip_count": 23,
+    "parameter": "N=16, Q=7 (chparam in synth/qdiv_n16/synth.ys). reg_count 22..0.",
+    "special_iterations": "Last iteration (reg_count==0): output copy before bit 0 lands, so the output LSB is always 0. Overflow uses the old working quotient.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_dividend",
+     "reg_working_divisor",
+     "reg_working_quotient",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qdiv.v:72-85",
+     "qdiv.v:86-105",
+     "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qdiv_n16/synth.ys (chparam -set Q 7 -set N 16)"
+    ]
+   }
+  ],
+  "notes": "Period 24 = N+Q+1."
+ },
+ {
+  "case": "qdiv_n64",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qdiv.v"
+  ],
+  "loops": [
+   {
+    "name": "restoring shift-subtract division",
+    "trip_count": 95,
+    "parameter": "N=64, Q=31 (chparam in synth/qdiv_n64/synth.ys). reg_count 94..0.",
+    "special_iterations": "Last iteration (reg_count==0): output copy before bit 0 lands, so the output LSB is always 0. Overflow uses the old working quotient.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_dividend",
+     "reg_working_divisor",
+     "reg_working_quotient",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qdiv.v:72-85",
+     "qdiv.v:86-105",
+     "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qdiv_n64/synth.ys (chparam -set Q 31 -set N 64)"
+    ]
+   }
+  ],
+  "notes": "Period 96 = N+Q+1."
+ },
+ {
+  "case": "qmults",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qmults.v"
+  ],
+  "loops": [
+   {
+    "name": "shift-and-add multiplication over multiplicand bits",
+    "trip_count": 33,
+    "parameter": "N=32, Q=15 (defaults). reg_count counts 0..N. The exit test reg_count==N is in the same cycle as the body, giving N+1 iterations.",
+    "special_iterations": "Iteration reg_count=N-1 reads reg_multiplicand_temp[N-1], which is always 0 (the register is loaded from i_multiplicand[N-2:0]), so it never adds. The last iteration (reg_count=N) is special. It reads reg_multiplicand_temp[N], out of range of [N-1:0] (x in Verilog semantics), and it sets reg_done and overflow. The overflow test uses the result before this cycle's add. Pre-loop start cycle: load magnitudes, sign = XOR of signs.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_result",
+     "reg_multiplier_temp",
+     "reg_multiplicand_temp",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qmults.v:23-24 (Q, N)",
+     "qmults.v:38 (reg_multiplicand_temp [N-1:0])",
+     "qmults.v:59-71 (start)",
+     "qmults.v:73-88 (body: bit test 74, add 75, shift 77, count 78, stop at reg_count==N 81-87)"
+    ]
+   }
+  ],
+  "notes": "The out-of-range read in the last iteration is undefined in the RTL. The reference /home/jiahao/hal/algorithm_recovery/evaluation/program_checks/e5_refs/qmults.py states that the Yosys netlist resolves it to bit 0, giving one extra add of (|b| << N) when |a| is odd. I did not verify this in the netlist. Period 34 = N+2."
+ },
+ {
+  "case": "qmults_n16",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qmults.v"
+  ],
+  "loops": [
+   {
+    "name": "shift-and-add multiplication over multiplicand bits",
+    "trip_count": 17,
+    "parameter": "N=16, Q=7 (chparam in synth/qmults_n16/synth.ys). reg_count 0..16.",
+    "special_iterations": "reg_count=15 never adds (bit always 0). The last iteration, reg_count=16, reads an out-of-range bit (x in RTL), sets done and overflow (pre-add value).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_result",
+     "reg_multiplier_temp",
+     "reg_multiplicand_temp",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qmults.v:59-71",
+     "qmults.v:73-88",
+     "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qmults_n16/synth.ys (chparam -set Q 7 -set N 16)"
+    ]
+   }
+  ],
+  "notes": "Same out-of-range caveat as qmults. Period 18."
+ },
+ {
+  "case": "qmults_n64",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qmults.v"
+  ],
+  "loops": [
+   {
+    "name": "shift-and-add multiplication over multiplicand bits",
+    "trip_count": 65,
+    "parameter": "N=64, Q=31 (chparam in synth/qmults_n64/synth.ys). reg_count 0..64.",
+    "special_iterations": "reg_count=63 never adds (bit always 0). The last iteration, reg_count=64, reads an out-of-range bit (x in RTL), sets done and overflow (pre-add value).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_result",
+     "reg_multiplier_temp",
+     "reg_multiplicand_temp",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qmults.v:59-71",
+     "qmults.v:73-88",
+     "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/synth/qmults_n64/synth.ys (chparam -set Q 31 -set N 64)"
+    ]
+   }
+  ],
+  "notes": "Same out-of-range caveat as qmults. Period 66."
+ },
+ {
+  "case": "sha256_lattice",
+  "source_files": [
+   "/home/jiahao/hal/build/e7/sha256_lattice/src/sha256.v",
+   "/home/jiahao/hal/build/e7/sha256_lattice/src/sha256_core.v",
+   "/home/jiahao/hal/build/e7/sha256_lattice/src/sha256_w_mem.v",
+   "/home/jiahao/hal/build/e7/sha256_lattice/src/sha256_k_constants.v"
+  ],
+  "loops": [
+   {
+    "name": "SHA-256 compression rounds",
+    "trip_count": 64,
+    "parameter": "SHA256_ROUNDS=63. t_ctr_reg 0..63 in CTRL_ROUNDS; the exit test (t_ctr_reg == 63) is in the same cycle as the round.",
+    "special_iterations": "none in the loop. Pre-loop CTRL_IDLE+init (1 cycle): a..h and H0..H7 <= H(0) (mode=1), w_mem <= block, t_ctr <= 0. Post-loop CTRL_DONE (1 cycle): H_i <= H_i + a..h. Rounds t<16 read W from w_mem[t]; rounds t>=16 use the computed w_new.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "core.a_reg..h_reg",
+     "core.t_ctr_reg",
+     "core.w_mem_inst.w_mem[0..15]",
+     "core.H0_reg..H7_reg (constant during the loop, used in the feed-forward)"
+    ],
+    "fused_with": "message schedule (same cycle)",
+    "evidence": [
+     "sha256_core.v:79 (SHA256_ROUNDS = 63)",
+     "sha256_core.v:469-548 (FSM; IDLE 494-521, ROUNDS 524-535, DONE 538-546)",
+     "sha256_core.v:445-461 (t_ctr)",
+     "sha256_core.v:330-362 (t1, t2)",
+     "sha256_core.v:371-436 (state_logic)",
+     "sha256_core.v:271-322 (digest init/update)"
+    ]
+   },
+   {
+    "name": "message schedule W_16..W_63",
+    "trip_count": 48,
+    "parameter": "t = 16..63",
+    "special_iterations": "none. In rounds t<16 there is no schedule step (w_mem is not shifted).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "core.w_mem_inst.w_mem[0..15] (sliding window)"
+    ],
+    "fused_with": "compression rounds. w_new is computed combinationally and feeds t1 in the same cycle as round t, and w_mem shifts in the same cycle.",
+    "evidence": [
+     "sha256_w_mem.v:138-144 (select_w: round<16 ? w_mem[round] : w_new)",
+     "sha256_w_mem.v:180-193 (w_new = sigma1(w14)+w9+sigma0(w1)+w0)",
+     "sha256_w_mem.v:216-235 (shift when next && round>15)"
+    ]
+   }
+  ],
+  "notes": "Top sha256 is a register interface (sha256.v:162-260). The 16 block-word writes (cycles 0..15) and 8 digest reads (cycles 84..91) follow the address bus driven by the protocol; the RTL has no counter for them. init reaches the core as init_reg in cycle 17, rounds run in cycles 18..81, DONE is cycle 82, and digest_reg is latched at the edge that ends cycle 83. The RTL is secworks/sha256 837c5cc. The e7/sha256_lattice/src copies are byte-identical to bench_candidates/secworks_sha256/src/src/rtl. The netlist is third party (Synplify). Only the protocol's side-by-side check ties it to this RTL. I did not check the netlist's provenance."
+ },
+ {
+  "case": "sha256_oc",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_sha_core/src/rtl/sha256.v"
+  ],
+  "loops": [
+   {
+    "name": "SHA-256 compression rounds",
+    "trip_count": 64,
+    "parameter": "round counter 1..64 (7-bit); round r does step t=r-1",
+    "special_iterations": "Pre-loop round 0 (cycle 1): A..H and H0..H7 <= H(0) (cmd[2]=0, first block), W0/Wt <= text_i, no compression. The last step t=63 (round 64) is special: it is fused with the feed-forward (A <= next_A + H0, ..., H <= G + H7), then round <= 0 and busy <= 0. Steps t=0..15 use input words (Wt latched from text_i); t=16..63 use scheduled words.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "A..H",
+     "Wt",
+     "Kt (registered K_t, one cycle ahead)",
+     "W0..W14",
+     "H0..H7",
+     "round",
+     "busy"
+    ],
+    "fused_with": "message input (rounds 0..15) and message schedule (rounds 16..63)",
+    "evidence": [
+     "sha256.v:156, 212 (round, round_plus_1)",
+     "sha256.v:261-310 (round 0)",
+     "sha256.v:311-549 (rounds 1..15: load W_r, compress)",
+     "sha256.v:550-626 (rounds 16..63: shift W, Wt <= next_Wt, compress)",
+     "sha256.v:627-639 (round 64: last step + feed-forward)",
+     "sha256.v:201-207 (T1, T2, next_Wt, next_E, next_A)",
+     "sha256.v:653-729 (Kt <= K[round])"
+    ]
+   },
+   {
+    "name": "message schedule W_16..W_63",
+    "trip_count": 48,
+    "parameter": "rounds 16..63 compute W_round",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "W0..W14",
+     "Wt"
+    ],
+    "fused_with": "compression rounds. W_{t+1} is computed in the cycle of step t and registered in Wt, one cycle ahead of use.",
+    "evidence": [
+     "sha256.v:205 (next_Wt)",
+     "sha256.v:597-614 (W shift, Wt <= next_Wt)"
+    ]
+   },
+   {
+    "name": "message word input (I/O)",
+    "trip_count": 16,
+    "parameter": "16 x 32-bit words on text_i",
+    "special_iterations": "word 0 is in round 0 (pre-loop cycle); words 1..15 are in rounds 1..15",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "W0..W14",
+     "Wt"
+    ],
+    "fused_with": "compression rounds 0..15",
+    "evidence": [
+     "sha256.v:267-268 (round 0: W0, Wt <= text_i)",
+     "sha256.v:313-314 (round 1; same pattern in each case arm through round 14 at 521-522)",
+     "sha256.v:537 (round 15: Wt <= text_i)"
+    ]
+   },
+   {
+    "name": "digest readout (I/O)",
+    "trip_count": 8,
+    "parameter": "read_counter 7..0",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "read_counter",
+     "text_o"
+    ],
+    "fused_with": "none (after the rounds, while busy=0)",
+    "evidence": [
+     "sha256.v:734-771 (read_counter <= 7 on cmd[0]; text_o <= word[read_counter]; decrement)"
+    ]
+   }
+  ],
+  "notes": "Timing: command in cycle 0, rounds 0..64 in cycles 1..65, read command in cycle 68, digest words in cycles 71..78."
+ },
+ {
+  "case": "sha256_sw",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/secworks_sha256/src/src/rtl/sha256_core.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_sha256/src/src/rtl/sha256_k_constants.v",
+   "/home/jiahao/hal/build/bench_candidates/secworks_sha256/src/src/rtl/sha256_w_mem.v"
+  ],
+  "loops": [
+   {
+    "name": "SHA-256 compression rounds",
+    "trip_count": 64,
+    "parameter": "SHA256_ROUNDS=63, t_ctr_reg 0..63; mode pad = 1 (SHA-256)",
+    "special_iterations": "none in the loop. Pre-loop CTRL_IDLE+init (cycle 0): H(0) into a..h and H0..H7, block into w_mem. Post-loop CTRL_DONE (cycle 65): H += a..h. Rounds t<16 read w_mem[t].",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "a_reg..h_reg",
+     "t_ctr_reg",
+     "w_mem_inst.w_mem[0..15]",
+     "H0_reg..H7_reg"
+    ],
+    "fused_with": "message schedule (same cycle)",
+    "evidence": [
+     "sha256_core.v:79",
+     "sha256_core.v:469-548",
+     "sha256_core.v:445-461",
+     "sha256_core.v:330-436",
+     "sha256_core.v:271-322",
+     "sha256_k_constants.v:61+ (combinational K[t_ctr_reg])"
+    ]
+   },
+   {
+    "name": "message schedule W_16..W_63",
+    "trip_count": 48,
+    "parameter": "t = 16..63",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "w_mem_inst.w_mem[0..15]"
+    ],
+    "fused_with": "compression rounds (w_new used in t1 in the same cycle as round t)",
+    "evidence": [
+     "sha256_w_mem.v:138-144",
+     "sha256_w_mem.v:180-193",
+     "sha256_w_mem.v:216-235"
+    ]
+   }
+  ],
+  "notes": "The 512-bit block is a parallel input. Period 66 = 1 + 64 + 1."
+ },
+ {
+  "case": "sha256_yosys_top",
+  "source_files": [
+   "/home/jiahao/hal/build/e7/sha256_yosys/src/sha256.v",
+   "/home/jiahao/hal/build/e7/sha256_yosys/src/sha256_core.v",
+   "/home/jiahao/hal/build/e7/sha256_yosys/src/sha256_w_mem.v",
+   "/home/jiahao/hal/build/e7/sha256_yosys/src/sha256_k_constants.v"
+  ],
+  "loops": [
+   {
+    "name": "SHA-256 compression rounds",
+    "trip_count": 64,
+    "parameter": "SHA256_ROUNDS=63, t_ctr_reg 0..63; mode bit written 1 by the control word",
+    "special_iterations": "none in the loop. Pre-loop init cycle: H(0), w_mem <= block_reg[0..15]. Post-loop CTRL_DONE: H += a..h.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "core.a_reg..h_reg",
+     "core.t_ctr_reg",
+     "core.w_mem_inst.w_mem[0..15]",
+     "core.H0_reg..H7_reg"
+    ],
+    "fused_with": "message schedule (same cycle)",
+    "evidence": [
+     "sha256_core.v:79",
+     "sha256_core.v:469-548",
+     "sha256_core.v:445-461",
+     "sha256_core.v:330-436"
+    ]
+   },
+   {
+    "name": "message schedule W_16..W_63",
+    "trip_count": 48,
+    "parameter": "t = 16..63",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "core.w_mem_inst.w_mem[0..15]"
+    ],
+    "fused_with": "compression rounds (same cycle)",
+    "evidence": [
+     "sha256_w_mem.v:138-144",
+     "sha256_w_mem.v:180-193",
+     "sha256_w_mem.v:216-235"
+    ]
+   }
+  ],
+  "notes": "Same RTL as sha256_lattice. The four files are byte-identical to bench_candidates/secworks_sha256/src/src/rtl at 837c5cc. Register file block_reg and digest_reg are written and read through the address bus (sha256.v:162-260); there is no RTL loop for the I/O."
+ },
+ {
+  "case": "present",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_present/src/rtl/verilog/present_encryptor_top.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_present/src/rtl/verilog/sub_per.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_present/src/rtl/verilog/substitution.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_present/src/rtl/verilog/permutation.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_present/src/rtl/verilog/sbox.v",
+   "/home/jiahao/hal/build/bench_candidates/oc_present/src/rtl/verilog/key_update.v"
+  ],
+  "loops": [
+   {
+    "name": "PRESENT-80 rounds",
+    "trip_count": 31,
+    "parameter": "round_counter 1..31 (5-bit, wraps). No exit logic. The 33-cycle protocol fixes the count.",
+    "special_iterations": "none in the loop. Pre-loop: key_load in cycle 0 (key <= data_i), data_load in cycle 1 (state <= data_i[63:0], round_counter <= 1). Rounds run in cycles 2..32. The final K32 whitening is combinational: data_o = state ^ key[79:16], valid in cycle 33 = cycle 0 of the next transaction.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "state (64-bit)",
+     "key (80-bit)",
+     "round_counter"
+    ],
+    "fused_with": "key schedule: key <= key_update(key, round_counter) in the same cycle as the round",
+    "evidence": [
+     "present_encryptor_top.v:72-92 (load/round always block; round_counter <= 1 at 83, +1 at 87)",
+     "present_encryptor_top.v:63-67 (round_key = key[79:16], sub_per_input, data_o)",
+     "key_update.v:45-52 (rotate 61, S-box, XOR round_counter)",
+     "sub_per.v:45-46"
+    ]
+   }
+  ],
+  "notes": "Free-running. The datapath keeps iterating until the next key_load."
+ },
+ {
+  "case": "fir_decim",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/adi_fir_decim/src/library/axi_adc_decimate/fir_decim.v"
+  ],
+  "loops": [
+   {
+    "name": "folded symmetric tap-pair MAC",
+    "trip_count": 3,
+    "parameter": "USE_DSP48E=0 (chparam). 3 coefficients (coeffphase1_1..3) times pre-added sample pairs (6 taps). count 0..2.",
+    "special_iterations": "none in the loop. _sum is cleared on ready, after the result is latched into filter_out, so each output starts from 0. Post-loop: ready, filter_out <= sum, ce_out.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "count",
+     "active, active_d1, active_d2",
+     "pre_adder, coeff_d1, product (pipeline)",
+     "_sum (accumulator)"
+    ],
+    "fused_with": "none. Pipelined with II=1: pre-add (active), multiply (active_d1), accumulate (active_d2).",
+    "evidence": [
+     "fir_decim.v:95-103 (active set on clk_enable && phase==1, cleared at count==2)",
+     "fir_decim.v:105-112 (count 0..2)",
+     "fir_decim.v:114-120 (ready)",
+     "fir_decim.v:136-139 (data0 = storage0[2-count], data1 = storage1[count])",
+     "fir_decim.v:143-150 (coeff by count)",
+     "fir_decim.v:238-262 (non-DSP MAC; clear at 256-257)",
+     "fir_decim.v:273-277 (output)"
+    ]
+   }
+  ],
+  "notes": "Streaming decimate-by-2 filter. Transaction = 2 samples (clk_enable in cycles 0 and 5). The phase-1 sample (cycle 0) triggers the loop. The phase-0 sample (cycle 5) is used by the next transaction. State carried across transactions: storage0[0..11], storage1[0..11] (bit-sliced 4-deep delay lines, positions 0..2 read) and phase."
+ },
+ {
+  "case": "small_hb_dec_r2",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/small_hb_dec.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/round_sd.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/add2_and_clip_reg.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/add2_and_clip.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/round.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/clip.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/sdr_lib/sign_extend.v",
+   "/home/jiahao/hal/build/bench_candidates/ettus_hbdec/src/fpga/usrp2/models/MULT18X18S.v"
+  ],
+  "loops": [
+   {
+    "name": "folded 2-step tap-pair MAC on one multiplier",
+    "trip_count": 2,
+    "parameter": "WIDTH=18. 7-tap halfband [A 0 B 0.5 B 0 A]. Step 1 = B pair (d2+d4), step 2 = A pair (x[n]+d6).",
+    "special_iterations": "First step is special: accum <= centre tap (middle_d1) + product (go_d2) instead of accumulating. Second step: accum += product (go_d3). The two steps take different operands through the go_d1 mux. No counter. The steps are sequenced by the one-hot strobe chain go -> go_d1 -> go_d2 -> go_d3 -> go_d4.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "accum",
+     "mult.P",
+     "middle_d1",
+     "go_d1..go_d4"
+    ],
+    "fused_with": "none (pipelined: multiply in go_d1/go_d2, accumulate in go_d2/go_d3)",
+    "evidence": [
+     "small_hb_dec.v:50-55 (phase, go = stb_rnd_d1 & phase)",
+     "small_hb_dec.v:56-70 (go_d1..go_d4)",
+     "small_hb_dec.v:89-100 (sum_a, sum_b, middle)",
+     "small_hb_dec.v:102-105 (operand mux, MULT18X18S CE = go_d1|go_d2)",
+     "small_hb_dec.v:115-121 (accum init at go_d2, add at go_d3)",
+     "small_hb_dec.v:128-137 (output round_sd, clip)"
+    ]
+   }
+  ],
+  "notes": "Synthesis = synth/small_hb_dec (sha256 1f952afd... matches the contract). Streaming. State carried across transactions: delay line d1..d6, data_rnd_d1, phase, and error-feedback registers of both round_sd instances. It may be fairer to call this a fixed 2-step schedule than a loop. See the low-confidence list."
+ },
+ {
+  "case": "ibex_mul",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/wrap/ibex_md_top.sv",
+   "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/src/rtl/ibex_multdiv_slow.sv",
+   "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/src/rtl/ibex_ex_block.sv",
+   "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/src/rtl/ibex_alu.sv",
+   "/home/jiahao/hal/build/bench_candidates/ibex_multdiv_slow/conv/ibex_md_top.v"
+  ],
+  "loops": [
+   {
+    "name": "shift-add partial products (MULL, Baugh-Wooley form)",
+    "trip_count": 33,
+    "parameter": "md_op=MULL(0), signed_mode=0, data_ind_timing=1 (no early exit), mult_en held 1. multdiv_count 31..1 in MD_COMP. One step for each bit of the 33-bit sign-extended op_b.",
+    "special_iterations": "Step 0 (MD_IDLE) is special: it loads the operands and sets accum = pp0 directly, without the ALU add. Steps 1..31 (MD_COMP, 31 cycles) are identical: accum += pp_k, op_a <<= 1, op_b >>= 1. Step 32 (MD_LAST) does the same accum add but sets valid_o, puts out result = res_adder_l[31:0] combinationally, and returns to MD_IDLE. For unsigned operands pp32 is 0 in the low 32 bits. So 31 uniform body iterations plus a peeled first and last step, 33 cycles in total.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "imd_val_q[0][32:0] (accum_window, held in the wrapper)",
+     "op_a_shift_q",
+     "op_b_shift_q",
+     "multdiv_count_q",
+     "md_state_q"
+    ],
+    "fused_with": "none (the accumulate uses the shared ALU adder)",
+    "evidence": [
+     "ibex_multdiv_slow.sv:185-195, 226 (MD_IDLE MULL: pp0, count=31)",
+     "ibex_multdiv_slow.sv:245-257 (MD_COMP: count-1, exit at multdiv_count_q==1 at 255-256)",
+     "ibex_multdiv_slow.sv:274-282 (MD_LAST MULL)",
+     "ibex_multdiv_slow.sv:147-149 (partial product)",
+     "ibex_multdiv_slow.sv:337-351 (state regs)",
+     "ibex_multdiv_slow.sv:357-362 (valid_o, result)",
+     "ibex_alu.sv:80, 92, 99 (adder shared with multdiv)",
+     "ibex_md_top.sv:19-26 (imd_val_q regs)",
+     "conv/ibex_md_top.v:713, 733, 753 (same FSM after sv2v)"
+    ]
+   }
+  ],
+  "notes": "Period 33 = IDLE + 31 x COMP + LAST. The FSM restarts at once because mult_en is held 1."
+ },
+ {
+  "case": "qdiv (frozen bench2_v1)",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_fixedpoint/src/qdiv.v"
+  ],
+  "loops": [
+   {
+    "name": "restoring shift-subtract division",
+    "trip_count": 47,
+    "parameter": "N=32, Q=15. reg_count 46..0.",
+    "special_iterations": "Last iteration (reg_count==0) copies the working quotient before bit 0 lands, so the output LSB is always 0. Overflow uses the old value.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "reg_working_dividend",
+     "reg_working_divisor",
+     "reg_working_quotient",
+     "reg_count",
+     "reg_done",
+     "reg_sign"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "qdiv.v:72-85",
+     "qdiv.v:86-105"
+    ]
+   }
+  ],
+  "notes": "Same synthesized netlist as E5 qdiv (synth/qdiv/qdiv.json, sha256 c37c9e45... = contract)."
+ },
+ {
+  "case": "sha1",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/oc_sha_core/src/rtl/sha1.v"
+  ],
+  "loops": [
+   {
+    "name": "SHA-1 compression rounds",
+    "trip_count": 80,
+    "parameter": "round counter 1..80; round r does step t=r-1",
+    "special_iterations": "Pre-loop round 0 (cycle 1): A..E and H0..H4 <= H(0), W0/Wt <= text_i. The last step t=79 (round 80) is fused with the feed-forward (A <= next_A + H0, ..., E <= D + H4). The body changes by stage: f = Ch for t<20, Parity for 20..39, Maj for 40..59, Parity for 60..79, and Kt is one of 4 constants (registered one cycle ahead).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "A..E",
+     "Wt",
+     "Kt",
+     "W0..W14",
+     "H0..H4",
+     "round",
+     "busy"
+    ],
+    "fused_with": "message input (rounds 0..15) and message schedule (rounds 16..79)",
+    "evidence": [
+     "sha1.v:131 (ft select by round)",
+     "sha1.v:133-137 (next_Wt, next_A, next_C)",
+     "sha1.v:187-224 (round 0)",
+     "sha1.v:226-419 (rounds 1..15)",
+     "sha1.v:420-508 (rounds 16..79)",
+     "sha1.v:510-519 (round 80: last step + feed-forward)",
+     "sha1.v:533-552 (Kt)"
+    ]
+   },
+   {
+    "name": "message schedule W_16..W_79",
+    "trip_count": 64,
+    "parameter": "rounds 16..79",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "W0..W14",
+     "Wt"
+    ],
+    "fused_with": "compression rounds (W_{t+1} computed in the cycle of step t, one cycle ahead)",
+    "evidence": [
+     "sha1.v:133-135",
+     "sha1.v:420-508"
+    ]
+   },
+   {
+    "name": "message word input (I/O)",
+    "trip_count": 16,
+    "parameter": "text_i",
+    "special_iterations": "word 0 is in pre-loop round 0",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "W0..W14",
+     "Wt"
+    ],
+    "fused_with": "compression rounds 0..15",
+    "evidence": [
+     "sha1.v:191-192, 226-419"
+    ]
+   },
+   {
+    "name": "digest readout (I/O)",
+    "trip_count": 5,
+    "parameter": "read_counter 4..0",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "read_counter",
+     "text_o"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "sha1.v:557-590"
+    ]
+   }
+  ],
+  "notes": "Timing: command in cycle 0, rounds 0..80 in cycles 1..81, read command in cycle 84, words in cycles 87..91."
+ },
+ {
+  "case": "bambu_arf",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/bambu_arf/src/examples/arf_res_sharing/module.c",
+   "/home/jiahao/hal/build/bench_candidates/bambu_arf/gen_shared/arf.v"
+  ],
+  "loops": [],
+  "notes": "no loop. The C source (module.c:16-59) is straight-line: 16 multiplications and 12 additions. Bambu with 1 multiplier (constraints_ui_mult1.xml) schedules it as a linear 15-state FSM S_0..S_14 with no back edge except the return to S_0 (gen_shared/arf.v:852, 938-1071). The 16 multiplies share one ui_mult_expr_FU, but that is resource sharing, not iteration. The synthesis script reads gen_shared/arf.v, not gen_mult1/arf.v. The two differ only in the header comment lines 3-4."
+ },
+ {
+  "case": "ascon",
+  "source_files": [
+   "/home/jiahao/hal/build/bench_candidates/ascon_primas/conv/ascon_core_v1.v",
+   "/home/jiahao/hal/build/bench_candidates/ascon_primas/src/rtl/ascon_core.sv",
+   "/home/jiahao/hal/build/bench_candidates/ascon_primas/src/rtl/asconp.sv",
+   "/home/jiahao/hal/build/bench_candidates/ascon_primas/src/rtl/config.sv",
+   "/home/jiahao/hal/build/bench_candidates/ascon_primas/src/rtl/functions.sv",
+   "/home/jiahao/hal/build/bench_candidates/ascon_primas/src/rtl/register.sv"
+  ],
+  "loops": [
+   {
+    "name": "initialization permutation p^12 (INIT)",
+    "trip_count": 12,
+    "parameter": "ROUNDS_A=12, UROL=1. round_cnt_q counts 12 down to 1; the round constant index is 12 - round_cnt.",
+    "special_iterations": "none. Pre-loop: state <= IV || K || N (ld_npub_done). Post-loop: KADD_2 (x3 ^= K[0..63], x4 ^= K[64..127]).",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "state_q (x0..x4, 320 bits)",
+     "round_cnt_q",
+     "fsm_q"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "ascon_core.sv:110-111 (init_done at round_cnt_q == UROL)",
+     "ascon_core.sv:368-376 (IV/key/nonce load; state_d = asconp_o)",
+     "ascon_core.sv:436-446 (round_cnt load 12/8 and decrement)",
+     "asconp.sv:44-70 (one round; constant at 46, 49)",
+     "conv/ascon_core_v1.v:238, 602-613"
+    ]
+   },
+   {
+    "name": "associated-data block loop",
+    "trip_count": 2,
+    "parameter": "AD = 16 bytes = 1 full 128-bit block, plus the padding block that follows a full final block (schedule CSV ascon_aead128enc_ad16_pt16_v1.csv)",
+    "special_iterations": "Block 1: ABS_AD absorbs 4 words, then PRO_AD (p^8). Block 2 (last) is special: PAD_AD XORs the pad bit into x0 in 1 cycle, absorbs no data, then PRO_AD (p^8).",
+    "cycles_per_iteration": "12 (block 1: 4 + 8), 9 (block 2: 1 + 8)",
+    "carried_state": [
+     "state_q",
+     "word_cnt_q",
+     "ad_eot_q",
+     "ad_pad_q",
+     "fsm_q"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "ascon_core.sv:114-118, 145-151 (abs_ad, abs_ad_done, last_abs_blk, add_ad_pad)",
+     "ascon_core.sv:276-299 (ABS_AD/PAD_AD/PRO_AD transitions)",
+     "ascon_core.sv:349-355 (absorb, pad)"
+    ]
+   },
+   {
+    "name": "p^8 rounds after each AD block (inner, PRO_AD)",
+    "trip_count": 8,
+    "parameter": "ROUNDS_B=8, round_cnt 8..1 (constants 4..11)",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "state_q",
+     "round_cnt_q"
+    ],
+    "fused_with": "nested in the AD block loop (16 rounds in total)",
+    "evidence": [
+     "ascon_core.sv:118",
+     "ascon_core.sv:440, 445",
+     "conv/ascon_core_v1.v:247, 606"
+    ]
+   },
+   {
+    "name": "plaintext block loop",
+    "trip_count": 2,
+    "parameter": "PT = 16 bytes = 1 full block, plus the padding block",
+    "special_iterations": "Block 1: ABS_MSG absorbs 4 PT words and emits 4 CT words, then PRO_MSG (p^8). Block 2 (last) is special: PAD_MSG XORs the pad bit in 1 cycle and is not followed by p^8. Domain separation (DOM_SEP, x4 ^= 1<<63) comes before block 1. After block 2: KADD_3 (x2, x3 ^= K).",
+    "cycles_per_iteration": "12 (block 1: 4 + 8), 1 (block 2)",
+    "carried_state": [
+     "state_q",
+     "word_cnt_q",
+     "eoi_q",
+     "fsm_q"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "ascon_core.sv:120-128 (dom_sep, abs_msg, pro_msg_done)",
+     "ascon_core.sv:300-325 (DOM_SEP/ABS_MSG/PAD_MSG/PRO_MSG/KADD_3 transitions)",
+     "ascon_core.sv:211-227 (encrypt: state ^= pt, bdo = ct)",
+     "ascon_core.sv:383-391 (dom sep, KADD_3)"
+    ]
+   },
+   {
+    "name": "p^8 rounds after PT block 1 (inner, PRO_MSG)",
+    "trip_count": 8,
+    "parameter": "ROUNDS_B=8",
+    "special_iterations": "none",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "state_q",
+     "round_cnt_q"
+    ],
+    "fused_with": "nested in the plaintext block loop (block 1 only)",
+    "evidence": [
+     "ascon_core.sv:128, 441, 445",
+     "conv/ascon_core_v1.v:259, 607"
+    ]
+   },
+   {
+    "name": "finalization permutation p^12 (FINAL)",
+    "trip_count": 12,
+    "parameter": "ROUNDS_A=12",
+    "special_iterations": "none. Pre-loop KADD_3. Post-loop KADD_4 (x3, x4 ^= K), then SQZ_TAG.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "state_q",
+     "round_cnt_q"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "ascon_core.sv:132-133, 442, 445",
+     "conv/ascon_core_v1.v:266, 608"
+    ]
+   },
+   {
+    "name": "word-serial I/O loops (key, nonce, AD, PT/CT, tag)",
+    "trip_count": 4,
+    "parameter": "CCW=32, W128=4. word_cnt_q 0..3 for each 128-bit item: key load (LD_KEY), nonce (LD_NPUB), AD absorb (ABS_AD), PT absorb/CT out (ABS_MSG), tag out (SQZ_TAG).",
+    "special_iterations": "Last word (word_cnt_q == 3) triggers the *_done transition.",
+    "cycles_per_iteration": 1,
+    "carried_state": [
+     "word_cnt_q",
+     "key_q (key load)",
+     "state_q"
+    ],
+    "fused_with": "none",
+    "evidence": [
+     "ascon_core.sv:106-109, 140-141, 145-149 (*_done at word_cnt_q == W128-1)",
+     "ascon_core.sv:409-426 (word_cnt)",
+     "ascon_core.sv:398-403 (key_q)",
+     "config.sv:13-15, 47-54 (V1: UROL=1, CCW=32; ROUNDS_A/B)"
+    ]
+   }
+  ],
+  "notes": "Ascon-AEAD128 encryption, AD 16 B, PT 16 B. I traced the FSM by hand over 75 cycles: IDLE 1, LD_KEY 4, LD_NPUB 4, INIT 12, KADD_2 1, ABS_AD 4, PRO_AD 8, PAD_AD 1, PRO_AD 8, DOM_SEP 1, ABS_MSG 4, PRO_MSG 8, PAD_MSG 1, KADD_3 1, FINAL 12, KADD_4 1, SQZ_TAG 4. This agrees with the fsm_state column of the schedule CSV. One shared asconp round function runs 48 rounds per transaction (12 + 8 + 8 + 8 + 12). The block-loop counts hold only for these fixed lengths. The netlist is from conv/ascon_core_v1.v (sv2v, V1)."
+ }
+]

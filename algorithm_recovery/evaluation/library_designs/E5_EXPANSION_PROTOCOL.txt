@@ -167,3 +167,26 @@ Amendment 1 (2026-11-03, after the first E5.C calibration design e5c_s1_n4, befo
      program generation (3 h; e5_summarize labels this "graph; program refused", it is a timeout, exit 124); aes_sw_core's
      folded RTL is mismatch-free and its oracle stage also exceeded 3 h; six ARX designs abort in groups (std::bad_alloc;
      rerun with 16 GiB under amendment n); Keccak exceeds 3 h in preparation.
+ (o) Checker budget, 2026-11-09 (execution only; recovery and checkers unchanged): the CPython checks of the generated
+     programs (stages validate, reference and close_chain) run with 16 GiB, the frozen pipeline's own limit; all other
+     stages keep 6 GiB. close_chain.py needs up to 5.8 GB on the largest programs (peak per run: aes_sw128 flat and
+     rolled 5.4 GB, aes_sw_core 5.7 GB, sha256_lattice flat 5.75 GB), and the 6 GiB limit also counts the 1 GiB stack
+     of its worker thread (amendment m). Under 6 GiB, the flat programs of sha256_lattice and aes_sw128 and the rolled
+     program of aes_sw128 raised MemoryError (note to m); aes_sw_core was not run under 6 GiB. With 16 GiB all of them
+     close (programs of the C++ generator, 2026-11-08/09; build/program_recovery_comparison_20261108/new_chain/).
+     Each program is checked independently, so programs that closed under 6 GiB keep their results. Results are
+     reported with the budget they ran under.
+ Note (2026-11-08, execution only): the program stage runs recover-program (C++) instead of the Python scripts
+     (decompile.py, lift.py, lift_arith.py, emit_rtl.py). On all 52 designs with a program it gives the same report fields
+     except program line counts, the same validation and the same end-to-end verdicts
+     (plugins/algorithm_recovery/program_recovery/README.txt). Results written before that date keep the Python outputs.
+ Result of (o) (2026-11-09; driver and log in build/bench2_e5/amendment_o/). Each design is rerun from its stored event
+     graph; RTL and oracle are not rerun, since they depend only on the event graph. Earlier outputs carry the suffix .6g.
+     aes_sw128 and aes_sw_core: program 92 s and 72 s; validate PASS (62 of 62 transactions); reference PASS (2,000
+     trials, 0 mismatches); close_chain closes all three programs (105 writes, 1 output; peak 5.4 and 5.9 GB).
+     aes_sw_core's oracle still exceeds 3 h. sha256_lattice: close_chain on the stored programs closes all three (flat
+     327 writes, rolled and lifted 328, 8 outputs each; 769 s, peak 6.8 GB). validate_programs.py on the stored
+     programs gives the stored validation (496 compared, 62 transactions per program).
+     With (o), 16 of the 23 instances are complete (certified schedule, all programs closed, reference PASS). With every
+     stage at 6 GiB, aes_sw128's flat and rolled programs raise MemoryError in close_chain; aes_sw_core was not run
+     under 6 GiB.

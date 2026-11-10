@@ -9,7 +9,9 @@ link HAL. Its input is the event graph written by `hal-recover graph`.
       OUT_DIR/program.py          lifted: proven word arithmetic, routes, XOR layers and tables
       OUT_DIR/interface.json      pad reads, loop-carried state values and observations of transaction()
       OUT_DIR/report.json         structure: loops, lifting statistics, tables, arithmetic candidates,
-                                  word orders, sizes; OUT_DIR/proofs/ holds the lifting proof queries
+                                  word orders, sizes; OUT_DIR/proofs/ holds the lifting proof queries.
+                                  lifting.program_bits / program_lifted_bits: output bits of the lifted
+                                  program's statements, and those written by word-level constructs
   recover-program rtl GRAPH_JSON OUT_DIR TRACE_DIR [TRACE_DIR ...]
       OUT_DIR/recovered.v         folded Verilog with the recovered word registers and a cycle counter
       OUT_DIR/report.json         Icarus simulation against each original-gate trace, word by word
@@ -25,9 +27,14 @@ The programs are Python, so they are run and checked by CPython, not by this too
 Sources
   src/event_graph.*          graph loading, certified specialisation, retiming to transaction coordinates,
                              observations and liveness
-  src/transaction_program.*  flat program (build_flat) and roll-up (build_rollup: runs of compatible phases,
-                             iteration constants and counters, z3 proof of every iteration)
-  src/lift_tables.*          routing and table lifting of bit-level node functions
+  src/transaction_program.*  flat program (build_flat) and roll-up (build_rollup): loops whose body is one step
+                             (write phase), then, on the remaining steps, loops whose iteration spans 2-32 steps
+                             (e.g. a word-serial round of several cycles); iteration constants specialised bit by
+                             bit, counters, z3 proof of every step of every iteration. A multi-step loop appears in
+                             report.json with steps_per_iteration and its steps under "body".
+  src/lift_tables.*          routing and table lifting of bit-level node functions; bits of 9-16 inputs as an
+                             XOR of small tables and single bits (disjoint-support XOR decomposition, checked on the
+                             full truth table)
   src/lift_arithmetic.*      word-level arithmetic with inferred bit orders
   src/lifted_program.*       the lifted program and interface.json
   src/expr_eval.*            concrete evaluation of z3 terms (lifting tests)
@@ -55,7 +62,22 @@ History
   - report.json: every field equal except program line counts, which differ on 18 designs because z3
     shares and orders subterms differently (mostly 1-21 lines; largest sha256_yosys_top lifted 7,781 ->
     7,857). Byte identity is not attainable: simplify orders commutative arguments by AST id.
-  - trace validation and the end-to-end check: same verdicts and counts as the Python results
-    (arf_c20_minf is open in both, by solver timeouts; horner6_c10_m1 rolled/lifted are open in both).
   - rtl: same validation on the 16 sweep designs with an RTL run, 0 mismatches.
-  - aes_sw128 and aes_sw_core, which timed out after 3 h in Python, generate in about 3 min.
+  - aes_sw128 and aes_sw_core, which timed out after 3 h in Python, generate in 1-3 min.
+  The chain as it is now (recover-program generate, validate_programs.py, close_chain.py) was then run on
+  all 52 designs (2026-11-08/09; new_chain/ in that directory, with its driver cmp_newchain.sh):
+  - validation.json: same status, counts and first failures as the stored results on all 52.
+  - close_chain.py: same verdicts as the stored results on every program they cover, and the same proof
+    counts except on arf_c20_minf. Open in both: arf_c20_minf (all three programs; solver timeouts on
+    outputs o3/o4 at phases 2-3, none refuted; which of these time out varies between runs) and
+    horner6_c10_m1 rolled/lifted. The stored
+    results lack aes_sw128, aes_sw_core and sha256_lattice flat (the Python scripts did not finish them);
+    these close, with the counts of the C++ checker used in the comparison.
+  - Memory: close_chain.py needs up to 6.8 GB (peak per run: aes_sw128 5.4 GB, aes_sw_core 5.7-5.9 GB,
+    sha256_lattice flat alone 5.75 GB, all three sha256_lattice programs in one run 6.8 GB). Under `ulimit -v 6291456` (6 GiB, which also counts the 1 GiB stack of
+    its worker thread) aes_sw128 flat/rolled and sha256_lattice flat raise MemoryError, which close_chain.py
+    records for that program before going on to the next. The runners therefore give the CPython checks
+    16 GiB and every other stage 6 GiB (E5 amendment o, E8 amendment 10).
+  - Time: generation is much faster than with the Python scripts (sha256_oc 181 -> 14 s, hb_dec 63.5 -> 7 s);
+    the checks take as long as before. Without a memory limit, close_chain.py takes 21 min on
+    sha256_lattice and 6 min on each AES core.

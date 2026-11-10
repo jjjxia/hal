@@ -14,7 +14,7 @@ G = json.load(open(sys.argv[2]))
 out = sys.argv[3]
 mutate = sys.argv[sys.argv.index("--mutate") + 1] if "--mutate" in sys.argv else None
 N, W, nodes = T["N"], T["width"], T["nodes"]
-res = {"K": T["K"], "N": N, "graph_available": G["available"], "graph_period": G["period"], "origin": G["origin"]}
+res = {"K": T.get("K", len(nodes)), "N": N, "graph_available": G["available"], "graph_period": G["period"], "origin": G["origin"]}
 if not G["available"] or G["period"] != N or G["origin"] % N:
     res.update(exact=False, outcome=f"period/origin mismatch (period {G['period']}, origin {G['origin']}, N {N})")
     json.dump(res, open(out, "w"), indent=1); print(json.dumps(res)); sys.exit(0)
@@ -96,7 +96,8 @@ for v, nd in nodes.items():
     ops = [K((s, d)) if s in nodes else K((s, d)) for s, d in nd["operands"]]
     a = ops[0]
     exp = {"add": lambda: a + ops[1], "sub": lambda: a - ops[1], "xor": lambda: a ^ ops[1], "and": lambda: a & ops[1],
-           "mulc": lambda: a * z3.BitVecVal(nd.get("const", 1), W)}[nd["op"]]()
+           "mulc": lambda: a * z3.BitVecVal(nd.get("const", 1), W), "mul": lambda: a * ops[1],
+           "addc": lambda: a + z3.BitVecVal(nd.get("const", 0), W)}[nd["op"]]()   # mul, addc: E8 kernels (recovery_quality R2)
     if z3.is_true(z3.simplify(rec == exp)):
         proved_by_simplify += 1
     else:

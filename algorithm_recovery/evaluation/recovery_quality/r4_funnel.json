@@ -1,0 +1,1915 @@
+{
+ "aggregate": {
+  "E5": {
+   "designs": 23,
+   "reached": {
+    "netlist": 23,
+    "words": 16,
+    "schedule": 16,
+    "graph": 16,
+    "program": 16,
+    "closed": 16,
+    "reference": 16
+   },
+   "stopped": {
+    "netlist: frontend-resource": 6,
+    "netlist: performance": 1
+   },
+   "rtl_words_exact": 0,
+   "extended_16GiB": [
+    "chacha_r12: schedule not run",
+    "chacha_r8: schedule performance"
+   ]
+  },
+  "E7": {
+   "designs": 2,
+   "reached": {
+    "netlist": 2,
+    "words": 2,
+    "schedule": 2,
+    "graph": 2,
+    "program": 2,
+    "closed": 2,
+    "reference": 2
+   },
+   "stopped": {},
+   "rtl_words_exact": 0,
+   "extended_16GiB": []
+  },
+  "frozen eight": {
+   "designs": 8,
+   "reached": {
+    "netlist": 8,
+    "words": 8,
+    "schedule": 8,
+    "graph": 8,
+    "program": 8,
+    "closed": 8,
+    "reference": 8
+   },
+   "stopped": {},
+   "rtl_words_exact": 0,
+   "extended_16GiB": []
+  },
+  "E8.3": {
+   "designs": 40,
+   "reached": {
+    "netlist": 40,
+    "words": 34,
+    "schedule": 34,
+    "graph": 34,
+    "program": 34,
+    "closed": 32,
+    "reference": 32
+   },
+   "stopped": {
+    "netlist: frontend-resource": 4,
+    "program: defect": 1,
+    "netlist: applicability": 2,
+    "program: performance": 1
+   },
+   "rtl_words_exact": 0,
+   "extended_16GiB": []
+  },
+  "E5.C": {
+   "designs": 24,
+   "reached": {
+    "netlist": 24,
+    "words": 22,
+    "schedule": 22,
+    "graph": 22,
+    "exact": 21
+   },
+   "stopped": {
+    "graph: frontend-wrong": 1,
+    "netlist: frontend-refused": 1,
+    "netlist: frontend-resource": 1
+   },
+   "rtl_words_exact": 3,
+   "extended_16GiB": []
+  },
+  "E8.2": {
+   "designs": 32,
+   "reached": {
+    "netlist": 32,
+    "words": 28,
+    "schedule": 28,
+    "graph": 28,
+    "exact": 17
+   },
+   "stopped": {
+    "graph: frontend-wrong": 9,
+    "graph: function-unknown": 2,
+    "netlist: frontend-resource": 4
+   },
+   "rtl_words_exact": 13,
+   "extended_16GiB": []
+  },
+  "R2a": {
+   "designs": 100,
+   "reached": {
+    "netlist": 100,
+    "words": 98,
+    "schedule": 98,
+    "graph": 98,
+    "exact": 96
+   },
+   "stopped": {
+    "netlist: frontend-refused": 1,
+    "netlist: frontend-resource": 1,
+    "graph: truth-dead": 1,
+    "graph: frontend-wrong": 1
+   },
+   "rtl_words_exact": 3,
+   "extended_16GiB": []
+  },
+  "R2b": {
+   "designs": 29,
+   "reached": {
+    "netlist": 29,
+    "words": 27,
+    "schedule": 27,
+    "graph": 27,
+    "exact": 21
+   },
+   "stopped": {
+    "graph: function-unknown": 1,
+    "graph: frontend-wrong": 5,
+    "netlist: frontend-resource": 2
+   },
+   "rtl_words_exact": 7,
+   "extended_16GiB": []
+  }
+ },
+ "rows": [
+  {
+   "population": "E5",
+   "design": "aes_oc",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "aes_sw128",
+   "stage": "reference",
+   "class": null,
+   "note": "checks with 16 GiB (E5 amendment o)"
+  },
+  {
+   "population": "E5",
+   "design": "aes_sw_core",
+   "stage": "reference",
+   "class": null,
+   "note": "checks with 16 GiB (E5 amendment o)"
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r12",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "budget": "6 GiB"
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r12",
+   "stage": "schedule",
+   "class": "not run",
+   "budget": "16 GiB rerun (E5 amendment n)"
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r20",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r8",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "budget": "6 GiB"
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r8",
+   "stage": "schedule",
+   "class": "performance",
+   "budget": "16 GiB rerun (E5 amendment n)"
+  },
+  {
+   "population": "E5",
+   "design": "cordic",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "hb_dec",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "icrc1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "keccak_f",
+   "stage": "netlist",
+   "class": "performance"
+  },
+  {
+   "population": "E5",
+   "design": "pcpi_div",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "present_saiedhk",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "qdiv",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "qdiv_n16",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "qdiv_n64",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "qmults",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "qmults_n16",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "qmults_n64",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E7",
+   "design": "sha256_lattice",
+   "stage": "reference",
+   "class": null,
+   "note": "checks with 16 GiB (E5 amendment o)"
+  },
+  {
+   "population": "E5",
+   "design": "sha256_oc",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "sha256_sw",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E7",
+   "design": "sha256_yosys_top",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5",
+   "design": "siphash_c1d3",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E5",
+   "design": "siphash_c2d4",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E5",
+   "design": "siphash_c4d8",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad_c10_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad_c20_minf",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c10_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c10_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c10_m1",
+   "stage": "program",
+   "class": "defect",
+   "open": [
+    "program.py",
+    "program_rolled.py"
+   ]
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c5_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c5_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c20_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c20_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c20_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "fir8_c10_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "fir8_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "lattice4_c10_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "lattice4_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "lattice4_c20_minf",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad2_c10_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad2_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad2_c20_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "matvec4_c10_minf",
+   "stage": "netlist",
+   "class": "applicability"
+  },
+  {
+   "population": "E8.3",
+   "design": "matvec4_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c10_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c10_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c10_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c5_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c5_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c20_minf",
+   "stage": "program",
+   "class": "performance",
+   "open": [
+    "program.py",
+    "program_flat.py",
+    "program_rolled.py"
+   ]
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c20_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c20_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c10_minf",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c10_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c10_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c5_minf",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c5_m2",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c5_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c20_minf",
+   "stage": "netlist",
+   "class": "applicability"
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c20_m2",
+   "stage": "netlist",
+   "class": "frontend-resource"
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c20_m1",
+   "stage": "reference",
+   "class": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s1_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s1_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s1_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s2_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s2_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s2_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s3_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s3_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s3_n8",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s4_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s4_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s4_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s5_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s5_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s5_n8",
+   "stage": "netlist",
+   "class": "frontend-refused",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s6_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s6_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s6_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s7_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s7_n4",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s7_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s8_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s8_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E5.C",
+   "design": "e5c_s8_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "arf_2min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "arf_2min_random",
+   "stage": "graph",
+   "class": "function-unknown",
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "arf_min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "arf_min_random",
+   "stage": "graph",
+   "class": "function-unknown",
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad2_2min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad2_2min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad2_min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad2_min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad_2min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad_2min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad_min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "biquad_min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "dct8_2min_asap",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "dct8_2min_random",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "dct8_min_asap",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "dct8_min_random",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "fir8_2min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "fir8_2min_random",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "fir8_min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "fir8_min_random",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "horner6_2min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "horner6_2min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "horner6_min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "horner6_min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "lattice4_2min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "lattice4_2min_random",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "lattice4_min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "lattice4_min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "matvec4_2min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "matvec4_2min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "E8.2",
+   "design": "matvec4_min_asap",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "E8.2",
+   "design": "matvec4_min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s101_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s101_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s101_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s101_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s101_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s102_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s102_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s102_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s102_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s102_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s103_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s103_n2",
+   "stage": "netlist",
+   "class": "frontend-refused",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s103_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s103_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s103_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s104_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s104_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s104_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s104_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s104_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s105_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s105_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s105_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s105_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s105_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s106_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s106_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s106_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s106_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s106_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s107_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s107_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s107_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s107_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s107_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s108_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s108_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s108_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s108_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s108_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s109_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s109_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s109_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s109_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s109_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s110_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s110_n2",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s110_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s110_n4",
+   "stage": "graph",
+   "class": "truth-dead",
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s110_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s111_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s111_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s111_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s111_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s111_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s112_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s112_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s112_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s112_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s112_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s113_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s113_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s113_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s113_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s113_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s114_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s114_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s114_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s114_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s114_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s115_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s115_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s115_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s115_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s115_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s116_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s116_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s116_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s116_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s116_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s117_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s117_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s117_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s117_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s117_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s118_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s118_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s118_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s118_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s118_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s119_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s119_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s119_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s119_n4",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s119_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s120_n16",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s120_n2",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s120_n32",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s120_n4",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2a",
+   "design": "e5c_s120_n8",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "arf_4min_asap",
+   "stage": "graph",
+   "class": "function-unknown",
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "biquad2_4min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "biquad2_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "biquad2_8min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "biquad2_8min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "biquad_4min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "biquad_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "biquad_8min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "biquad_8min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "dct8_4min_asap",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "dct8_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "dct8_8min_asap",
+   "stage": "netlist",
+   "class": "frontend-resource",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "dct8_8min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "fir8_4min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "fir8_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "fir8_8min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "fir8_8min_random",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "horner6_4min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "horner6_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "horner6_8min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "horner6_8min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "lattice4_4min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "lattice4_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "lattice4_8min_asap",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "lattice4_8min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "matvec4_4min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "matvec4_4min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "R2b",
+   "design": "matvec4_8min_asap",
+   "stage": "graph",
+   "class": "frontend-wrong",
+   "rtl_words_exact": true
+  },
+  {
+   "population": "R2b",
+   "design": "matvec4_8min_random",
+   "stage": "exact",
+   "class": null,
+   "rtl_words_exact": null
+  },
+  {
+   "population": "frozen eight",
+   "design": "present",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "fir_decim",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "small_hb_dec_r2",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "ibex_mul",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "qdiv",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "sha1",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "bambu_arf",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  },
+  {
+   "population": "frozen eight",
+   "design": "ascon",
+   "stage": "reference",
+   "class": null,
+   "note": "paper RQ2 records"
+  }
+ ]
+}

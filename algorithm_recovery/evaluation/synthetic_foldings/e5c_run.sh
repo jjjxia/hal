@@ -5,7 +5,7 @@ set -uo pipefail
 seed=$1; N=$2; control=$3
 H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation; B=$H/build
 case=e5c_s${seed}_n${N}$([ "$control" = none ] || echo _$control)
-D=$B/e5c/$case; G=$D/gen
+D=${E5C_ROOT:-$B/e5c}/$case; G=$D/gen   # E5C_ROOT: recovery_quality R2a
 [ -e "$D/score.json" ] && { echo "$case: done"; exit 0; }
 if [ -s "$D/case/graph/graph_training.json" ]; then   # pipeline already done: score only
     ( ulimit -v 4194304; timeout 3600 "$B/python_venv/bin/python" "$E/synthetic_foldings/e5c_score.py" "$D/case" "$G/truth.json" "$G/fold_top.json" \

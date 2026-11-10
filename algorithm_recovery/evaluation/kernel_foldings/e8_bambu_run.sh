@@ -3,7 +3,8 @@
 # and end-to-end check (CPython) -> V1-V3.
 # usage: e8_bambu_run.sh KERNEL CLOCK_NS MULTS [prepare]   results in build/e8/bambu/<kernel>_c<clock>_m<mults>/
 #        ("prepare": stop after Bambu + synthesis + RTL check, used to deduplicate identical RTL first)
-# Every stage <= 3 h and <= 6 GiB, as E5/E8.2; receipts in OUT/e8_stages.jsonl.
+# Every stage <= 3 h and <= 6 GiB as E5/E8.2, except the CPython checks of the programs (validate, close_chain,
+# stream: <= 16 GiB, amendment 10); receipts in OUT/e8_stages.jsonl.
 set -uo pipefail
 kernel=$1; clock=$2; mults=$3; only=${4:-}
 H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation; B=$H/build; PY=$B/python_venv/bin/python
@@ -16,8 +17,10 @@ export HAL_BASE_PATH=$B LD_LIBRARY_PATH=$B/lib OMP_NUM_THREADS=1
 receipt=$D/e8_stages.jsonl
 st() {
     local name=$1; shift
+    local kb=${VMEM_KB:-6291456}
+    case $name in validate|close_chain|stream) [ $kb -lt 16777216 ] && kb=16777216;; esac   # CPython checks: 16 GiB (amendment 10)
     local t0=$(date +%s.%N)
-    ( ulimit -c 0; ulimit -v ${VMEM_KB:-6291456}; /usr/bin/time -f "%M" -o "$D/$name.mem" timeout 10800 "$@" ) > "$D/$name.log" 2>&1
+    ( ulimit -c 0; ulimit -v $kb; /usr/bin/time -f "%M" -o "$D/$name.mem" timeout 10800 "$@" ) > "$D/$name.log" 2>&1
     local rc=$?
     printf '{"stage":"%s","exit":%d,"seconds":%.1f,"peak_kb":%s}\n' "$name" $rc "$(echo "$(date +%s.%N) - $t0" | bc)" \
         "$(tail -n 1 "$D/$name.mem" 2>/dev/null | grep -E '^[0-9]+$' || echo null)" >> "$receipt"

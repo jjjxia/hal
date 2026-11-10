@@ -83,6 +83,12 @@ namespace program_recovery
         return out;
     }
 
+    void ProgramLifter::note_choice(bool lifted_chosen, unsigned width)
+    {
+        stat("program_bits", width);
+        if (lifted_chosen) stat("program_lifted_bits", width - last_kept_bits);
+    }
+
     void ProgramLifter::stat(const std::string& key, const BigInt& add)
     {
         for (auto& [k, v] : lift_stats) if (k == key) { v += add; return; }
@@ -376,6 +382,7 @@ namespace program_recovery
                                                                 const std::string& target, const std::map<std::string, std::pair<std::string, unsigned>>& alias,
                                                                 const Json& node_id, const std::string& phase_code, const std::string& writes)
     {
+        last_kept_bits = 0;
         std::map<std::string, z3::expr> variables;
         for (const auto& x : z3_vars(expr)) variables.insert_or_assign(sym_name(x), x);
         const std::string ind(indent, ' ');
@@ -401,7 +408,8 @@ namespace program_recovery
             rest = anded.simplify();
         }
         const LiftPlan plan = lift_plan(rest, is_param);
-        if (aterms.empty() && plan.route.empty() && plan.xr.empty() && plan.tables.empty() && plan.param_route.empty()) return std::nullopt;
+        if (aterms.empty() && plan.route.empty() && plan.xr.empty() && plan.tables.empty() && plan.param_route.empty() && plan.dsd_linear.empty())
+            return std::nullopt;
 
         auto gather = [&](const std::vector<BitRef>& items) {
             std::vector<std::pair<std::string, unsigned>> codes;
@@ -569,6 +577,73 @@ namespace program_recovery
             out.push_back(ind + "    " + acc + " |= place(" + name + "[" + idx + "], *" + OUT + "[j])");
             parts.push_back(acc);
         }
+        // XOR decompositions (lift_tables.cpp): per bit, tables XOR single bits; instances of one table read from one
+        // symbol are XOR-accumulated in a loop
+        if (!plan.dsd_linear.empty())
+        {
+            std::vector<std::string> xs;
+            std::map<std::pair<std::string, size_t>, std::vector<std::pair<std::string, std::vector<std::pair<unsigned, unsigned>>>>> layers;
+            for (const auto& [o, terms, c0] : plan.dsd_linear)
+            {
+                inv |= BigInt(c0) << o;
+                std::map<std::string, size_t> seen;
+                for (const auto& [x, k] : terms)
+                {
+                    const auto [code, b] = src(x, k);
+                    const auto layer = std::make_pair(code, seen[code]);
+                    seen[code] += 1;
+                    by_add(layers[layer], code, o, b);
+                }
+            }
+            for (const auto& [layer, by] : layers) for (const auto& t : routes(by, "X")) xs.push_back(t);
+            std::vector<std::pair<std::pair<std::string, std::string>, std::vector<Inst>>> xl;
+            for (const auto& t : plan.dsd_tables)
+            {
+                const auto [name, in_order, out_order] = registry.classify(t.table, static_cast<unsigned>(t.inputs.size()), static_cast<unsigned>(t.outputs.size()));
+                std::vector<BitRef> ins;
+                for (unsigned q : in_order) ins.push_back(t.inputs[q]);
+                std::vector<unsigned> outs;
+                for (unsigned q : out_order) outs.push_back(t.outputs[q]);
+                std::set<std::string> isym;
+                for (const auto& [x, _] : ins) isym.insert(x);
+                bool aliased = false;
+                for (const auto& s : isym) aliased |= alias.count(s) > 0;
+                if (isym.size() == 1 && !aliased)
+                {
+                    Inst inst;
+                    for (const auto& [_, k] : ins) inst.ia.push_back(k);
+                    inst.outs = outs;
+                    const auto key = std::make_pair(name, *isym.begin());
+                    auto it = std::find_if(xl.begin(), xl.end(), [&](const auto& e) { return e.first == key; });
+                    if (it == xl.end()) xl.push_back({key, {inst}});
+                    else it->second.push_back(inst);
+                }
+                else xs.push_back("place(" + name + "[" + gather(ins) + "], *" + uint_tuple(outs).repr() + ")");
+                stat("dsd_table_bits", t.outputs.size());
+                stat("tables", 1);
+            }
+            for (const auto& [key, inst] : xl)
+            {
+                const auto& [name, A] = key;
+                const std::string ca = src(A, 0).first;
+                if (inst.size() == 1)
+                {
+                    xs.push_back("place(" + name + "[bits(" + ca + ", *" + uint_tuple(inst[0].ia).repr() + ")], *" + uint_tuple(inst[0].outs).repr() + ")");
+                    continue;
+                }
+                std::vector<Py> ga, go;
+                for (const auto& i : inst) { ga.push_back(uint_tuple(i.ia)); go.push_back(uint_tuple(i.outs)); }
+                const std::string GA = registry.constant("IN", Py::tuple(ga));
+                const std::string OUT = registry.constant("OUT", Py::tuple(go));
+                const std::string acc = "u" + std::to_string(out.size());
+                out.push_back(ind + acc + " = 0");
+                out.push_back(ind + "for j in range(" + std::to_string(inst.size()) + "):  # " + std::to_string(inst.size()) + " instances of " + name);
+                out.push_back(ind + "    " + acc + " ^= place(" + name + "[bits(" + ca + ", *" + GA + "[j])], *" + OUT + "[j])");
+                xs.push_back(acc);
+            }
+            parts.push_back("(" + join(xs, " ^ ") + ")");
+            stat("dsd_bits", plan.dsd_linear.size());
+        }
         // parameter parts
         std::vector<std::pair<std::string, std::vector<std::pair<unsigned, unsigned>>>> pby;
         for (const auto& [o, params, g] : plan.param_route)
@@ -605,6 +680,7 @@ namespace program_recovery
             for (const auto& ln : pr.lines) out.push_back(ind + ln.substr(4));
             parts.push_back(code);
             stat("kept_bits", plan.keep.size());
+            last_kept_bits = plan.keep.size();
         }
         std::string value = parts.empty() ? "0" : join(parts, " | ");
         const BigInt cnst = plan.cnst ^ inv;
@@ -626,6 +702,7 @@ namespace program_recovery
                 order_sources[w] = "HAL";
             }
         }
+        D.lift_note = [this](bool chosen, unsigned width) { note_choice(chosen, width); };
         D.lift_hook = [this](const z3::expr& e, const Printer::Env& env, unsigned indent, const IsParam& isp, const std::string& target,
                              const std::map<std::string, std::pair<std::string, unsigned>>& alias, const Json& node_id,
                              const std::string& phase_code, const std::string& writes) {
@@ -634,7 +711,8 @@ namespace program_recovery
         std::map<Key, size_t> in_loop;
         for (size_t li = 0; li < D.loops.size(); ++li)
             for (long long ph : D.loops[li].phases)
-                for (const auto& name : D.loops[li].names) in_loop[{name, ph}] = li;
+                for (const auto& s : D.loops[li].body)
+                    for (const auto& name : s.names) in_loop[{name, ph + s.offset}] = li;
         std::vector<std::string> lifted_lines;
         std::set<size_t> emitted;
         for (const auto& key : D.M.order)
@@ -654,7 +732,9 @@ namespace program_recovery
                 auto lifted = emit_lifted(node.expr, env, 4, [](const std::string&) { return false; }, "v[" + key_py(key).repr() + "]", {},
                                           Json::array({key.first, key.second}), std::to_string(ph), key.first);
                 auto plain = D.emit_flat_node(key);
-                part = (lifted && lifted->size() <= plain.size()) ? *lifted : plain;
+                const bool chosen = lifted && lifted->size() <= plain.size();
+                note_choice(chosen, node.expr.get_sort().bv_size());
+                part = chosen ? *lifted : plain;
             }
             else if (emitted.insert(it->second).second) part = D.emit_loop(D.loops[it->second], true);
             lifted_lines.insert(lifted_lines.end(), part.begin(), part.end());
@@ -680,7 +760,9 @@ namespace program_recovery
             const std::string pc = pr.emit(ob.expr);
             std::vector<std::string> plain = pr.lines;
             plain.push_back("    " + target + " = " + pc);
-            const auto& chosen = (code && code->size() <= plain.size()) ? *code : plain;
+            const bool lifted_chosen = code && code->size() <= plain.size();
+            note_choice(lifted_chosen, ob.expr.get_sort().bv_size());
+            const auto& chosen = lifted_chosen ? *code : plain;
             tail_lifted.insert(tail_lifted.end(), chosen.begin(), chosen.end());
         }
         const auto ns = std::find(D.tail.begin(), D.tail.end(), "    new_state = {}");

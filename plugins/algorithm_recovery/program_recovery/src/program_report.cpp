@@ -33,6 +33,27 @@ namespace program_recovery
             }
         rep.set("tables", tables);
         rep.set("flat_program_lines", lines(D.program_flat));
+        // one loop step: its words, iteration constants, partially known varying symbols and counter
+        auto step_fields = [](PJ& l, const std::vector<std::string>& names, const LoopStep& s) {
+            PJ wn = PJ::list();
+            for (const auto& n : names) wn.push(n);
+            l.set("words", wn);
+            PJ ic = PJ::list();
+            for (const auto& [sym, _] : s.iter_vars) ic.push(sym);
+            l.set("iteration_constants", ic);
+            PJ pk = PJ::list();
+            for (const auto& [sym, _] : s.partial) pk.push(sym);
+            l.set("partially_known_varying", pk);
+            if (s.counter)
+            {
+                PJ c = PJ::dict();
+                c.set("a", s.counter->a);
+                c.set("b", s.counter->b);
+                c.set("width", s.counter->width);
+                l.set("counter", c);
+            }
+            else l.set("counter", PJ());
+        };
         PJ loops = PJ::list();
         for (const auto& lp : D.loops)
         {
@@ -40,24 +61,28 @@ namespace program_recovery
             l.set("iterations", static_cast<unsigned long long>(lp.phases.size()));
             l.set("first_phase", lp.phases[0]);
             l.set("stride", lp.regular ? PJ(lp.stride) : PJ());
-            PJ wn = PJ::list();
-            for (const auto& n : lp.names) wn.push(n);
-            l.set("words", wn);
-            PJ ic = PJ::list();
-            for (const auto& [s, _] : lp.iter_vars) ic.push(s);
-            l.set("iteration_constants", ic);
-            PJ pk = PJ::list();
-            for (const auto& [s, _] : lp.partial) pk.push(s);
-            l.set("partially_known_varying", pk);
-            if (lp.counter)
+            if (lp.body.size() == 1) step_fields(l, lp.body[0].names, lp.body[0]);
+            else
             {
-                PJ c = PJ::dict();
-                c.set("a", lp.counter->a);
-                c.set("b", lp.counter->b);
-                c.set("width", lp.counter->width);
-                l.set("counter", c);
+                // an iteration spanning several steps: the union at the top, each step in "body"
+                PJ wn = PJ::list(), ic = PJ::list(), pk = PJ::list(), body = PJ::list();
+                for (const auto& n : lp.names()) wn.push(n);
+                for (size_t q = 0; q < lp.body.size(); ++q)
+                {
+                    for (const auto& [sym, _] : lp.body[q].iter_vars) ic.push(std::to_string(q) + ":" + sym);
+                    for (const auto& [sym, _] : lp.body[q].partial) pk.push(std::to_string(q) + ":" + sym);
+                    PJ s = PJ::dict();
+                    s.set("offset", lp.body[q].offset);
+                    step_fields(s, lp.body[q].names, lp.body[q]);
+                    body.push(s);
+                }
+                l.set("words", wn);
+                l.set("iteration_constants", ic);
+                l.set("partially_known_varying", pk);
+                l.set("counter", PJ());
+                l.set("steps_per_iteration", static_cast<unsigned long long>(lp.body.size()));
+                l.set("body", body);
             }
-            else l.set("counter", PJ());
             loops.push(l);
         }
         rep.set("loops", loops);

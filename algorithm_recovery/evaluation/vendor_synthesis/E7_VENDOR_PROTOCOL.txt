@@ -66,3 +66,6 @@ write_data bits 2..0 were treated as data (sha256_yosys_top: write recall 0.499,
 registers mapped). c2_oracle.py now reads an optional input/rtl_port_map.json ({"write_data_ctl": ["write_data", 0],
 "write_data": ["write_data", 3]}, written for the two E7 cases) to drive the RTL at the right bits and to restrict the
 data bits to the mapped data port. Designs without the file are unaffected. Both E7 oracle stages are rerun.
+Amendment 3 (2026-11-09, execution only; recovery and checkers unchanged): E5 amendment o applies, so the CPython checks
+of the programs run with 16 GiB. sha256_lattice's flat program, which raised MemoryError under 6 GiB, now closes (327
+writes, 8 outputs); see the result of E5 amendment o.

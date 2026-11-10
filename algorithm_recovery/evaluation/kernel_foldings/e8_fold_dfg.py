@@ -2,7 +2,7 @@
 """E8.2 generator: registered fixed-binding folding of a kernel DFG (e8/kernels.py) -> fold_top.v and truth.json.
 
 usage: e8_fold_dfg.py KERNEL NSPEC POLICY SEED OUT_DIR
-  NSPEC   min | 2min | 4min  (multiples of the least feasible folding factor N_min; see below)
+  NSPEC   min | 2min | 4min | 8min  (multiples of the least feasible folding factor N_min; see below)
   POLICY  asap (list scheduling, each node at its earliest slot) | random (uniform slot between earliest and latest)
 Rules as e5c/e5c_gen.py (control none): a node's result is written to its bound register at the end of its slot;
 same-sample operands come from strictly earlier slots; a delayed operand (node or input) is read from copy registers
@@ -20,7 +20,7 @@ W = KM.W
 kern = KM.KERNELS[kname]()
 nodes = {v: dict(nd, operands=[list(o) for o in nd["operands"]]) for v, nd in kern["nodes"].items()}
 inputs = kern["inputs"]
-rng = random.Random(seed * 7919 + sum(map(ord, kname)) * 31 + {"min": 1, "2min": 2, "4min": 4}[nspec] + (0 if policy == "asap" else 500))
+rng = random.Random(seed * 7919 + sum(map(ord, kname)) * 31 + {"min": 1, "2min": 2, "4min": 4, "8min": 8}[nspec] + (0 if policy == "asap" else 500))
 
 order, done = [], set()
 while len(order) < len(nodes):
@@ -40,7 +40,7 @@ asap = {}
 for v in order:
     asap[v] = max([asap[s] + 1 for s, d in nodes[v]["operands"] if s in nodes and d == 0] or [0])
 n_min = max(max(asap.values()) + 1, max([asap[v] + 2 for v in delayed_read] or [0]))
-N = {"min": 1, "2min": 2, "4min": 4}[nspec] * n_min
+N = {"min": 1, "2min": 2, "4min": 4, "8min": 8}[nspec] * n_min
 latest = {}
 for v in reversed(order):
     hi = N - 2 if v in delayed_read else N - 1

@@ -1,0 +1,188 @@
+Recovery quality -- protocol, written 2026-11-09 BEFORE any number of R1-R4 is computed
+=====================================================================================
+Requested by the user on 2026-11-09: the evaluation must show directly what inverse folding adds, where it is strong,
+how it behaves as time multiplexing grows, how much algorithm structure it recovers, and how it scales. The plan called
+these parts E1-E4; they are named R1-R4 here because E1-E4 are earlier experiments.
+
+Already known before this protocol (disclosed, not recomputed into new claims): the exact-node shares of the ablations
+A1-A7 (kernel_foldings/E8_4_ABLATION_*_RESULTS.json), the register-view counts of scale/ABLATION_REGISTER_VIEW.txt, the
+loop counts of the recovered library programs (paper, Table tab:sweep and tab:programs), and the stage times of the
+reported runs. Every truth table below comes from the generator, the RTL source or the algorithm's specification, never
+from a recovered program.
+
+Recovery code is not changed for R1-R4. Evaluation-side additions are listed with the part that needs them.
+
+R1. Structure: NetNotary versus two other views of the same equations
+--------------------------------------------------------------------
+Question: given the same certified equations, how much of the original dataflow graph does each view expose?
+Populations (all with a generator truth: nodes with op, slot, operands (producer, sample delay), register; copy
+registers d_<u>_<k>): E5.C in class (24: seeds 1-8 x N in {2,4,8}), E8.2 (32: 8 kernels x {min, 2min} x {asap,
+random}), E6 (12: K in {100, 1,000, 10,000, 30,000} x N in {4, 16, 64}; equations supplied from RTL).
+Views:
+  B0 cycle view: the per-cycle next-state equations over one period, as unrolled symbolic execution gives them. One
+     node per (data register, cycle), result and copy registers, writes and holds alike. A node's operands are the
+     registers its next-state function reads, at the previous cycle; a hold reads its own register. No sample delays:
+     an earlier sample's value is read through the copy register that holds it.
+  B1 register view: one node per data register (result and copy registers), an edge from every register it reads, no
+     sample delays.
+  NetNotary: the recovered event graph (write events, last-write resolution, copy collapse, sample delays in
+     transaction coordinates).
+Computation: a design enters R1 if its NetNotary graph is structure-exact by its scorer (nodes found with equal
+(producer, delay) operand sets, no spurious event, period as predicted; the two ARF designs with unproved functions are
+structure-exact). For these designs the event graph equals the folded DFG, so B0 and B1 are computed from the
+generator's folding, as the E8.4 ablation does. Designs that are not structure-exact are listed with their outcome and
+enter R2/R4; R1 reports their number next to each population.
+Truth: nodes V; edges E = {(u, v, d)}, u a node or an input.
+Strict matching. A view node matches truth node v if it is: B0, v's register at v's write cycle; B1, v's register when
+that register holds no other node; NetNotary, v's event. A view edge matches (u, v, d) if it joins the nodes matching u
+and v (an input matches itself) with sample delay d; B0 and B1 carry no delay, so they match only d = 0.
+Metrics (pooled over the designs of a population; per-design minimum and median also reported):
+  M1 node recall      matched truth nodes / |V|
+  M2 node precision   view nodes that match a truth node / data nodes of the view
+  M3 edge recall      matched truth edges / |E|
+  M4 edge precision   view edges that match a truth edge / view edges (data nodes as targets)
+  M5 delay recovery   matched truth edges with d >= 1 / truth edges with d >= 1
+Lenient readings, because a strict count alone would make B0 and B1 look arbitrarily bad:
+  B1 candidates: for each truth node v, B1 says v depends on every value held by a register that v's register reads.
+     Candidate precision = |operands of v| / |(node, any delay) candidates of v|, pooled; candidate recall = share of
+     true operands among the candidates (predicted 1).
+  B0 chains: every true dependency is present in B0 as a path of one-cycle steps through holds and copy registers.
+     Reported: mean and maximum number of steps per truth edge (1 = direct).
+Strict versus up to the theorems (out-of-class controls, E5.C, 8 chain and 8 rotate designs): NetNotary is reported
+twice, against the original DFG (strict) and against the structure the theorems predict (the scorer's existing
+result: 2-unfolding for rotate, composed node for chain). B0 and B1 are not computed on the controls.
+Predictions: B0 M1 = 1, M2 = |V| / (data registers x N), M5 = 0, M3 = share of same-sample operands produced in the
+cycle before their reader. B1 M1 = share of nodes alone in their register, M5 = 0, candidate precision about 0.3 on
+E5.C. NetNotary 1 on M1-M5 for every design in R1, strict equal to up-to-theorems on in-class designs; on the
+controls, strict below 1 and up-to-theorems 1.
+
+R2. Folding strength
+--------------------
+Question: as more operations share the same units and registers, does recovery quality change, and which stage fails?
+Independent variable: the folding factor N (slots per sample = cycles per transaction), reported with the sharing it
+induces, from the generator's truth: operations per functional unit (|V| / units) and values per result register
+(|V| / result registers).
+Designs:
+  R2a random DFGs: synthetic_foldings/e5c_gen.py unchanged, control none, N in {2, 4, 8, 16, 32}, seeds 101-120 (E5.C
+      used 1-8): 100 designs, run by e5c_run.sh unchanged except an output root (E5C_ROOT, default build/e5c), results
+      in build/r2/random/. A generator refusal is reported as "not generated" and is not a recovery failure.
+  R2b kernels: kernel_foldings/e8_fold_dfg.py with NSPEC 4min and the new 8min (N = 8 N_min; the NSPEC table gains
+      one entry, nothing else changes), policies asap and random, seed 1, the 8 kernels: 32 designs, run by e8_run.sh
+      with an output root (E8_FOLD_ROOT, default build/e8/fold), results in build/r2/kernels/. With E8.2 (min, 2min)
+      this gives four levels per kernel and policy.
+Per design: the stage reached and the failure class of R4; NetNotary exact (the scorer, unchanged) and exact-node
+share (nodes_exact / DFG nodes, 0 without a graph); B0 and B1 as in R1 but computed from the folding for every design
+(the views with correct words, an upper bound for them); time and peak memory per stage from the receipts.
+Control with RTL words: every R2 and E8.2 design whose words are wrong or whose grouping aborts is also run through
+the E6 path (scale/e6_equations.py from fold_top.v, the unchanged fold_observed of e6_fold.cpp, scale/e6_score.py).
+If that path needs changes for the E8 kernels (named inputs, 16-bit words, multiplications), they are evaluation-side
+and recorded here as an amendment before the control runs. Reported as "exact with RTL words".
+Order and budget: R2a first, then R2b, 3 h and 6 GiB per stage as E5/E8; up to four R2a designs and two R2b designs
+at a time.
+Predictions: NetNotary exact on every design whose words are correct, at every N (Theorem thm:if-sound and the
+in-class assumptions); exact with RTL words on every design of the control. B1 node recall falls as N grows (more
+values per register); B0 node precision falls roughly as 1/N. No prediction for the rate of grouping failures (the
+frontend is outside the guarantees); it is reported per N. Time grows with N.
+
+R3. Algorithm abstraction: loops and word operations
+---------------------------------------------------
+R3a Loops against the source's iteration structure. Designs: every library design with a program (the frozen eight
+    of bench2_v1, the E5 designs of bench2_e5 with a program, E7). Truth (Annex A, written before scoring R3a): for
+    each design, the loops of the implemented algorithm from its RTL source and its specification: trip count, the
+    state carried from one iteration to the next, and how many clock cycles one iteration takes in the hardware.
+    Designs without iteration in the source (filters, straight-line kernels) are listed with no loop.
+    Metrics: L1 source loops found (a source loop is found if one recovered loop's iterations all lie in it) / source
+    loops; L2 iteration coverage = source iterations inside recovered loops / source iterations; L3 iterations left
+    outside the loop (peeled); L4 carried state, recovered loop words versus the source loop's state registers (by
+    name where the netlist keeps names, else as counts); L5 extra loops, recovered loops matching no source loop,
+    counted separately and not as errors (they are proved).
+    Predictions: loops whose iteration takes one cycle are found with L2 >= 0.9; loops whose iteration takes several
+    cycles are not found (roll-up handles bodies of one cycle; conclusion of the paper), for example aes_sw128 and
+    aes_sw_core; per design in Annex A.
+R3b Loop-free sources: recover-program generate on every structure-exact E5.C and E8.2 graph (no program stage existed
+    for them), results in build/r3/programs/. Prediction: no loop on the random DFGs; on the kernels, loops only where
+    the hardware repeats an identical step, classified as L5.
+R3c Without roll-up (B2): flat versus rolled program lines and the loops removed, from report.json.
+R3d Word operations. (i) Lifting share per program: node output bits expressed as word-level constructs (proved
+    arithmetic, routes, XOR layers, tables, parameter routes) over all node output bits; the rest is kept bit-level
+    or not lifted. recover-program reports the lifted bits per construct; it gains two counters in its lifting
+    statistics (arithmetic bits and the bits of nodes it does not lift; reporting only). Every program is regenerated
+    and every other report field must be unchanged (checked). (ii) Operator identification on the R3b programs: a DFG
+    node is identified if the program's report has a PROVED arithmetic entry for its event whose form is the node's
+    operator (add: linear 1, 1; sub: linear 1, -1; mulc: linear c; addc: linear 1 and constant c; mul: bilinear 1;
+    xor/and: bitwise of that operator); nodes lifted only as XOR layers or routes are reported separately.
+    Lines of code are reported as an auxiliary measure only.
+
+R4. Coverage, failure classes and scalability
+--------------------------------------------
+R4a Funnel over every gate-level design: E5 (23 instances), the frozen eight, E7 (2), E8.2 (32), E8.3 (40 distinct
+    RTLs), E5.C in class (24) and R2. Stages: netlist -> words -> certified schedule -> event graph -> structure exact
+    (truth populations) -> program -> end-to-end check -> reference or stream check. A design stops at its first
+    failing stage, with one class: frontend-wrong (wrong words), frontend-resource (grouping out of memory or time),
+    applicability (no periodic schedule, schedule not certified, no flip-flops, data-dependent timing), performance
+    (a later stage out of time or memory, solver unknown), defect (a program stage defect, e.g. horner6_c10_m1
+    rolled/lifted). The declared-budget outcome is primary; outcomes of the 16 GiB reruns and of E5 amendment o are
+    shown next to it, labelled.
+R4b Stage cost versus size: seconds and peak memory per stage from the stage receipts, against flip-flops and against
+    events per period. The program stage is taken from the current generator's runs (2026-11-08/09,
+    build/program_recovery_comparison_20261108/new_chain/), since the Python generator was replaced.
+R4c Inverse folding alone: E6 fold seconds and peak memory against K for N in {4, 16, 64} (existing runs); slope of a
+    log-log fit. K = 100,000 is optional (swap is now present).
+R4d Parametric families: qmults and qdiv at N = 16, 32, 64, total and per-stage time against N.
+Predictions: grouping dominates the time of the largest designs; the graph stage and program generation are a small
+share; the E6 fold time grows faster than linear in K (the paper attributes this to expression substitution), slope
+reported as measured.
+
+Reporting
+---------
+Scripts and results in algorithm_recovery/evaluation/recovery_quality/; one JSON per part and RESULTS.txt. Every
+design of every population is listed. A change made after seeing a number is a dated amendment below.
+
+Annex A (R3a loop truth): to be written before R3a is scored.
+
+Amendments
+----------
+1. 2026-11-09, after the R2a results, comparison rule (recovery unchanged): one R2a design (e5c_s110_n4) has two DFG
+   nodes from which no output is reachable (n8 is read only by n7, n7 only by itself); synthesis removes their
+   registers, so they have no event. Such a design is classed truth-dead, not a recovery failure; its strict count
+   (8 of 10 nodes) is reported next to the count over observable nodes. The generator is unchanged.
+2. 2026-11-09, before any RTL-words control run, evaluation tool: scale/e6_score.py accepts truth files without K and
+   scores the E8 operators mul and addc; nothing else changes, and E6 truth files have K and no such operators, so E6
+   scores cannot change. The control runs on every R2 and E8.2 design classed frontend-* (r2_collect.py), with
+   scale/e6_equations.py and build/e6/bin/e6_fold unchanged, each stage <= 3 h and 6 GiB, results in
+   <design>/rtl_words/.
+3. 2026-11-09, observation, no rule changed: in R2a the values per result register stay between 1.5 and 1.9 at every
+   N (the random graphs have 6-16 nodes), so B1's node recall does not fall with N as predicted; it is reported as
+   measured. The sharing that grows with N is operations per unit (1.33 at N = 2 to 2.23 at N = 32).
+4. 2026-11-09, recovery change at the user's request ("try whether multi-cycle roll-up makes the deliverables better;
+   if so, implement and test it"), before R3a is scored: roll-up (program_recovery/src/transaction_program.cpp) also
+   finds loops whose iteration spans several steps (write phases): after the one-step loops, every stretch of steps
+   outside them is searched for a body of 2-32 steps that repeats at least 3 times (same words at the same phase
+   offsets, same raw equations, every read of a body word from its latest write in loop order, other reads from the
+   iteration-invariant source), and every iteration of every step is proved equal to its template by z3, as before.
+   Iteration constants are specialised bit by bit (bits equal in every iteration become constants). The lifting
+   statistics gain program_bits and program_lifted_bits (R3d). A probe on the live-step sequences of every program
+   (scratch, before the change) found multi-step bodies only in aes_sw128 and aes_sw_core (5 steps x 10 iterations).
+   Every program is regenerated; every design whose programs change is re-validated (validate_programs.py,
+   close_chain.py, and the reference check where E5 has one). R3a reports loops with and without the change.
+5. 2026-11-09, Annex A (R3a truth), written after the recovered loop counts were known (they were in the paper) and
+   before R3a was scored: r3a_loop_truth_rtl.json lists, per design, the loops of the implemented algorithm read from
+   the RTL (C for icrc1, bambu_arf) and the specification, with trip counts, cycles per iteration, carried state,
+   fused and nested loops and file:line evidence. r3a_annex.json fixes the scoring conventions: I/O word loops (message
+   input, digest readout, Ascon word transfers) are listed and not scored; loops executed in the same cycles (rounds
+   and their key or message schedule) count as one; an inner loop nested in a scored loop (the AES SubBytes word loop,
+   Ascon's p^8 inside its block loops) is not scored separately; loops of fewer than 3 iterations are scored and
+   flagged. Recovered loops are attributed to source loops by trip count and cycle position; a recovered loop that
+   spans several source loops (Ascon) covers their iterations but finds none of them (L1).
+6. 2026-11-09, result of amendment 4 (no rule changed): every design whose programs changed was re-validated and
+   closes (RESULTS.txt, R3). The initial-value rule repairs the horner6_c10_m1 state-interface defect reported in the
+   E8 protocol's analysis note; the earlier E8.3 result (rolled/lifted open) stays the result of the earlier generator.
+7. 2026-11-09, recovery change at the user's request ("borrow engineering methods and see what the ugliest cases
+   become"), lifting only (flat and rolled programs unchanged): a bit with more than 8 and at most 16 data inputs is
+   written as single bits XOR small tables when its full truth table admits a disjoint-support XOR decomposition
+   (linear inputs peeled by first derivatives, the rest split by vanishing second derivatives; components of different
+   bits that share an input merged; every bit checked on all 2^D points; known technique: disjoint-support
+   decomposition, Bertacco and Damiani; ABC &dsd). Tried and not adopted for multiplications (bilinear candidates z3
+   leaves unknown): ABC &acec reported a non-equivalence that 20,000 random vectors and z3 random tests contradict;
+   ABC &polyn did not finish on the yosys-built specification; backward algebraic rewriting (prototype) blew up on the
+   LUT-derived multiplexer form; ABC cec and z3 with 600 s did not finish. Every changed program is re-validated.

@@ -22,7 +22,7 @@ transaction. Trusted: the netlist semantics and certificate (as before), Python'
 this checker.
 usage: close_chain.py GRAPH_JSON CONTRACT_JSON OBSERVE_JSON CASE OUT_JSON PROGRAM_PY [PROGRAM_PY ...]
 Needs z3-solver 5.3.3 (the venv used by the runners)."""
-import ast, builtins, collections, json, runpy, sys, threading, time, traceback
+import ast, builtins, collections, gc, json, runpy, sys, threading, time, traceback
 import z3
 
 # Python's ast visitor recurses once per nesting level of an expression, and the flat program of a large netlist
@@ -554,7 +554,14 @@ def check_program(path, timeout_ms=120000):
 
 report = {"case": case, "graph": graph_path, "period_events": P, "transaction_shift": shift, "programs": []}
 for path in programs:
-    r = check_program(path)
+    try:
+        r = check_program(path)
+    except (MemoryError, RecursionError) as e:
+        # A program too large for CPython's parser or stack within the budget is reported as not checked;
+        # the remaining programs are still checked.
+        gc.collect()
+        r = {"program": path, "error": type(e).__name__, "writes": None, "reference_nodes": len(ref_node), "outputs": None,
+             "results": {}, "failures": [[type(e).__name__, None, None]], "closed": False, "exec_s": None, "prove_s": None}
     report["programs"].append(r)
     print(json.dumps({k: r[k] for k in ("program", "writes", "outputs", "results", "closed", "exec_s", "prove_s")}), flush=True)
 json.dump(report, open(out_path, "w"), indent=1)

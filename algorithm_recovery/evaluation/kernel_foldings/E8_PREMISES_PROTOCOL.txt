@@ -268,3 +268,8 @@ with std::bad_alloc under 6 GiB (biquad_c20_minf, lattice4_c20_minf, dct8_c10_mi
 amendment 8c); 2 have no flip-flops and stop in import (matvec4_c10_minf, dct8_c20_minf). Predictions: coverage does
 not grow with the clock period for any kernel with unconstrained multipliers (confirmed); resource limits leave
 coverage unchanged (refuted on ARF and Horner: limits raise it); programs correct in every configuration (confirmed).
+Amendment 10 (2026-11-09, execution only; recovery, checkers, scoring and metrics unchanged): as E5 amendment o, the
+CPython checks of the programs in E8.3 (stages validate, close_chain and stream of e8_bambu_run.sh) run with 16 GiB; all
+other stages keep 6 GiB. The stored checks of the 34 designs with a program all ran under 6 GiB, and a rerun of all 34
+without a memory limit gave the same verdicts (2026-11-08/09; build/program_recovery_comparison_20261108/new_chain/), so no E8 result
+changes. E8.2 (e8_run.sh) has no program checks and keeps 6 GiB for every stage.

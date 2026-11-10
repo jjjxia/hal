@@ -1,0 +1,1189 @@
+{
+ "rows": [
+  {
+   "population": "E5",
+   "design": "aes_oc",
+   "flip_flops": 562,
+   "period_events": 48,
+   "seconds": {
+    "frontend": 4.0,
+    "trace": 54.4,
+    "certify": 376.9,
+    "graph": 23.6,
+    "program": 3,
+    "validate": 7,
+    "check": 197
+   },
+   "peak_gb": 3.87
+  },
+  {
+   "population": "E5",
+   "design": "aes_sw128",
+   "flip_flops": 2209,
+   "period_events": 272,
+   "seconds": {
+    "frontend": 4.4,
+    "trace": 122.5,
+    "certify": 1725.3,
+    "graph": 395.4,
+    "program": 93,
+    "validate": 18,
+    "check": 331
+   },
+   "peak_gb": 5.2
+  },
+  {
+   "population": "E5",
+   "design": "aes_sw_core",
+   "flip_flops": 2476,
+   "period_events": 272,
+   "seconds": {
+    "frontend": 25.3,
+    "trace": 180.1,
+    "certify": 2888.6,
+    "graph": 725.1,
+    "program": 69,
+    "validate": 16,
+    "check": 352
+   },
+   "peak_gb": 5.64
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r12",
+   "flip_flops": 1100,
+   "period_events": 60,
+   "seconds": {
+    "frontend": 5833.3,
+    "trace": 121.3,
+    "certify": 10802.1,
+    "graph": 0
+   },
+   "peak_gb": 0.0
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r20",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 2089.5,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.0
+  },
+  {
+   "population": "E5",
+   "design": "chacha_r8",
+   "flip_flops": 1100,
+   "period_events": 44,
+   "seconds": {
+    "frontend": 6033.1,
+    "trace": 115.4,
+    "certify": 10803.5,
+    "graph": 10802.0
+   },
+   "peak_gb": 6.54
+  },
+  {
+   "population": "E5",
+   "design": "cordic",
+   "flip_flops": 55,
+   "period_events": 68,
+   "seconds": {
+    "frontend": 896.9,
+    "trace": 1.7,
+    "certify": 49.4,
+    "graph": 2.5,
+    "program": 0,
+    "validate": 1,
+    "check": 15
+   },
+   "peak_gb": 0.27
+  },
+  {
+   "population": "E5",
+   "design": "hb_dec",
+   "flip_flops": 818,
+   "period_events": 32,
+   "seconds": {
+    "frontend": 510.5,
+    "trace": 11.2,
+    "certify": 1010.5,
+    "graph": 24.8,
+    "program": 7,
+    "validate": 2,
+    "check": 58
+   },
+   "peak_gb": 0.52
+  },
+  {
+   "population": "E5",
+   "design": "icrc1",
+   "flip_flops": 52,
+   "period_events": 40,
+   "seconds": {
+    "frontend": 0.9,
+    "trace": 0.3,
+    "certify": 26.5,
+    "graph": 0.5,
+    "program": 1,
+    "validate": 0,
+    "check": 0
+   },
+   "peak_gb": 0.06
+  },
+  {
+   "population": "E5",
+   "design": "pcpi_div",
+   "flip_flops": 200,
+   "period_events": 152,
+   "seconds": {
+    "frontend": 84.6,
+    "trace": 3.3,
+    "certify": 122.3,
+    "graph": 5.6,
+    "program": 1,
+    "validate": 1,
+    "check": 22
+   },
+   "peak_gb": 0.28
+  },
+  {
+   "population": "E5",
+   "design": "present_saiedhk",
+   "flip_flops": 152,
+   "period_events": 128,
+   "seconds": {
+    "frontend": 0.2,
+    "trace": 6.0,
+    "certify": 105.8,
+    "graph": 2.6,
+    "program": 1,
+    "validate": 1,
+    "check": 46
+   },
+   "peak_gb": 0.53
+  },
+  {
+   "population": "E5",
+   "design": "qdiv",
+   "flip_flops": 265,
+   "period_events": 192,
+   "seconds": {
+    "frontend": 226.9,
+    "trace": 6.4,
+    "certify": 301.7,
+    "graph": 10.2,
+    "program": 2,
+    "validate": 2,
+    "check": 58
+   },
+   "peak_gb": 0.62
+  },
+  {
+   "population": "E5",
+   "design": "qdiv_n16",
+   "flip_flops": 129,
+   "period_events": 96,
+   "seconds": {
+    "frontend": 29.3,
+    "trace": 1.3,
+    "certify": 63.7,
+    "graph": 1.9,
+    "program": 1,
+    "validate": 0,
+    "check": 13
+   },
+   "peak_gb": 0.14
+  },
+  {
+   "population": "E5",
+   "design": "qdiv_n64",
+   "flip_flops": 537,
+   "period_events": 384,
+   "seconds": {
+    "frontend": 34.8,
+    "trace": 30.8,
+    "certify": 761.2,
+    "graph": 31.8,
+    "program": 9,
+    "validate": 15,
+    "check": 352
+   },
+   "peak_gb": 2.09
+  },
+  {
+   "population": "E5",
+   "design": "qmults",
+   "flip_flops": 192,
+   "period_events": 136,
+   "seconds": {
+    "frontend": 128.2,
+    "trace": 2.5,
+    "certify": 72.5,
+    "graph": 2.5,
+    "program": 0,
+    "validate": 1,
+    "check": 14
+   },
+   "peak_gb": 0.22
+  },
+  {
+   "population": "E5",
+   "design": "qmults_n16",
+   "flip_flops": 96,
+   "period_events": 72,
+   "seconds": {
+    "frontend": 17.2,
+    "trace": 0.6,
+    "certify": 27.6,
+    "graph": 0.9,
+    "program": 1,
+    "validate": 0,
+    "check": 3
+   },
+   "peak_gb": 0.09
+  },
+  {
+   "population": "E5",
+   "design": "qmults_n64",
+   "flip_flops": 384,
+   "period_events": 264,
+   "seconds": {
+    "frontend": 7.5,
+    "trace": 9.1,
+    "certify": 244.9,
+    "graph": 9.2,
+    "program": 2,
+    "validate": 3,
+    "check": 79
+   },
+   "peak_gb": 0.86
+  },
+  {
+   "population": "E7",
+   "design": "sha256_lattice",
+   "flip_flops": 2378,
+   "period_events": 368,
+   "seconds": {
+    "frontend": 1136.6,
+    "trace": 157.2,
+    "certify": 948.1,
+    "graph": 138.3,
+    "program": 29,
+    "validate": 36,
+    "check": 1265
+   },
+   "peak_gb": 6.77
+  },
+  {
+   "population": "E5",
+   "design": "sha256_oc",
+   "flip_flops": 1103,
+   "period_events": 316,
+   "seconds": {
+    "frontend": 1002.3,
+    "trace": 113.2,
+    "certify": 416.0,
+    "graph": 116.4,
+    "program": 14,
+    "validate": 12,
+    "check": 349
+   },
+   "peak_gb": 2.72
+  },
+  {
+   "population": "E5",
+   "design": "sha256_sw",
+   "flip_flops": 1034,
+   "period_events": 264,
+   "seconds": {
+    "frontend": 2164.0,
+    "trace": 337.1,
+    "certify": 1376.9,
+    "graph": 137.4,
+    "program": 30,
+    "validate": 13,
+    "check": 497
+   },
+   "peak_gb": 3.46
+  },
+  {
+   "population": "E7",
+   "design": "sha256_yosys_top",
+   "flip_flops": 1807,
+   "period_events": 368,
+   "seconds": {
+    "frontend": 1547.7,
+    "trace": 145.7,
+    "certify": 595.3,
+    "graph": 183.1,
+    "program": 70,
+    "validate": 9,
+    "check": 577
+   },
+   "peak_gb": 3.95
+  },
+  {
+   "population": "E5",
+   "design": "siphash_c1d3",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 1440.7,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.0
+  },
+  {
+   "population": "E5",
+   "design": "siphash_c2d4",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 1454.1,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.0
+  },
+  {
+   "population": "E5",
+   "design": "siphash_c4d8",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 1451.0,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.0
+  },
+  {
+   "population": "E8.3",
+   "design": "_dev_horner6_c10_minf_test",
+   "flip_flops": 38,
+   "period_events": 24,
+   "seconds": {
+    "frontend": 351.8,
+    "trace": 2.9,
+    "certify": 206.7,
+    "graph": 65.9
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c10_m1",
+   "flip_flops": 159,
+   "period_events": 60,
+   "seconds": {
+    "frontend": 129.0,
+    "trace": 9.9,
+    "certify": 527.8,
+    "graph": 395.1,
+    "program": 321,
+    "validate": 1,
+    "check": 20
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c10_m2",
+   "flip_flops": 153,
+   "period_events": 36,
+   "seconds": {
+    "frontend": 136.1,
+    "trace": 6.0,
+    "certify": 417.9,
+    "graph": 259.9,
+    "program": 281,
+    "validate": 1,
+    "check": 104
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c10_minf",
+   "flip_flops": 198,
+   "period_events": 24,
+   "seconds": {
+    "frontend": 132.0,
+    "trace": 19.3,
+    "certify": 819.5,
+    "graph": 586.5,
+    "program": 323,
+    "validate": 3,
+    "check": 87
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c20_m1",
+   "flip_flops": 159,
+   "period_events": 60,
+   "seconds": {
+    "frontend": 83.1,
+    "trace": 15.1,
+    "certify": 763.0,
+    "graph": 528.5,
+    "program": 241,
+    "validate": 2,
+    "check": 71
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c20_m2",
+   "flip_flops": 168,
+   "period_events": 32,
+   "seconds": {
+    "frontend": 145.6,
+    "trace": 13.8,
+    "certify": 549.1,
+    "graph": 398.8,
+    "program": 141,
+    "validate": 1,
+    "check": 106
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c20_minf",
+   "flip_flops": 99,
+   "period_events": 12,
+   "seconds": {
+    "frontend": 172.2,
+    "trace": 16.9,
+    "certify": 689.9,
+    "graph": 361.1,
+    "program": 43,
+    "validate": 4,
+    "check": 1348
+   },
+   "peak_gb": 2.06
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c5_m1",
+   "flip_flops": 193,
+   "period_events": 68,
+   "seconds": {
+    "frontend": 202.9,
+    "trace": 7.2,
+    "certify": 229.8,
+    "graph": 70.0,
+    "program": 324,
+    "validate": 2,
+    "check": 78
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c5_m2",
+   "flip_flops": 189,
+   "period_events": 52,
+   "seconds": {
+    "frontend": 254.5,
+    "trace": 7.4,
+    "certify": 243.1,
+    "graph": 72.3,
+    "program": 306,
+    "validate": 2,
+    "check": 56
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "arf_c5_minf",
+   "flip_flops": 509,
+   "period_events": 52,
+   "seconds": {
+    "frontend": 887.7,
+    "trace": 35.9,
+    "certify": 723.8,
+    "graph": 460.0,
+    "program": 646,
+    "validate": 3,
+    "check": 82
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad2_c10_minf",
+   "flip_flops": 164,
+   "period_events": 20,
+   "seconds": {
+    "frontend": 326.8,
+    "trace": 0.8,
+    "certify": 341.4,
+    "graph": 231.8,
+    "program": 1,
+    "validate": 1,
+    "check": 15
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad2_c20_minf",
+   "flip_flops": 98,
+   "period_events": 12,
+   "seconds": {
+    "frontend": 161.1,
+    "trace": 0.7,
+    "certify": 266.3,
+    "graph": 130.2,
+    "program": 0,
+    "validate": 1,
+    "check": 4
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad2_c5_minf",
+   "flip_flops": 276,
+   "period_events": 28,
+   "seconds": {
+    "frontend": 197.2,
+    "trace": 1.0,
+    "certify": 88.1,
+    "graph": 3.1,
+    "program": 2,
+    "validate": 4,
+    "check": 57
+   },
+   "peak_gb": 0.84
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad_c10_minf",
+   "flip_flops": 82,
+   "period_events": 12,
+   "seconds": {
+    "frontend": 137.9,
+    "trace": 0.3,
+    "certify": 92.0,
+    "graph": 36.6,
+    "program": 0,
+    "validate": 0,
+    "check": 3
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad_c20_minf",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 123.0,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "biquad_c5_minf",
+   "flip_flops": 130,
+   "period_events": 20,
+   "seconds": {
+    "frontend": 60.5,
+    "trace": 0.5,
+    "certify": 28.6,
+    "graph": 0.9,
+    "program": 2,
+    "validate": 0,
+    "check": 3
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c10_m1",
+   "flip_flops": 265,
+   "period_events": 28,
+   "seconds": {
+    "frontend": 4069.2,
+    "trace": 10.5,
+    "certify": 308.0,
+    "graph": 181.8,
+    "program": 26,
+    "validate": 1,
+    "check": 103
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c10_m2",
+   "flip_flops": 245,
+   "period_events": 16,
+   "seconds": {
+    "frontend": 4222.6,
+    "trace": 7.2,
+    "certify": 537.0,
+    "graph": 125.7,
+    "program": 14,
+    "validate": 1,
+    "check": 32
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c10_minf",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 6475.9,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c20_m1",
+   "flip_flops": 204,
+   "period_events": 28,
+   "seconds": {
+    "frontend": 4162.7,
+    "trace": 18.7,
+    "certify": 629.5,
+    "graph": 126.6,
+    "program": 17,
+    "validate": 1,
+    "check": 218
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c20_m2",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 9996.2,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c20_minf",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 0.2,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c5_m1",
+   "flip_flops": 523,
+   "period_events": 32,
+   "seconds": {
+    "frontend": 2124.2,
+    "trace": 17.9,
+    "certify": 376.7,
+    "graph": 108.7,
+    "program": 78,
+    "validate": 1,
+    "check": 32
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c5_m2",
+   "flip_flops": 522,
+   "period_events": 20,
+   "seconds": {
+    "frontend": 2090.3,
+    "trace": 13.4,
+    "certify": 1264.9,
+    "graph": 127.8,
+    "program": 136,
+    "validate": 1,
+    "check": 36
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "dct8_c5_minf",
+   "flip_flops": 585,
+   "period_events": 20,
+   "seconds": {
+    "frontend": 4651.2,
+    "trace": 21.0,
+    "certify": 845.8,
+    "graph": 82.2,
+    "program": 131,
+    "validate": 1,
+    "check": 26
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "fir8_c10_minf",
+   "flip_flops": 115,
+   "period_events": 12,
+   "seconds": {
+    "frontend": 164.0,
+    "trace": 2.2,
+    "certify": 39.5,
+    "graph": 5.6,
+    "program": 1,
+    "validate": 0,
+    "check": 2
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "fir8_c5_minf",
+   "flip_flops": 241,
+   "period_events": 16,
+   "seconds": {
+    "frontend": 88.5,
+    "trace": 0.7,
+    "certify": 34.8,
+    "graph": 1.2,
+    "program": 1,
+    "validate": 0,
+    "check": 2
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c10_m1",
+   "flip_flops": 23,
+   "period_events": 28,
+   "seconds": {
+    "frontend": 179.6,
+    "trace": 1.1,
+    "certify": 286.6,
+    "graph": 65.4,
+    "program": 0,
+    "validate": 0,
+    "check": 4
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c10_m2",
+   "flip_flops": 22,
+   "period_events": 24,
+   "seconds": {
+    "frontend": 57.9,
+    "trace": 1.2,
+    "certify": 223.0,
+    "graph": 65.5,
+    "program": 101,
+    "validate": 0,
+    "check": 7
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c10_minf",
+   "flip_flops": 38,
+   "period_events": 24,
+   "seconds": {
+    "frontend": 358.1,
+    "trace": 2.2,
+    "certify": 198.5,
+    "graph": 66.0,
+    "program": 40,
+    "validate": 1,
+    "check": 38
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c20_m1",
+   "flip_flops": 69,
+   "period_events": 24,
+   "seconds": {
+    "frontend": 397.2,
+    "trace": 1.8,
+    "certify": 335.3,
+    "graph": 167.6,
+    "program": 42,
+    "validate": 0,
+    "check": 16
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c20_m2",
+   "flip_flops": 36,
+   "period_events": 16,
+   "seconds": {
+    "frontend": 877.9,
+    "trace": 2.3,
+    "certify": 155.3,
+    "graph": 31.1,
+    "program": 41,
+    "validate": 0,
+    "check": 7
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c20_minf",
+   "flip_flops": 36,
+   "period_events": 16,
+   "seconds": {
+    "frontend": 437.7,
+    "trace": 5.7,
+    "certify": 346.6,
+    "graph": 53.6,
+    "program": 0,
+    "validate": 0,
+    "check": 12
+   },
+   "peak_gb": 1.08
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c5_m1",
+   "flip_flops": 61,
+   "period_events": 52,
+   "seconds": {
+    "frontend": 147.3,
+    "trace": 1.8,
+    "certify": 204.7,
+    "graph": 65.4,
+    "program": 0,
+    "validate": 0,
+    "check": 11
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c5_m2",
+   "flip_flops": 61,
+   "period_events": 52,
+   "seconds": {
+    "frontend": 146.2,
+    "trace": 1.8,
+    "certify": 204.9,
+    "graph": 65.7,
+    "program": 1,
+    "validate": 0,
+    "check": 11
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "horner6_c5_minf",
+   "flip_flops": 172,
+   "period_events": 48,
+   "seconds": {
+    "frontend": 405.7,
+    "trace": 7.4,
+    "certify": 537.6,
+    "graph": 323.0,
+    "program": 101,
+    "validate": 0,
+    "check": 9
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "lattice4_c10_minf",
+   "flip_flops": 163,
+   "period_events": 16,
+   "seconds": {
+    "frontend": 626.0,
+    "trace": 1.2,
+    "certify": 296.1,
+    "graph": 192.3,
+    "program": 60,
+    "validate": 0,
+    "check": 3
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "lattice4_c20_minf",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 67.1,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "lattice4_c5_minf",
+   "flip_flops": 242,
+   "period_events": 20,
+   "seconds": {
+    "frontend": 376.6,
+    "trace": 1.2,
+    "certify": 141.2,
+    "graph": 4.9,
+    "program": 3,
+    "validate": 1,
+    "check": 12
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "matvec4_c10_minf",
+   "flip_flops": null,
+   "period_events": null,
+   "seconds": {
+    "frontend": 0,
+    "trace": 0,
+    "certify": 0,
+    "graph": 0
+   },
+   "peak_gb": 0.71
+  },
+  {
+   "population": "E8.3",
+   "design": "matvec4_c5_minf",
+   "flip_flops": 156,
+   "period_events": 12,
+   "seconds": {
+    "frontend": 283.1,
+    "trace": 1.0,
+    "certify": 92.8,
+    "graph": 11.2,
+    "program": 0,
+    "validate": 1,
+    "check": 4
+   },
+   "peak_gb": 0.71
+  }
+ ],
+ "e6": [
+  {
+   "K": 10000,
+   "N": 16,
+   "fold_seconds": 795.58,
+   "fold_peak_gb": 0.29,
+   "equations_seconds": 30.6,
+   "exact": true
+  },
+  {
+   "K": 10000,
+   "N": 4,
+   "fold_seconds": 100.72,
+   "fold_peak_gb": 0.26,
+   "equations_seconds": 7.19,
+   "exact": true
+  },
+  {
+   "K": 10000,
+   "N": 64,
+   "fold_seconds": 204.13,
+   "fold_peak_gb": 0.41,
+   "equations_seconds": 110.95,
+   "exact": true
+  },
+  {
+   "K": 1000,
+   "N": 16,
+   "fold_seconds": 0.85,
+   "fold_peak_gb": 0.06,
+   "equations_seconds": 0.94,
+   "exact": true
+  },
+  {
+   "K": 1000,
+   "N": 4,
+   "fold_seconds": 0.86,
+   "fold_peak_gb": 0.05,
+   "equations_seconds": 0.59,
+   "exact": true
+  },
+  {
+   "K": 1000,
+   "N": 64,
+   "fold_seconds": 0.88,
+   "fold_peak_gb": 0.07,
+   "equations_seconds": 4.75,
+   "exact": true
+  },
+  {
+   "K": 100,
+   "N": 16,
+   "fold_seconds": 0.04,
+   "fold_peak_gb": 0.04,
+   "equations_seconds": 0.15,
+   "exact": true
+  },
+  {
+   "K": 100,
+   "N": 4,
+   "fold_seconds": 0.03,
+   "fold_peak_gb": 0.04,
+   "equations_seconds": 0.08,
+   "exact": true
+  },
+  {
+   "K": 100,
+   "N": 64,
+   "fold_seconds": 0.04,
+   "fold_peak_gb": 0.04,
+   "equations_seconds": 0.41,
+   "exact": true
+  },
+  {
+   "K": 30000,
+   "N": 16,
+   "fold_seconds": 1075.73,
+   "fold_peak_gb": 1.02,
+   "equations_seconds": 48.38,
+   "exact": true
+  },
+  {
+   "K": 30000,
+   "N": 4,
+   "fold_seconds": 1031.15,
+   "fold_peak_gb": 0.93,
+   "equations_seconds": 20.3,
+   "exact": true
+  },
+  {
+   "K": 30000,
+   "N": 64,
+   "fold_seconds": 1368.17,
+   "fold_peak_gb": 1.37,
+   "equations_seconds": 167.22,
+   "exact": true
+  }
+ ],
+ "e6_loglog_slope_fold_seconds_vs_K": {
+  "4": 1.846,
+  "16": 1.96,
+  "64": 1.888
+ },
+ "families": {
+  "qmults": [
+   {
+    "N": 16,
+    "flip_flops": 96,
+    "frontend": 17.2,
+    "trace": 0.6,
+    "certify": 27.6,
+    "graph": 0.9,
+    "program": 1,
+    "validate": 0,
+    "check": 3
+   },
+   {
+    "N": 32,
+    "flip_flops": 192,
+    "frontend": 128.2,
+    "trace": 2.5,
+    "certify": 72.5,
+    "graph": 2.5,
+    "program": 0,
+    "validate": 1,
+    "check": 14
+   },
+   {
+    "N": 64,
+    "flip_flops": 384,
+    "frontend": 7.5,
+    "trace": 9.1,
+    "certify": 244.9,
+    "graph": 9.2,
+    "program": 2,
+    "validate": 3,
+    "check": 79
+   }
+  ],
+  "qdiv": [
+   {
+    "N": 16,
+    "flip_flops": 129,
+    "frontend": 29.3,
+    "trace": 1.3,
+    "certify": 63.7,
+    "graph": 1.9,
+    "program": 1,
+    "validate": 0,
+    "check": 13
+   },
+   {
+    "N": 32,
+    "flip_flops": 265,
+    "frontend": 226.9,
+    "trace": 6.4,
+    "certify": 301.7,
+    "graph": 10.2,
+    "program": 2,
+    "validate": 2,
+    "check": 58
+   },
+   {
+    "N": 64,
+    "flip_flops": 537,
+    "frontend": 34.8,
+    "trace": 30.8,
+    "certify": 761.2,
+    "graph": 31.8,
+    "program": 9,
+    "validate": 15,
+    "check": 352
+   }
+  ]
+ },
+ "stage_share_designs_with_program": {
+  "frontend": 0.459,
+  "trace": 0.018,
+  "certify": 0.3,
+  "graph": 0.09,
+  "program": 0.047,
+  "check": 0.086
+ },
+ "designs_with_program": 52
+}

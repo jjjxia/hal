@@ -6,7 +6,7 @@ set -uo pipefail
 kernel=$1; nspec=$2; policy=$3; seed=$4
 H=/home/jiahao/hal; E=$H/algorithm_recovery/evaluation; B=$H/build
 case=${kernel}_${nspec}_${policy}
-D=$B/e8/fold/$case; G=$D/gen
+D=${E8_FOLD_ROOT:-$B/e8/fold}/$case; G=$D/gen   # E8_FOLD_ROOT: recovery_quality R2b
 [ -e "$D/score.json" ] && { echo "$case: done"; exit 0; }
 mkdir -p "$G"
 [ -s "$G/truth.json" ] || python3 "$E/kernel_foldings/e8_fold_dfg.py" "$kernel" "$nspec" "$policy" "$seed" "$G" > "$G/gen.json" || { echo "$case: generator failed"; exit 1; }
